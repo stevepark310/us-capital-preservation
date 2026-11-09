@@ -1,0 +1,39 @@
+# US Capital Preservation Quantitative Trading Configuration
+
+universe:
+  equities:
+    - SPY    # S&P 500 (Large Cap Core)
+    - QQQ    # Nasdaq 100 (Growth/Tech)
+    - IWM    # Russell 2000 (Small Cap)
+    - VWO    # Emerging Markets
+  safe_havens:
+    - TLT    # 20+ Year Treasury Bond
+    - IEF    # 7-10 Year Treasury Bond
+    - SGOV   # 0-3 Month Treasury (Cash Equivalent)
+  alternatives:
+    - GLD    # Gold (Inflation / Crisis Hedge)
+    - DBC    # Commodity Index
+    - VNQ    # US Real Estate
+
+risk_management:
+  target_annual_volatility: 0.10     # 10% Volatility Target
+  max_portfolio_leverage: 1.0        # No borrowing / Long-Only unleveraged
+  mdd_circuit_breaker: 0.08          # 8% Peak-to-Trough Drawdown triggers protective cash shift
+  cvar_alpha: 0.05                   # 95% CVaR threshold
+  volatility_lookback_short: 21      # 1-Month rolling volatility
+  volatility_lookback_long: 63       # 3-Month rolling volatility
+
+momentum:
+  lookback_periods: [63, 126, 252]   # 3M, 6M, 12M Multi-horizon momentum
+  weights: [0.2, 0.3, 0.5]           # Weighted momentum
+  skip_recent_days: 5                # Skip last 5 days to prevent reversal noise
+
+regime:
+  vix_threshold_calm: 20.0
+  vix_threshold_panic: 32.0
+  yield_curve_inversion_check: true
+
+execution:
+  rebalance_frequency: "weekly"      # Rebalance every Monday or on regime shift
+  allow_fractional_shares: true
+  dry_run: true                      # Paper trading default
