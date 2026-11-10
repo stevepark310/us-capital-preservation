@@ -12,6 +12,7 @@ from core.risk import RiskManager
 from data.fetcher import MarketDataFetcher
 from backtest.engine import BacktestEngine
 from execution.alpaca_trader import AlpacaBroker
+from execution.nh_trader import NHBroker
 
 
 def load_config(config_path: str = "config/settings.yaml") -> dict:
@@ -19,7 +20,7 @@ def load_config(config_path: str = "config/settings.yaml") -> dict:
         return yaml.safe_load(f)
 
 
-def run_pipeline(mode: str = "backtest"):
+def run_pipeline(mode: str = "backtest", broker_override: str = None):
     cfg = load_config()
     print("=" * 60)
     print("🛡️ US Capital Preservation Quant Trading Engine")
@@ -75,8 +76,15 @@ def run_pipeline(mode: str = "backtest"):
 
     # 6. Execution or Backtest
     if mode == "rebalance":
-        broker = AlpacaBroker(dry_run=cfg["execution"]["dry_run"])
-        broker.execute_rebalance(final_weights)
+        broker_type = broker_override or cfg.get("execution", {}).get("broker", "nh")
+        dry_run = cfg["execution"]["dry_run"]
+        if broker_type == "nh":
+            broker = NHBroker(dry_run=dry_run, is_mock=cfg.get("execution", {}).get("is_mock", False))
+            latest_prices = {s: float(prices[s].iloc[-1]) for s in tradeable_assets if s in prices.columns}
+            broker.execute_rebalance(final_weights, market_prices=latest_prices)
+        else:
+            broker = AlpacaBroker(dry_run=dry_run)
+            broker.execute_rebalance(final_weights)
     elif mode == "backtest":
         print("\n[Backtest Evaluation (5-Year Historical Performance)]")
         # Generate periodic rolling weights
@@ -92,5 +100,6 @@ def run_pipeline(mode: str = "backtest"):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["backtest", "rebalance"], default="backtest")
+    parser.add_argument("--broker", choices=["nh", "alpaca"], default=None, help="Broker execution provider (default: settings.yaml)")
     args = parser.parse_args()
-    run_pipeline(args.mode)
+    run_pipeline(args.mode, broker_override=args.broker)
