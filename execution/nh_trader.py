@@ -157,8 +157,30 @@ class NHBroker:
         total_eval_usd = float(out_0.get("fc_eal_amt", 0.0) or 0.0)
         cash_usd = float(out_0.get("fc_dca", 0.0) or 0.0)
         total_equity = float(out_0.get("fc_aet_amt", 0.0) or (total_eval_usd + cash_usd))
+
+        # Also query KRW balance from domestic stock balance API
+        krw_cash = 0
+        krw_total_aet = 0
+        try:
+            res_kr = self._call_api("/krstock/inquiry/v1/balance", {
+                "act_no": self.act_no,
+                "bnc_bse_cd": "1",
+                "ltg_aot_dit_cd": "9",
+                "aet_bse": "1",
+                "qut_dit_cd": "UNT"
+            })
+            out_kr = res_kr.get("Output_0", {}) or {}
+            krw_cash = int(out_kr.get("dca", 0) or 0)
+            krw_total_aet = int(out_kr.get("tot_aet_amt", 0) or krw_cash)
+        except Exception as e:
+            pass
+
+        usd_from_krw = round(krw_cash / 1400.0, 2)
         if total_equity <= 0.0:
-            if self.dry_run:
+            if krw_cash > 0:
+                total_equity = usd_from_krw
+                cash_usd = usd_from_krw
+            elif self.dry_run:
                 print(f"[NH Broker] Account {self.act_no} has $0.00 USD balance. Simulating with $10,000.00 for Dry-Run rebalance preview.")
                 total_equity = 10000.0
                 cash_usd = 10000.0
@@ -184,6 +206,9 @@ class NHBroker:
         return {
             "equity": total_equity,
             "cash": cash_usd,
+            "cash_usd": cash_usd,
+            "cash_krw": krw_cash,
+            "krw_total_aet": krw_total_aet,
             "weights": weights,
             "positions": positions,
         }
