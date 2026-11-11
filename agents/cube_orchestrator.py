@@ -64,9 +64,9 @@ class CubeOrchestrator:
                 print(f"[Warning] Failed to fetch live balance: {e}")
 
         if cash_krw == 0:
-            cash_krw = 68585
-            cash_usd = 48.99
-            total_equity = 48.99
+            cash_krw = 207395
+            cash_usd = 148.14
+            total_equity = 148.14
 
         context: Dict[str, Any] = {
             "vix": 19.46,
@@ -87,7 +87,9 @@ class CubeOrchestrator:
             agent_result = agent.run(market_data, context)
 
             # Feed intermediate results forward
-            if agent.agent_id == 6:
+            if agent.agent_id == 1:
+                context["news_sentiment"] = agent_result
+            elif agent.agent_id == 6:
                 context["scenarios"] = agent_result.get("scenarios", [])
             elif agent.agent_id == 7:
                 context["backtest_results"] = agent_result.get("backtest_results", [])

@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-Build script to integrate the Global Macro & FX Radar, 10-Agent Real-Time Work Feed,
-and generate the standalone feed.html for CUBE.
+Build script to integrate:
+1. Global Macro & FX Radar
+2. Dynamic News & Wall Street IB Exit Controller (1-Hour Cadence)
+3. 10-Agent Real-Time Work Feed
+4. Standalone feed.html
 """
 
 import os
@@ -10,12 +13,19 @@ import re
 
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 feed_json_path = os.path.join(base_dir, "data", "agent_feed.json")
+news_json_path = os.path.join(base_dir, "data", "news_sentiment_report.json")
 
 with open(feed_json_path, "r", encoding="utf-8") as f:
     feed_data = json.load(f)
 
+news_data = {}
+if os.path.exists(news_json_path):
+    with open(news_json_path, "r", encoding="utf-8") as f:
+        news_data = json.load(f)
+
 posts = feed_data.get("posts", [])
 gm = feed_data.get("global_macro", {})
+ticker_reports = news_data.get("ticker_reports", {})
 
 # 1. Build Global Macro Radar HTML
 macro_radar_html = f"""
@@ -36,7 +46,7 @@ macro_radar_html = f"""
         </div>
         <div class="flex items-center gap-2 text-xs">
           <span class="text-slate-400 text-[11px]">기준 시각:</span>
-          <span class="font-mono text-cyan-300 font-bold bg-slate-800 px-2 py-0.5 rounded border border-slate-700/80">{feed_data.get('last_updated', '2026-11-11 18:20:00')}</span>
+          <span class="font-mono text-cyan-300 font-bold bg-slate-800 px-2 py-0.5 rounded border border-slate-700/80">{feed_data.get('last_updated', '2026-11-11 22:30:00')}</span>
         </div>
       </div>
 
@@ -59,34 +69,174 @@ macro_radar_html = f"""
         </div>
         <div class="bg-slate-900/90 border border-slate-800 p-2.5 rounded-xl">
           <div class="text-[10px] text-slate-400 font-sans">나스닥 선물 (NQ)</div>
-          <div class="text-xs md:text-sm font-bold text-cyan-300 mt-0.5">{gm.get('nasdaq_fut', {}).get('level', 28314.25):,.2f}</div>
-          <div class="text-[10px] text-emerald-400 font-bold">{gm.get('nasdaq_fut', {}).get('change', '+0.38%')}</div>
+          <div class="text-xs md:text-sm font-bold text-cyan-300 mt-0.5">{gm.get('nasdaq_fut', {}).get('level', 28386.75):,.2f}</div>
+          <div class="text-[10px] text-emerald-400 font-bold">{gm.get('nasdaq_fut', {}).get('change', '+1.98%')}</div>
         </div>
         <div class="bg-slate-900/90 border border-blue-900/40 p-2.5 rounded-xl bg-blue-950/20">
           <div class="text-[10px] text-blue-300 font-sans">달러 인덱스 (DXY)</div>
-          <div class="text-xs md:text-sm font-bold text-blue-400 mt-0.5">{gm.get('dxy_dollar_index', {}).get('level', 102.43):,.2f}</div>
-          <div class="text-[10px] text-blue-300 font-bold">{gm.get('dxy_dollar_index', {}).get('change', '-0.28%')} (약세)</div>
+          <div class="text-xs md:text-sm font-bold text-blue-400 mt-0.5">{gm.get('dxy_dollar_index', {}).get('level', 102.55):,.2f}</div>
+          <div class="text-[10px] text-blue-300 font-bold">{gm.get('dxy_dollar_index', {}).get('change', '+0.31%')}</div>
         </div>
         <div class="bg-slate-900/90 border border-slate-800 p-2.5 rounded-xl">
           <div class="text-[10px] text-slate-400 font-sans">원/달러 환율 (KRW)</div>
-          <div class="text-xs md:text-sm font-bold text-slate-200 mt-0.5">{gm.get('usd_krw', {}).get('level', 1334.83):,.2f}원</div>
-          <div class="text-[10px] text-emerald-400 font-bold">{gm.get('usd_krw', {}).get('change', '-4.2원')} (원화 강세)</div>
+          <div class="text-xs md:text-sm font-bold text-slate-200 mt-0.5">{gm.get('usd_krw', {}).get('level', 1334.16):,.2f}원</div>
+          <div class="text-[10px] text-emerald-400 font-bold">{gm.get('usd_krw', {}).get('change', '-0.72%')} (원화 강세)</div>
         </div>
         <div class="bg-slate-900/90 border border-slate-800 p-2.5 rounded-xl">
           <div class="text-[10px] text-slate-400 font-sans">엔/달러 환율 (JPY)</div>
-          <div class="text-xs md:text-sm font-bold text-slate-200 mt-0.5">{gm.get('usd_jpy', {}).get('level', 158.85):,.2f}엔</div>
-          <div class="text-[10px] text-slate-400 font-bold">{gm.get('usd_jpy', {}).get('change', '-0.15엔')}</div>
+          <div class="text-xs md:text-sm font-bold text-slate-200 mt-0.5">{gm.get('usd_jpy', {}).get('level', 159.19):,.2f}엔</div>
+          <div class="text-[10px] text-slate-400 font-bold">{gm.get('usd_jpy', {}).get('change', '+0.76%')}</div>
         </div>
         <div class="bg-slate-900/90 border border-emerald-900/40 p-2.5 rounded-xl bg-emerald-950/20">
           <div class="text-[10px] text-emerald-300 font-sans">VIX 변동성 레짐</div>
-          <div class="text-xs md:text-sm font-bold text-emerald-400 mt-0.5">{gm.get('vix', {}).get('level', 18.92):,.2f}</div>
+          <div class="text-xs md:text-sm font-bold text-emerald-400 mt-0.5">{gm.get('vix', {}).get('level', 18.42):,.2f}</div>
           <div class="text-[10px] text-emerald-300 font-bold">BULL_CALM 저변동성</div>
         </div>
       </div>
     </div>
 """
 
-# 2. Build Work Feed Section HTML
+# 2. Build Dynamic News & Wall Street IB Exit Controller HTML
+controller_cards = ""
+target_order = ["SOXL", "TQQQ", "NVDA", "TSLA"]
+
+for ticker in target_order:
+    t_info = ticker_reports.get(ticker, {})
+    score = t_info.get("sentiment_score", 70.0)
+    grade = t_info.get("sentiment_grade", "NEUTRAL")
+    news_list = t_info.get("breaking_news", [])
+    ib_list = t_info.get("ib_insights", [])
+    comm = t_info.get("community_sentiment", {})
+    adj = t_info.get("dynamic_exit_adjustment", {})
+
+    score_color = "text-emerald-400" if score >= 80 else ("text-cyan-400" if score >= 70 else "text-amber-400")
+    badge_bg = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" if score >= 80 else ("bg-cyan-500/10 text-cyan-400 border-cyan-500/30" if score >= 70 else "bg-amber-500/10 text-amber-400 border-amber-500/30")
+
+    news_html = "".join([f"<li class='text-[11px] text-slate-300 leading-tight'>• {n}</li>" for n in news_list[:2]])
+    ib_html = "".join([f"<div class='text-[11px]'><strong class='text-slate-200 font-mono'>{ib.get('firm')}:</strong> <span class='text-indigo-300 font-bold'>[{ib.get('view')}]</span> <span class='text-slate-400'>{ib.get('comment')}</span></div>" for ib in ib_list[:2]])
+
+    controller_cards += f"""
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-3 hover:border-slate-700 transition flex flex-col justify-between">
+        <div class="space-y-2.5">
+          <div class="flex justify-between items-start gap-2">
+            <div>
+              <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                <span class="font-mono text-cyan-300">{ticker}</span>
+                <span class="text-[10px] text-slate-400 font-normal">{t_info.get('name', '').split('(')[0]}</span>
+              </div>
+              <span class="inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full border font-mono {badge_bg}">
+                {grade}
+              </span>
+            </div>
+            <div class="text-right">
+              <div class="text-[10px] text-slate-400">센티먼트 지수</div>
+              <div class="text-base font-extrabold font-mono {score_color}">{score} / 100</div>
+            </div>
+          </div>
+
+          <!-- Breaking News Bullet -->
+          <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80 space-y-1">
+            <div class="text-[10px] text-cyan-400 font-bold flex items-center gap-1">
+              <span>⚡ 실시간 속보 & 시황</span>
+            </div>
+            <ul class="space-y-1">
+              {news_html}
+            </ul>
+          </div>
+
+          <!-- Wall Street IB Insights -->
+          <div class="bg-indigo-950/20 p-2.5 rounded-lg border border-indigo-900/30 space-y-1">
+            <div class="text-[10px] text-indigo-400 font-bold flex items-center gap-1">
+              <span>🏛️ 월가 IB 컨센서스</span>
+            </div>
+            <div class="space-y-1">
+              {ib_html}
+            </div>
+          </div>
+
+          <!-- Community Sentiment -->
+          <div class="text-[10px] text-slate-400 flex items-center justify-between border-t border-slate-800/60 pt-2 font-mono">
+            <span>WSB/X 여론:</span>
+            <span class="text-slate-300 font-bold">{comm.get('call_put_ratio', '2:1')} 우위</span>
+          </div>
+        </div>
+
+        <!-- Dynamic Exit Adjustment Box -->
+        <div class="bg-gradient-to-r from-blue-950/40 to-slate-900 p-2.5 rounded-lg border border-blue-500/30 space-y-1.5 font-mono text-xs">
+          <div class="flex justify-between items-center text-[10px] font-sans">
+            <span class="text-blue-300 font-bold">🎯 동적 청산 보정값</span>
+            <span class="text-emerald-400 font-bold">{adj.get('action', 'STANDARD')}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+            <div class="bg-slate-900/90 p-1.5 rounded border border-slate-800 text-center">
+              <div class="text-[9px] text-slate-400 font-sans">1차 익절 (TP1)</div>
+              <div class="font-bold text-emerald-400">{adj.get('tp1', '+2.0%')}</div>
+            </div>
+            <div class="bg-slate-900/90 p-1.5 rounded border border-slate-800 text-center">
+              <div class="text-[9px] text-slate-400 font-sans">2차 익절 (TP2)</div>
+              <div class="font-bold text-cyan-300">{adj.get('tp2', '+3.5%')}</div>
+            </div>
+            <div class="bg-slate-900/90 p-1.5 rounded border border-slate-800 text-center">
+              <div class="text-[9px] text-slate-400 font-sans">추세 러너 비중</div>
+              <div class="font-bold text-indigo-300">{adj.get('runner_weight', '34%')}</div>
+            </div>
+            <div class="bg-slate-900/90 p-1.5 rounded border border-slate-800 text-center">
+              <div class="text-[9px] text-slate-400 font-sans">원칙 칼손절</div>
+              <div class="font-bold text-rose-400">{adj.get('sl', '-1.5%')}</div>
+            </div>
+          </div>
+          <div class="text-[10px] text-slate-400 font-sans line-clamp-1">
+            {adj.get('rationale', '')}
+          </div>
+        </div>
+      </div>
+    """
+
+news_controller_html = f"""
+    <!-- Dynamic News & Wall Street IB Exit Controller Section -->
+    <section class="bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-950/40 border border-cyan-800/40 rounded-2xl p-5 space-y-4 shadow-2xl">
+      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xl shadow-lg shadow-cyan-500/20">
+            📰
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-sm md:text-base font-bold text-white">실시간 시황·월가 리포트 연동 동적 매도 브래킷 조절기 (Dynamic News & IB Exit Controller)</h2>
+              <span class="bg-cyan-500/10 text-cyan-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-cyan-500/20 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 pulse-dot"></span> 1H LIVE SYNC
+              </span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-0.5">
+              Agent 1이 1시간마다 보유 종목의 속보, 골드만·모건스탠리 등 IB 리포트, 레딧/X 여론을 전수 분석하여 매도 익절·손절 브래킷을 실시간 자동 가감합니다.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-mono">
+          <span class="text-slate-400 text-[11px]">스캔 주기:</span>
+          <span class="bg-slate-800 text-cyan-300 font-bold px-2.5 py-1 rounded border border-slate-700">매 1시간 정기 스캔 (차기: 23:19)</span>
+        </div>
+      </div>
+
+      <!-- 4 Tickers Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {controller_cards}
+      </div>
+
+      <!-- Bottom Explanatory Banner -->
+      <div class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 flex items-start gap-3 text-xs">
+        <span class="text-amber-400 text-base">💡</span>
+        <div class="text-slate-300 leading-relaxed">
+          <strong class="text-white">뉴스 연동 실시간 동적 청산 메커니즘:</strong> 
+          호재 발생 및 월가 목표가 상향 시 <strong>러너(추세 추종) 비중을 최대 50%까지 확대</strong>하여 수익을 극대화(Run Winners)하고, 
+          반대로 장중 악재 발생이나 투자의견 하향으로 센티먼트가 45점 이하로 급락하면 <strong>조기 방어 모드(Early Defensive)</strong>가 즉각 가동되어 
+          익절선이 +1.2%로 단축되거나 손절선이 -0.8%로 타이트하게 당겨져 원금을 철저히 보존합니다.
+        </div>
+      </div>
+    </section>
+"""
+
+# 3. Build Work Feed Section HTML
 feed_cards_html = ""
 for post in posts:
     is_pinned = post.get("pinned", False)
@@ -250,10 +400,12 @@ if "#cube-feed-section" not in cube_html:
 
 # Insert or replace macro radar before Section 1
 sec1_target = '<!-- Section 1: 10 Specialized Agents Interactive Desk -->'
+combined_pre_sec1 = macro_radar_html + "\n\n    " + news_controller_html
+
 if "<!-- Global Macro & FX Radar Ticker Banner" in cube_html:
-    cube_html = re.sub(r'<!-- Global Macro & FX Radar Ticker Banner.*?(?=<!-- Section 1: 10 Specialized Agents)', lambda m: macro_radar_html + "\n\n    ", cube_html, flags=re.DOTALL)
+    cube_html = re.sub(r'<!-- Global Macro & FX Radar Ticker Banner.*?(?=<!-- Section 1: 10 Specialized Agents)', lambda m: combined_pre_sec1 + "\n\n    ", cube_html, flags=re.DOTALL)
 else:
-    cube_html = cube_html.replace(sec1_target, macro_radar_html + "\n\n    " + sec1_target)
+    cube_html = cube_html.replace(sec1_target, combined_pre_sec1 + "\n\n    " + sec1_target)
 
 # Insert or replace Work Feed Section after Section 1
 sec2_target = '<!-- Section 2: 10 Investment Scenarios & Alpha Selection Matrix -->'
@@ -355,12 +507,11 @@ if "function filterFeed" not in cube_html:
 with open(cube_path, "w", encoding="utf-8") as f:
     f.write(cube_html)
 
-# Also create docs/cube.html
 docs_cube_path = os.path.join(base_dir, "docs", "cube.html")
 with open(docs_cube_path, "w", encoding="utf-8") as f:
     f.write(cube_html)
 
-# 3. Create standalone feed.html and docs/feed.html
+# 4. Create standalone feed.html and docs/feed.html
 feed_html_template = f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -408,6 +559,8 @@ feed_html_template = f"""<!DOCTYPE html>
 
 {macro_radar_html}
 
+{news_controller_html}
+
 {feed_section_html}
 
   </div>
@@ -424,4 +577,4 @@ docs_feed_path = os.path.join(base_dir, "docs", "feed.html")
 with open(docs_feed_path, "w", encoding="utf-8") as f:
     f.write(feed_html_template)
 
-print("✅ Successfully built and synced cube.html and feed.html with Global Macro Radar & Work Feed!")
+print("✅ Successfully built and synced cube.html and feed.html with Global Macro Radar, Dynamic News Exit Controller, and Work Feed!")
