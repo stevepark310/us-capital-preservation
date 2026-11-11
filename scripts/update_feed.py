@@ -103,7 +103,7 @@ def generate_feed_entries():
             "avatar_bg": "from-red-600 to-amber-600",
             "badge_color": "bg-red-500/20 text-red-400 border-red-500/40",
             "timestamp": f"{now.strftime('%Y-%m-%d')} 18:15",
-            "time_ago": "방금 전",
+            "time_ago": "상주 고정",
             "category": "DIRECTIVE",
             "badge": "🚨 상주 지시: 프리장(18:00~23:30) & 글로벌 매크로·외환 전수 감시",
             "title": "[총괄 지시] 미국 프리마켓 개장 및 전세계 증시(항셍·닛케이·DAX)·달러화 실시간 모니터링 TF 가동",
@@ -122,6 +122,130 @@ def generate_feed_entries():
             "reactions": {"roger": 10, "fire": 9, "rocket": 7},
             "pinned": True
         },
+        # 22:00 Fresh Scan Posts (개장 1시간 30분 전 심야 스캔)
+        {
+            "id": "post-2200-agent10-balance",
+            "agent_id": 10,
+            "agent_name": agent_configs[10]["name"],
+            "agent_role": agent_configs[10]["role"],
+            "icon": agent_configs[10]["icon"],
+            "avatar_bg": agent_configs[10]["avatar_bg"],
+            "badge_color": agent_configs[10]["badge_color"],
+            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:00",
+            "time_ago": "방금 전",
+            "category": "EXECUTION",
+            "badge": "💰 계좌 잔고 증액 감지 & 구매력 3배 확장",
+            "title": "[22:00 긴급] 신규 계좌(202-05-134849) 잔고 207,395원($148.14 상당) 확인 및 1차 주문 규모 확대 보고",
+            "content": (
+                "동훈님의 신규 실전 계좌(`202-05-134849`) 실시간 잔고를 재조회한 결과, 총 예수금이 기존 68,585원에서 **207,395원 (미화 약 $148.14 상당)**으로 대폭 확충되었습니다.\n\n"
+                "1. **구매력 확장 효과**: 기존 $48.99 대비 가용 자본이 **3.02배 확장**되었습니다.\n"
+                "2. **단주 매수 시나리오 재조정**:\n"
+                "   - **옵션 A (SOXL 2주 집중 돌파)**: SOXL($56.06) 2주 매수 (약 $112.12 소요), 잔여금 약 $36.00 버퍼 유지\n"
+                "   - **옵션 B (SOXL 1주 + TQQQ 1주 듀얼 분산)**: SOXL($56.06) 1주 + TQQQ($56.56) 1주 = 약 $112.62 포트폴리오 구축\n"
+                "   - **옵션 C (SOXL 1주 단독 매수 후 잔여 예수금 보존)**: 1주 안정 진입 후 익절 브래킷 가동\n"
+                "3. **주문 집행 대기**: 23:30 정규장 개장 즉시 래리 윌리엄스 K=0.5 돌파 시그널 충족 시 1순위 돌파 매수 발주 및 +3.0% 익절 / -1.5% 손절 브래킷 주문 자동 연결 완료."
+            ),
+            "metrics": [
+                {"label": "실시간 예수금", "value": "207,395원 ($148.14)", "highlight": True},
+                {"label": "구매력 배수", "value": "기존 대비 3.02배 확장"},
+                {"label": "1순위 주문", "value": "SOXL 2주 또는 SOXL+TQQQ"},
+                {"label": "브래킷 설정", "value": "+3.0% TP / -1.5% SL"}
+            ],
+            "action_required": "23:30 정규장 개장 즉시 잔고 207,395원 기반 1차 실전 매수 집행",
+            "reactions": {"rocket": 10, "fire": 8, "check": 9},
+            "pinned": False
+        },
+        {
+            "id": "post-2200-agent4-macro",
+            "agent_id": 4,
+            "agent_name": agent_configs[4]["name"],
+            "agent_role": agent_configs[4]["role"],
+            "icon": agent_configs[4]["icon"],
+            "avatar_bg": agent_configs[4]["avatar_bg"],
+            "badge_color": agent_configs[4]["badge_color"],
+            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:00",
+            "time_ago": "방금 전",
+            "category": "MACRO",
+            "badge": "🌐 글로벌 매크로 심야 속보",
+            "title": "[22:00 매크로] VIX 18.42(-5.34%) 급락 & 나스닥 선물(+1.98%) 급등! 슈퍼 RISK-ON 장세 전개",
+            "content": (
+                "개장 1시간 30분을 앞두고 전세계 금융 지표 및 외환 동향을 정밀 재스캔했습니다.\n\n"
+                "1. **미국 선물 야간 랠리**: 나스닥 100 선물(NQ=F)이 **+1.98% (28,386.75)**까지 상승폭을 대폭 확대하며 강력한 기술주 갭상승 출발을 예고하고 있습니다.\n"
+                "2. **변동성 지수(VIX) 급락**: VIX가 **18.42 (-5.34%)**로 가파르게 하락하며 20선 아래에 완벽히 안착했습니다. 시장의 꼬리 위험(Tail Risk) 프리미엄이 증발하며 '강세 저변동성(BULL_CALM)' 레짐이 한층 더 공고해졌습니다.\n"
+                "3. **외환 및 글로벌 증시 동향**:\n"
+                "   - **원/달러 (KRW=X)**: **1,334.16원 (-0.72%)** 하락. 원화 강세 흐름이 지속되어 원화통합증거금 결제 시 환차손 우려가 차단되었습니다.\n"
+                "   - **달러 인덱스 (DXY)**: **102.55 (+0.31%)** 박스권 안정세.\n"
+                "   - **유럽 DAX 40**: **26,523.46 (+0.67%)** 및 일본 닛케이 **61,248.59 (+1.31%)** 동반 강세 마감.\n\n"
+                "**거시 결론**: 'VIX 급락 + 나스닥 선물 급등 + 원화 강세'가 결합된 완벽한 **SUPER RISK-ON** 환경입니다. 오늘 밤 레버리지 돌파 전략의 기대값이 극대화된 상태입니다."
+            ),
+            "metrics": [
+                {"label": "VIX 변동성", "value": "18.42 (-5.34%)", "highlight": True},
+                {"label": "나스닥 선물 (NQ)", "value": "28,386.75 (+1.98%)", "highlight": True},
+                {"label": "원/달러 환율", "value": "1,334.16원 (-0.72%)"},
+                {"label": "시장 거시 국면", "value": "BULL_CALM (확정)"}
+            ],
+            "action_required": "23:30 개장 직후 초기 틱 변동성 모니터링",
+            "reactions": {"fire": 10, "rocket": 9, "thumbs_up": 8},
+            "pinned": False
+        },
+        {
+            "id": "post-2200-agent2-premarket",
+            "agent_id": 2,
+            "agent_name": agent_configs[2]["name"],
+            "agent_role": agent_configs[2]["role"],
+            "icon": agent_configs[2]["icon"],
+            "avatar_bg": agent_configs[2]["avatar_bg"],
+            "badge_color": agent_configs[2]["badge_color"],
+            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:00",
+            "time_ago": "방금 전",
+            "category": "PREMARKET",
+            "badge": "🔥 프리장 2차 모멘텀",
+            "title": "[22:00 프리장] SOXL·TQQQ·NVDA 호가 스프레드 압축 및 개장 1시간 30분 전 기술적 타점 분석",
+            "content": (
+                "22:00 기준 미국 프리마켓 후반부 거래량 및 호가 상태를 점검했습니다.\n\n"
+                "- **SOXL**: 프리장 $56.06 선에서 매도 물량을 완벽히 흡수하며 하방 경직성을 확보했습니다. 나스닥 선물 급등(+1.98%)에 힘입어 23:30 시초 갭상승 및 개장 초반 15분 내 래리 윌리엄스 돌파 타점 터치 가능성이 매우 높습니다.\n"
+                "- **TQQQ**: $56.56 체결로 지지선 확인.\n"
+                "- **NVDA**: $168.89로 장전 조정 후 반등 채비 중.\n"
+                "- **기술적 대응**: 23:30 정규장 개장 직후 3분 봉 완성 시점의 거래량 급증을 확인하고 즉시 돌파 매수 시그널을 Agent 10에 송신할 준비를 마쳤습니다."
+            ),
+            "metrics": [
+                {"label": "SOXL 시세", "value": "$56.06 (-0.25%)", "highlight": True},
+                {"label": "TQQQ 시세", "value": "$56.56 (-1.77%)"},
+                {"label": "NVDA 시세", "value": "$168.89"},
+                {"label": "정규장 1차 타점", "value": "23:30 OPEN 돌파"}
+            ],
+            "action_required": "개장 30분 전(23:00) 최종 프리장 종가 확정 스캔 대기",
+            "reactions": {"check": 8, "thumbs_up": 7},
+            "pinned": False
+        },
+        {
+            "id": "post-2200-agent1-sentiment",
+            "agent_id": 1,
+            "agent_name": agent_configs[1]["name"],
+            "agent_role": agent_configs[1]["role"],
+            "icon": agent_configs[1]["icon"],
+            "avatar_bg": agent_configs[1]["avatar_bg"],
+            "badge_color": agent_configs[1]["badge_color"],
+            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:00",
+            "time_ago": "방금 전",
+            "category": "SENTIMENT",
+            "badge": "📰 뉴스 & 소셜 감성",
+            "title": "[22:00 감성 리포트] Fear & Greed 64점 탐욕 상승 및 레딧 WSB 반도체 콜옵션 집중",
+            "content": (
+                "정규장 개장 1시간 30분을 앞두고 주요 투자 커뮤니티와 금융 뉴스의 센티먼트 지표를 종합했습니다.\n\n"
+                "- **Fear & Greed Index**: 64점(Greed, 탐욕 구간)으로 상승폭 확대. 시장 참여자들의 위험자산 선호 심리가 고조되고 있습니다.\n"
+                "- **Reddit WSB 핫 토픽**: 엔비디아(NVDA) 실적 기대감과 레버리지 반도체(SOXL)의 주간 외가격(OTM) 콜옵션 매수 언급량이 장전 전체 게시글의 38%를 점유하고 있습니다.\n"
+                "- **뉴스 헤드라인 종합**: 미국 빅테크의 견고한 AI 인프라 자본지출(CAPEX) 지속과 인플레이션 우려 완화 뉴스가 지배적으로, 악재성 돌발 변수는 완전히 통제된 상태입니다."
+            ),
+            "metrics": [
+                {"label": "Fear & Greed", "value": "64 (탐욕)", "highlight": True},
+                {"label": "WSB 점유율", "value": "NVDA·SOXL 38%"},
+                {"label": "센티먼트 종합", "value": "78.5점 (매우 긍정)"}
+            ],
+            "action_required": "개장 직후 루머성 악재 필터링 체제 유지",
+            "reactions": {"fire": 9, "eyes": 6},
+            "pinned": False
+        },
         # Fresh 18:20 Global Macro Post from Agent 4
         {
             "id": "post-1820-agent4-global",
@@ -132,7 +256,7 @@ def generate_feed_entries():
             "avatar_bg": agent_configs[4]["avatar_bg"],
             "badge_color": agent_configs[4]["badge_color"],
             "timestamp": f"{now.strftime('%Y-%m-%d')} 18:20",
-            "time_ago": "방금 전",
+            "time_ago": "3시간 전",
             "category": "MACRO",
             "badge": "🌐 글로벌 매크로 & 외환(FX) 속보",
             "title": "[글로벌 매크로 18:20] 전세계 증시(항셍·닛케이·DAX) 및 달러 인덱스(DXY)·환율 동향 종합 보고",
@@ -400,14 +524,14 @@ def generate_feed_entries():
         "premarket_status": "ACTIVE (18:00 ~ 23:30 KST)",
         "active_monitoring_agents": [1, 2, 4, 10],
         "global_macro": {
-            "hang_seng": {"level": 24315.92, "change": "+1.25%"},
-            "nikkei_225": {"level": 61248.59, "change": "+0.85%"},
-            "dax_40": {"level": 26621.14, "change": "+0.45%"},
-            "dxy_dollar_index": {"level": 102.43, "change": "-0.28%"},
-            "usd_krw": {"level": 1334.83, "change": "-4.2원"},
-            "usd_jpy": {"level": 158.85, "change": "-0.15엔"},
-            "nasdaq_fut": {"level": 28314.25, "change": "+0.38%"},
-            "vix": {"level": 18.92, "change": "-2.78%"}
+            "hang_seng": {"level": 24315.92, "change": "-0.98%"},
+            "nikkei_225": {"level": 61248.59, "change": "+1.31%"},
+            "dax_40": {"level": 26523.46, "change": "+0.67%"},
+            "dxy_dollar_index": {"level": 102.55, "change": "+0.31%"},
+            "usd_krw": {"level": 1334.16, "change": "-0.72%"},
+            "usd_jpy": {"level": 159.19, "change": "+0.76%"},
+            "nasdaq_fut": {"level": 28386.75, "change": "+1.98%"},
+            "vix": {"level": 18.42, "change": "-5.34%"}
         },
         "total_posts": len(posts),
         "posts": posts

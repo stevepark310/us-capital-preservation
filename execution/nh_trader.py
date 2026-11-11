@@ -170,8 +170,10 @@ class NHBroker:
                 "qut_dit_cd": "UNT"
             })
             out_kr = res_kr.get("Output_0", {}) or {}
-            krw_cash = int(out_kr.get("dca", 0) or 0)
-            krw_total_aet = int(out_kr.get("tot_aet_amt", 0) or krw_cash)
+            dca_val = int(out_kr.get("dca", 0) or 0)
+            krw_total_aet = int(out_kr.get("tot_aet_amt", 0) or dca_val)
+            # Use total asset value if cash is swept into CMA/RP overnight
+            krw_cash = max(dca_val, krw_total_aet)
         except Exception as e:
             pass
 
