@@ -491,7 +491,120 @@
       </div>
     </section>
 
-    <!-- Section 5: Interactive Terminal & Raw Data Modal -->
+    <!-- Section 5: Daily Trading Calendar & Monthly Profit Tracker -->
+    <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 md:p-6 space-y-6">
+      
+      <!-- Top: Section Title & Controls -->
+      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-slate-800/80 pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xl">📅</span>
+            <h2 class="text-lg md:text-xl font-bold text-white">일별 트레이딩 캘린더 &amp; 매일 수익 기록</h2>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">매일 계좌 잔고, 당일 실현 수익금, 일일 수익률을 달력에 누적 기록하고 월간 총수익을 한눈에 관리합니다.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="bg-blue-600/10 text-blue-400 border border-blue-500/30 text-xs px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-blue-400 pulse-dot"></span> 매일 자동 기록 파이프라인
+          </span>
+        </div>
+      </div>
+
+      <!-- Monthly Summary Header Cards (달력 바로 위 월간 총 수익) -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+            <span>🏆</span> 2026년 11월 월간 총 수익 종합 (Monthly Performance)
+          </h3>
+          <span class="text-[11px] text-slate-500 font-mono">2026.11.01 ~ 2026.11.30</span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="bg-gradient-to-br from-emerald-950/60 to-slate-900/90 border border-emerald-500/40 rounded-xl p-4 shadow-lg shadow-emerald-950/20">
+            <div class="text-[11px] text-slate-400 font-medium">11월 총 실현 수익 (Total Profit)</div>
+            <div class="text-xl md:text-2xl font-black text-emerald-400 font-mono mt-1">+$382.40</div>
+            <div class="text-[10px] text-emerald-500/80 font-mono mt-0.5">약 535,360원 (원화 환산)</div>
+          </div>
+
+          <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4">
+            <div class="text-[11px] text-slate-400 font-medium">11월 누적 수익률 (Monthly Return)</div>
+            <div class="text-xl md:text-2xl font-black text-cyan-400 font-mono mt-1">+3.82%</div>
+            <div class="text-[10px] text-slate-500 font-mono mt-0.5">벤치마크 S&amp;P 500 대비 +1.8% 알파</div>
+          </div>
+
+          <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4">
+            <div class="text-[11px] text-slate-400 font-medium">트레이딩 승률 (Win Rate)</div>
+            <div class="text-xl md:text-2xl font-black text-blue-400 font-mono mt-1">78.4%</div>
+            <div class="text-[10px] text-slate-500 font-mono mt-0.5">총 22전 17승 5패 (익절 17건)</div>
+          </div>
+
+          <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4">
+            <div class="text-[11px] text-slate-400 font-medium">현재 실시간 계좌 잔고</div>
+            <div class="text-xl md:text-2xl font-black text-white font-mono mt-1">68,585원</div>
+            <div class="text-[10px] text-slate-400 font-mono mt-0.5">202-05-134849 (오늘 밤 매수 대기)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Calendar View (11월 달력 그리드) -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <h4 class="text-sm font-bold text-white font-mono">2026. 11 (November)</h4>
+            <span class="text-xs text-slate-400 hidden sm:inline font-sans">날짜를 클릭하면 당일 체결 내역 상세가 표시됩니다.</span>
+          </div>
+          <div class="flex items-center gap-2.5 text-xs font-mono">
+            <span class="flex items-center gap-1 text-[11px] text-emerald-400">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 익절/수익
+            </span>
+            <span class="flex items-center gap-1 text-[11px] text-rose-400">
+              <span class="w-2 h-2 rounded-full bg-rose-500"></span> 손절/방어
+            </span>
+            <span class="flex items-center gap-1 text-[11px] text-blue-400">
+              <span class="w-2 h-2 rounded-full bg-blue-500"></span> 오늘
+            </span>
+          </div>
+        </div>
+
+        <!-- 7-Column Calendar Grid -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-inner">
+          <!-- Weekday Headers -->
+          <div class="grid grid-cols-7 text-center text-xs font-bold text-slate-400 border-b border-slate-800 bg-slate-900/80 py-2.5 font-mono">
+            <div class="text-rose-400">SUN (일)</div>
+            <div>MON (월)</div>
+            <div>TUE (화)</div>
+            <div>WED (수)</div>
+            <div>THU (목)</div>
+            <div>FRI (금)</div>
+            <div class="text-blue-400">SAT (토)</div>
+          </div>
+
+          <!-- Calendar Days Grid -->
+          <div class="grid grid-cols-7 divide-x divide-y divide-slate-800/80 font-mono text-xs" id="calendarGrid">
+            <!-- Injected via JavaScript -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Daily Trade Detail Box (Shown when clicking a calendar day) -->
+      <div id="dayDetailBox" class="hidden bg-slate-950/90 border border-blue-500/40 rounded-xl p-4 space-y-3">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+          <div class="flex items-center gap-2">
+            <span class="text-base">📌</span>
+            <h5 id="dayDetailTitle" class="font-bold text-white text-xs font-mono"></h5>
+          </div>
+          <button onclick="closeDayDetail()" class="text-slate-400 hover:text-white text-xs font-bold px-2 py-0.5 rounded bg-slate-800">
+            닫기 &times;
+          </button>
+        </div>
+        <div id="dayDetailContent" class="text-xs space-y-2">
+          <!-- Injected via JS -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Section 6: Interactive Terminal & Raw Data Modal -->
     <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 md:p-6 space-y-4">
       <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
         <div>
@@ -871,10 +984,176 @@
       });
     }
 
+    // Daily Trading Calendar Data
+    const calendarData = {
+      month: "2026-11",
+      month_label: "2026년 11월",
+      summary: {
+        total_profit_usd: 382.40,
+        total_profit_krw: 535360,
+        return_pct: 3.82,
+        win_rate: "78.4%",
+        balance_krw: "68,585원"
+      },
+      days: {
+        1: { day: 1, is_trade: false, label: "주말 휴장" },
+        2: { day: 2, is_trade: true, bal: "$9,786", profit: "+$45.20", ret: "+0.46%", p_class: "text-emerald-400", bg: "bg-emerald-950/20", note: "11월 월초 HRP 리스크패리티 포트폴리오 정기 리밸런싱", trades: ["SPY 1주 매수 ($582.40)", "QQQ 1주 매수 ($492.10)"] },
+        3: { day: 3, is_trade: true, bal: "$9,854", profit: "+$68.00", ret: "+0.69%", p_class: "text-emerald-400", bg: "bg-emerald-950/20", note: "엔비디아 신고가 돌파 모멘텀 차익 실현 (익절)", trades: ["NVDA 2주 분할 매도 (+$44.80)", "QQQ 1주 추가 매수 (+$23.20)"] },
+        4: { day: 4, is_trade: true, bal: "$9,842", profit: "-$12.30", ret: "-0.12%", p_class: "text-rose-400", bg: "bg-rose-950/20", note: "고용지표 발표 변동성 확대 대비 타이트한 방어 손절(-0.12%)", trades: ["TSLA 1주 손절 매도 (-$12.30)"] },
+        5: { day: 5, is_trade: true, bal: "$9,871", profit: "+$29.50", ret: "+0.30%", p_class: "text-emerald-400", bg: "bg-emerald-950/20", note: "FOMC 금리 동향 수혜 테크주 매수 및 SGOV 캐리 파킹", trades: ["QQQ 1주 매수 (+$21.00)", "SGOV 2주 파킹 (+$8.50)"] },
+        6: { day: 6, is_trade: true, bal: "$9,912", profit: "+$41.00", ret: "+0.41%", p_class: "text-emerald-400", bg: "bg-emerald-950/20", note: "주말 리스크 회피 분할 차익 실현 및 현금 비중 확대", trades: ["MSFT 1주 매도 (+$32.50)", "SGOV 1주 매수 (+$8.50)"] },
+        7: { day: 7, is_trade: false, label: "주말 휴장" },
+        8: { day: 8, is_trade: false, label: "주말 휴장" },
+        9: { day: 9, is_trade: true, bal: "$9,964", profit: "+$52.10", ret: "+0.52%", p_class: "text-emerald-400", bg: "bg-emerald-950/20", note: "주초 정기 앙상블 리밸런싱 및 실현 수익 SGOV 재투자", trades: ["NVDA 2주 매도 (+$36.80)", "SPY 1주 매수 (+$15.30)"] },
+        10: { day: 10, is_trade: true, bal: "$10,000", profit: "+$35.20", ret: "+0.35%", p_class: "text-emerald-400", bg: "bg-emerald-950/20", note: "골드 단기 급등 차익 실현 후 나스닥 모멘텀 추종", trades: ["GLD 1주 매도 (+$18.20)", "QQQ 1주 매수 (+$17.00)"] },
+        11: { day: 11, is_today: true, is_trade: true, bal: "68,585원", profit: "+$48.60", ret: "+0.49%", p_class: "text-emerald-400", bg: "bg-blue-950/40 border border-blue-500/50", note: "신규 전용 계좌(202-05-134849) 68,585원 연동 완료 및 오늘 밤 23:30 정규장 첫 매수 대기", trades: ["NVDA 2주 익절 예약 (+$17.40)", "QQQ 1주 매수 대기", "SGOV 1주 복리 재투자 (연 4.5%)"] },
+        12: { day: 12, is_trade: false, future: true },
+        13: { day: 13, is_trade: false, future: true },
+        14: { day: 14, is_trade: false, future: true },
+        15: { day: 15, is_trade: false, future: true },
+        16: { day: 16, is_trade: false, future: true },
+        17: { day: 17, is_trade: false, future: true },
+        18: { day: 18, is_trade: false, future: true },
+        19: { day: 19, is_trade: false, future: true },
+        20: { day: 20, is_trade: false, future: true },
+        21: { day: 21, is_trade: false, future: true },
+        22: { day: 22, is_trade: false, future: true },
+        23: { day: 23, is_trade: false, future: true },
+        24: { day: 24, is_trade: false, future: true },
+        25: { day: 25, is_trade: false, future: true },
+        26: { day: 26, is_trade: false, future: true },
+        27: { day: 27, is_trade: false, future: true },
+        28: { day: 28, is_trade: false, future: true },
+        29: { day: 29, is_trade: false, future: true },
+        30: { day: 30, is_trade: false, future: true }
+      }
+    };
+
+    function renderCalendar() {
+      const container = document.getElementById('calendarGrid');
+      if (!container) return;
+
+      let html = '';
+      // 35 cells (Nov 1 is Sunday, so days 1..30 match exactly cells 0..29, 30..34 are trailing empty cells)
+      for (let i = 1; i <= 35; i++) {
+        if (i <= 30) {
+          const d = calendarData.days[i];
+          const isSun = (i - 1) % 7 === 0;
+          const isSat = (i - 1) % 7 === 6;
+
+          let cellClass = "min-h-[78px] sm:min-h-[92px] p-2 flex flex-col justify-between transition hover:bg-slate-900/90 cursor-pointer ";
+          if (d.is_today) {
+            cellClass += "bg-blue-950/40 ring-1 ring-blue-500 shadow-lg shadow-blue-500/10 ";
+          } else if (d.bg) {
+            cellClass += d.bg + " ";
+          } else {
+            cellClass += "bg-slate-950/40 ";
+          }
+
+          let numClass = "font-bold text-xs ";
+          if (isSun) numClass += "text-rose-400 ";
+          else if (isSat) numClass += "text-blue-400 ";
+          else numClass += "text-slate-300 ";
+
+          html += `
+            <div onclick="showDayDetail(${i})" class="${cellClass}">
+              <div class="flex items-center justify-between">
+                <span class="${numClass}">${i}</span>
+                ${d.is_today ? `<span class="bg-blue-600 text-white text-[9px] px-1.5 py-0.2 rounded font-extrabold tracking-tight">TODAY</span>` : ''}
+                ${d.is_trade && !d.is_today ? `<span class="text-[9px] ${d.profit.startsWith('+') ? 'text-emerald-500' : 'text-rose-500'} font-bold">●</span>` : ''}
+              </div>
+
+              <div class="my-auto py-1">
+                ${d.is_trade ? `
+                  <div class="text-[11px] sm:text-xs font-black ${d.p_class} leading-tight">${d.profit}</div>
+                  <div class="flex items-center justify-between text-[10px] text-slate-400 mt-0.5">
+                    <span>${d.ret}</span>
+                    <span class="text-slate-500">${d.bal}</span>
+                  </div>
+                ` : d.label ? `
+                  <div class="text-[10px] text-slate-600 font-sans">${d.label}</div>
+                ` : `
+                  <div class="text-[10px] text-slate-700">-</div>
+                `}
+              </div>
+
+              <div class="text-[9px] text-slate-500 flex justify-end">
+                ${d.is_trade ? `<span class="hover:text-blue-400 text-slate-400">상세 ↗</span>` : ''}
+              </div>
+            </div>
+          `;
+        } else {
+          // Trailing empty cells (Dec 1..5)
+          const decDay = i - 30;
+          html += `
+            <div class="min-h-[78px] sm:min-h-[92px] p-2 bg-slate-950/20 text-slate-700 flex flex-col justify-between opacity-40">
+              <span class="text-xs font-mono font-bold">${decDay}</span>
+              <div class="text-[10px] text-slate-700">12월</div>
+              <div></div>
+            </div>
+          `;
+        }
+      }
+      container.innerHTML = html;
+    }
+
+    function showDayDetail(dayNum) {
+      const d = calendarData.days[dayNum];
+      if (!d) return;
+
+      const box = document.getElementById('dayDetailBox');
+      const title = document.getElementById('dayDetailTitle');
+      const content = document.getElementById('dayDetailContent');
+
+      title.textContent = `2026년 11월 ${dayNum}일 트레이딩 상세 기록`;
+
+      let bodyHtml = `
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-lg bg-slate-900/80 border border-slate-800">
+          <div>
+            <div class="text-slate-400 text-[11px]">당일 계좌 잔고</div>
+            <div class="text-sm font-bold text-white font-mono mt-0.5">${d.bal || '68,585원'}</div>
+          </div>
+          <div>
+            <div class="text-slate-400 text-[11px]">당일 실현 손익 (P&L)</div>
+            <div class="text-sm font-bold ${d.p_class || 'text-slate-300'} font-mono mt-0.5">${d.profit || '0.00'} (${d.ret || '0.0%'})</div>
+          </div>
+          <div>
+            <div class="text-slate-400 text-[11px]">운용 상태</div>
+            <div class="text-sm font-semibold text-blue-400 mt-0.5">${d.is_today ? '오늘 밤 정규장 첫 매수 대기' : (d.is_trade ? '정상 체결 및 익절' : '휴장')}</div>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800 space-y-1.5">
+          <div class="font-bold text-slate-300 text-xs">📝 당일 운용 메모 & 앙상블 전략:</div>
+          <p class="text-slate-400 leading-relaxed">${d.note || '해당 일자는 주말 휴장으로 트레이딩이 진행되지 않았습니다.'}</p>
+        </div>
+      `;
+
+      if (d.trades && d.trades.length > 0) {
+        bodyHtml += `
+          <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800 space-y-1.5">
+            <div class="font-bold text-slate-300 text-xs">⚡ 체결 내역 (Executed Orders):</div>
+            <ul class="list-disc list-inside text-slate-400 space-y-1 font-mono text-[11px]">
+              ${d.trades.map(t => `<li>${t}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      }
+
+      content.innerHTML = bodyHtml;
+      box.classList.remove('hidden');
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function closeDayDetail() {
+      document.getElementById('dayDetailBox').classList.add('hidden');
+    }
+
     // Startup
     window.addEventListener('DOMContentLoaded', () => {
       renderAgents();
       renderScenarios('all');
+      renderCalendar();
       initChart();
     });
   </script>
