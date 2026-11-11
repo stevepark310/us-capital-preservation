@@ -23,10 +23,23 @@ This system is engineered for **absolute capital preservation and asymmetric ups
 
 ---
 
-## 2. System Architecture
+## 2. System Architecture & CUBE 10-Agent Organization
 
 ```
 us-capital-preservation/
+├── agents/                     # 🏛️ CUBE 10-Agent Autonomous Organization
+│   ├── base.py                 # Abstract Base Agent definition
+│   ├── agent1_news_sentiment.py # 📰 Agent 1: News & Reddit/X Social Sentiment Specialist
+│   ├── agent2_tech_momentum.py # 📈 Agent 2: Technical Price & Momentum Specialist (MA/RSI/BB)
+│   ├── agent3_fundamentals.py  # 📊 Agent 3: Earnings Consensus & Market Fundamentals Specialist
+│   ├── agent4_macro_rates.py   # 🌐 Agent 4: Macroeconomics, Rates, Yield Curve & Tariffs Specialist
+│   ├── agent5_superinvestor.py # 👑 Agent 5: Superinvestor 13F Tracker (Buffett, Druckenmiller)
+│   ├── agent6_quant_scenarios.py # 🔬 Agent 6: Quant Academic Research & 10 Scenarios Modeler
+│   ├── agent7_backtester.py    # ⚙️ Agent 7: 10 Scenarios Historical Backtesting Engineer
+│   ├── agent8_alpha_evaluator.py # 💎 Agent 8: Profitable Scenario Alpha & Risk Evaluator
+│   ├── agent9_ensemble_synthesizer.py # 🧬 Agent 9: Optimal Scenario Ensemble & Weight Synthesizer
+│   ├── agent10_daily_trader.py # ⚡ Agent 10: Daily Execution, Profit-Taking & Reinvestment Trader
+│   └── cube_orchestrator.py    # CUBE Orchestrator coordinating all 10 agents
 ├── config/
 │   └── settings.yaml          # Risk limits, universe, volatility targets
 ├── core/
@@ -35,29 +48,48 @@ us-capital-preservation/
 │   ├── signals.py             # Dual Momentum & Volatility Targeting
 │   └── risk.py                # Max Drawdown & CVaR Circuit Breakers
 ├── data/
-│   └── fetcher.py             # Market data ingestion (Yahoo Finance / FRED)
+│   ├── fetcher.py             # Market data ingestion (Yahoo Finance / FRED)
+│   └── cube_report.json       # Consolidated 10-agent output report
 ├── backtest/
 │   └── engine.py              # Vectorized backtesting & performance metrics
 ├── execution/
+│   ├── nh_trader.py           # NH Investment & Securities (Namuh) OpenAPI broker
 │   └── alpaca_trader.py       # Alpaca Paper & Live API execution
-├── docs/
-│   └── index.html             # Standalone Web Dashboard (GitHub Pages ready)
-├── .github/workflows/
-│   └── rebalance.yml          # Daily Automated GitHub Actions Workflow
-├── main.py                    # Pipeline Entrypoint
+├── cube.html                  # 🏛️ CUBE 10-Agent Interactive Trading Dashboard
+├── strategy.html              # 📖 Comprehensive Quantitative Strategy & Logic Guide
+├── index.html                 # 📊 HRP Portfolio Live Dashboard
+├── docs/                      # GitHub Pages deployment directory (cube, strategy, index)
+├── main.py                    # Pipeline Entrypoint (--mode cube, daily, rebalance, backtest)
 └── requirements.txt
 ```
 
 ---
 
-## 3. Web Dashboard (Free Cloud Hosting)
+## 3. Web Dashboards & CUBE Terminal
 
-This project includes a fully responsive **HTML5/Tailwind/Chart.js Web Dashboard** under `docs/index.html`.
+1. **🏛️ CUBE 10-Agent Trading Desk**: `https://stevepark310.github.io/us-capital-preservation/cube.html`
+   - Real-time work reporting of all 10 specialized agents
+   - 10 investment scenarios backtest matrix & profitable scenario selection
+   - Ensemble scenario blending & daily target asset allocation
+   - Daily profit-taking execution terminal & 100% automated compounding reinvestment
+2. **📖 전략 상세 가이드 (Strategy Spec)**: `https://stevepark310.github.io/us-capital-preservation/strategy.html`
+3. **📊 메인 대시보드 (HRP Monitor)**: `https://stevepark310.github.io/us-capital-preservation/`
 
-### How to host for FREE on GitHub Pages:
-1. Push this repository to your GitHub account: `stevepark310/us-capital-preservation`.
-2. Go to **Settings > Pages**.
-3. Under **Build and deployment > Branch**, select `main` and folder `/docs`.
+---
+
+## 4. Execution Commands
+
+```bash
+# Run CUBE 10-Agent Pipeline & update dashboard report
+python main.py --mode cube
+
+# Run Live Daily Trading & Profit Realization via NH Open API
+python main.py --mode daily --broker nh
+
+# Run Legacy HRP Rebalancing / Backtest
+python main.py --mode rebalance
+python main.py --mode backtest
+```
 4. Click **Save**. Your free live URL will be:  
    👉 `https://stevepark310.github.io/us-capital-preservation/`
 

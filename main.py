@@ -1,5 +1,5 @@
 """
-Main Orchestrator for US Capital Preservation Quant System
+Main Orchestrator for US Capital Preservation & CUBE 10-Agent Quant System
 """
 
 import argparse
@@ -12,6 +12,7 @@ try:
     load_dotenv()
 except ImportError:
     pass
+
 from core.regime import RegimeDetector, MarketRegime
 from core.hrp import HierarchicalRiskParity
 from core.signals import MomentumEngine, VolatilityTargeting
@@ -20,6 +21,7 @@ from data.fetcher import MarketDataFetcher
 from backtest.engine import BacktestEngine
 from execution.alpaca_trader import AlpacaBroker
 from execution.nh_trader import NHBroker
+from agents.cube_orchestrator import CubeOrchestrator
 
 
 def load_config(config_path: str = "config/settings.yaml") -> dict:
@@ -27,10 +29,53 @@ def load_config(config_path: str = "config/settings.yaml") -> dict:
         return yaml.safe_load(f)
 
 
-def run_pipeline(mode: str = "backtest", broker_override: str = None):
+def run_pipeline(mode: str = "cube", broker_override: str = None):
     cfg = load_config()
+    broker_type = broker_override or cfg.get("execution", {}).get("broker", "nh")
+    dry_run = cfg.get("execution", {}).get("dry_run", True)
+
+    # CUBE 10-Agent Mode
+    if mode in ["cube", "daily"]:
+        print("=" * 70)
+        print("🏛️  CUBE Multi-Agent Quant Trading System (10 Specialized Agents)")
+        print(f"Mode: {mode.upper()} | Broker: {broker_type.upper()} | Dry Run: {dry_run}")
+        print("=" * 70)
+
+        # 1. Fetch Market Data
+        eq = cfg["universe"]["equities"]
+        bonds = cfg["universe"]["safe_havens"]
+        alts = cfg["universe"]["alternatives"]
+        full_universe = list(set(eq + bonds + alts + ["SPY", "^VIX", "QQQ", "NVDA", "AAPL", "MSFT"]))
+
+        fetcher = MarketDataFetcher()
+        try:
+            prices = fetcher.fetch_history(full_universe)
+        except Exception as e:
+            print(f"[Warning] Market data fetcher fallback: {e}")
+            prices = None
+
+        market_data = {"prices": prices}
+
+        # 2. Run 10-Agent Orchestrator
+        orchestrator = CubeOrchestrator()
+        report = orchestrator.run_daily_pipeline(market_data=market_data, broker_type=broker_type)
+
+        # 3. If live rebalance requested
+        if not dry_run and mode == "daily":
+            target_weights = report["executive_summary"]["target_weights"]
+            print("\n[Executing Live Daily Orders via Broker]")
+            if broker_type == "nh":
+                broker = NHBroker(dry_run=False, is_mock=cfg.get("execution", {}).get("is_mock", False))
+                latest_prices = {s: float(prices[s].iloc[-1]) for s in target_weights if prices is not None and s in prices.columns}
+                broker.execute_rebalance(target_weights, market_prices=latest_prices)
+            else:
+                broker = AlpacaBroker(dry_run=False)
+                broker.execute_rebalance(target_weights)
+        return
+
+    # Standard HRP Legacy Pipeline
     print("=" * 60)
-    print("🛡️ US Capital Preservation Quant Trading Engine")
+    print("🛡️ US Capital Preservation Quant Trading Engine (Legacy Mode)")
     print(f"Mode: {mode.upper()}")
     print("=" * 60)
 
@@ -83,7 +128,6 @@ def run_pipeline(mode: str = "backtest", broker_override: str = None):
 
     # 6. Execution or Backtest
     if mode == "rebalance":
-        broker_type = broker_override or cfg.get("execution", {}).get("broker", "nh")
         dry_run = cfg["execution"]["dry_run"]
         if broker_type == "nh":
             broker = NHBroker(dry_run=dry_run, is_mock=cfg.get("execution", {}).get("is_mock", False))
@@ -94,7 +138,6 @@ def run_pipeline(mode: str = "backtest", broker_override: str = None):
             broker.execute_rebalance(final_weights)
     elif mode == "backtest":
         print("\n[Backtest Evaluation (5-Year Historical Performance)]")
-        # Generate periodic rolling weights
         weights_df = returns.copy()
         for col in weights_df.columns:
             weights_df[col] = final_weights.get(col, 0.0)
@@ -106,7 +149,9 @@ def run_pipeline(mode: str = "backtest", broker_override: str = None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["backtest", "rebalance"], default="backtest")
-    parser.add_argument("--broker", choices=["nh", "alpaca"], default=None, help="Broker execution provider (default: settings.yaml)")
+    parser.add_argument("--mode", choices=["cube", "daily", "rebalance", "backtest"], default="cube",
+                        help="Execution mode: 'cube' (10-agent pipeline & dashboard report), 'daily' (live daily trader), 'rebalance', 'backtest'")
+    parser.add_argument("--broker", choices=["nh", "alpaca"], default=None,
+                        help="Broker execution provider (default: settings.yaml)")
     args = parser.parse_args()
     run_pipeline(args.mode, broker_override=args.broker)
