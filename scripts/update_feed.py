@@ -93,6 +93,39 @@ def generate_feed_entries():
     }
 
     posts = [
+        # 22:38 Scaled Capital & 4-Asset Allocation Update
+        {
+            "id": "post-2238-agent10-scaled",
+            "agent_id": 10,
+            "agent_name": agent_configs[10]["name"],
+            "agent_role": agent_configs[10]["role"],
+            "icon": agent_configs[10]["icon"],
+            "avatar_bg": agent_configs[10]["avatar_bg"],
+            "badge_color": agent_configs[10]["badge_color"],
+            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:38",
+            "time_ago": "방금 전",
+            "category": "EXECUTION",
+            "badge": "💰 예수금 120만 원 확충 & 4대 자산 큐 재편",
+            "title": "[22:38 실전보고] 실시간 예수금 1,209,215원($863.73) 확충 확인 → SOXL 10주, TQQQ 2주, NVDA 1주, SGOV 1주 분산 큐 세팅 완료",
+            "content": (
+                "동훈님의 추가 입금으로 전용 계좌 실시간 예수금이 **1,209,215원 ($863.73 USD)**으로 대폭 확충되었습니다.\n\n"
+                "기존 단일 1~2주 매수 제한에서 벗어나, Agent 9의 앙상블 비중과 Agent 1의 뉴스 보정에 맞춘 정밀 분산 포트폴리오를 발주 큐에 세팅했습니다:\n\n"
+                "1. **SOXL (34.5%, $298.00):** 10주 집중 발주 대기. 1차 익절 +2.2%(3주), 2차 익절 +4.0%(3주), 러너 40%(4주 ATR 트레일링), 칼손절 -1.5%.\n"
+                "2. **TQQQ (18.2%, $157.00):** 2주 발주 대기. 1차 익절 +2.0%(1주), 2차 익절 +3.5%(1주), 칼손절 -1.5%.\n"
+                "3. **NVDA (17.0%, $147.20):** 1주 발주 대기. 1차 익절 +2.5%, 러너 50% 실적 랠리 추종, 칼손절 -1.5%.\n"
+                "4. **SGOV (11.6%, $100.45):** 1주 파킹 (연 4.52% 무위험 일복리).\n"
+                "5. **가용 현금 버퍼 ($161.08):** 슬리피지 방어 및 장중 딥바잉 예비비 확보.\n\n"
+                "23:30 정규장 개장 즉시 NH 오픈API로 실전 발주 및 스마트 청산 브래킷을 가동합니다."
+            ),
+            "metrics": [
+                {"label": "가용 자산", "value": "1,209,215원 ($863.73)", "highlight": True},
+                {"label": "포트폴리오", "value": "SOXL 10주 + TQQQ 2주 + NVDA 1주"},
+                {"label": "현금 버퍼", "value": "$161.08 (18.7%)"}
+            ],
+            "action_required": "23:30 OPEN 즉시 NH 오픈API 분산 발주 및 브래킷 집행",
+            "reactions": {"fire": 10, "rocket": 10, "thumbs_up": 10},
+            "pinned": False
+        },
         # Pinned Directive 3: News & Sentiment Real-time Feedback on Exit Strategy
         {
             "id": "post-pin-003",
