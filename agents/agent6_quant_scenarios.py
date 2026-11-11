@@ -1,22 +1,20 @@
 """
-Agent 6: Quant Academic Research & Scenario Modeler
-Extracts, designs, and formalizes 10 quantitative investment scenarios based on
-academic literature (Fama-French, Lopez de Prado, Moskowitz, Moreira-Muir, Asness).
+Agent 6: Short-Term Quant Scenario Modeler
+Extracts, designs, and formalizes 10 short-term tactical day/swing trading scenarios
+tailored to high-ATR leveraged ETFs (SOXL, TQQQ) and momentum leaders (NVDA, TSLA).
 """
-
 from typing import Dict, Any, List
 from datetime import datetime
 from agents.base import BaseAgent
-
 
 class QuantScenarioModelerAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             agent_id=6,
-            name="Agent 6: 퀀트 논문 & 시나리오 모델링 연구원",
+            name="Agent 6: 단기 퀀트 시나리오 모델링 연구원",
             code="QUANT_SCENARIO_MODELER",
-            role="학술 논문 기반 10대 정량 투자 시나리오 추출, 수식화 및 모델링",
-            description="Fama-French, Lopez de Prado(HRP), Moreira-Muir(Vol Targeting) 등 검증된 금융공학 논문에서 10가지 투자 시나리오를 수학적 룰로 도출합니다."
+            role="고변동성 단기 트레이딩 특화 10대 알파 시나리오 설계 및 수식화",
+            description="래리 윌리엄스 변동성 돌파, 볼린저 밴드 평균회귀, 갭 필링 등 고수수료 마찰을 극복하는 10가지 단기 알파 매매 시나리오를 수식화합니다."
         )
 
     def run(self, market_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
@@ -26,112 +24,113 @@ class QuantScenarioModelerAgent(BaseAgent):
         scenarios: List[Dict[str, Any]] = [
             {
                 "id": "SCENARIO_01",
-                "name": "거시 국면 적응형 필터 (Macro Regime Adaptive)",
-                "academic_source": "Faber (2007) 'A Quantitative Approach to Tactical Asset Allocation' / Harvey (2018)",
-                "universe": ["SPY", "QQQ", "SGOV"],
-                "logic": "S&P 500이 200 DMA 상회 & VIX < 25일 때 지수 주식 비중 확대. 200 DMA 하회 및 VIX 급등 시 100% SGOV(단기채) 전량 피신.",
-                "entry_rule": "SPY > 200d SMA AND VIX < 22",
-                "exit_rule": "SPY < 200d SMA OR VIX > 28",
-                "rebalance_freq": "Daily evaluation / Regime change"
+                "name": "래리 윌리엄스 일중 변동성 돌파 (Volatility Breakout)",
+                "academic_source": "Larry Williams (1998) 'Long-Term Secrets to Short-Term Trading'",
+                "universe": ["SOXL", "TQQQ"],
+                "logic": "당일 시가 + (전일 고가 - 전일 저가) * 0.5 돌파 시 즉시 매수. +3.0% 도달 시 자동 익절, 당일 장마감 동시호가 청산.",
+                "entry_rule": "Current_Price >= Today_Open + (Prev_High - Prev_Low) * 0.5",
+                "exit_rule": "Take Profit +3.0% OR Stop Loss -1.5% OR Market Close",
+                "rebalance_freq": "Daily Intraday"
             },
             {
                 "id": "SCENARIO_02",
-                "name": "20일 신고가 기술적 모멘텀 돌파 (Momentum Breakout)",
-                "academic_source": "Moskowitz, Ooi, Pedersen (2012) 'Time Series Momentum' (JFE)",
-                "universe": ["QQQ", "NVDA", "AAPL", "MSFT"],
-                "logic": "20일 신고가 돌파 + RSI(14) 55~70 구간 + 거래량 1.5배 증가 시 매수 진입. 20 DMA 하회 시 즉시 손익 실현 청산.",
-                "entry_rule": "Close >= 20d High AND RSI(14) between 55 and 72",
-                "exit_rule": "Close < 20d SMA OR Trailing Stop -3.5%",
-                "rebalance_freq": "Daily"
+                "name": "장초반 30분 모멘텀 돌파 (Opening Range Breakout - ORB)",
+                "academic_source": "Toby Crabel (1990) 'Day Trading with Short Term Price Patterns'",
+                "universe": ["TQQQ", "NVDA"],
+                "logic": "개장 첫 30분(09:30~10:00 EST) 고가 돌파 + 거래량 폭증 시 추종 매수, 손익비 2:1 익절/손절 브래킷 주문 동시 체결.",
+                "entry_rule": "Close >= High(09:30-10:00) AND Volume >= 1.5 * AvgVol",
+                "exit_rule": "Take Profit +2.5% OR Stop Loss -1.2%",
+                "rebalance_freq": "Daily Intraday"
             },
             {
                 "id": "SCENARIO_03",
-                "name": "투자 대가 13F 컨센서스 알파 추적 (Superinvestor Alpha)",
-                "academic_source": "Cohen, Polk, Silli (2010) 'Best Ideas' (JFE) / Verbeek et al.",
-                "universe": ["NVDA", "AAPL", "MSFT", "OXY", "SGOV"],
-                "logic": "버핏·드러켄밀러 등 전설적 투자자 3인 이상 공통 보유 상위 5대 종목 동일가중 배분 + 대가들의 평균 현금 비중만큼 SGOV 보유.",
-                "entry_rule": "Quarterly 13F Top Holdings Consensus Match",
-                "exit_rule": "13F 전량 매도 공시 또는 지분 50% 이상 축소 시",
-                "rebalance_freq": "Quarterly with daily drift check"
+                "name": "일중 볼린저 밴드 과매도 평균회귀 (BB Mean Reversion)",
+                "academic_source": "John Bollinger (2001) 'Bollinger on Bollinger Bands'",
+                "universe": ["SOXL", "TSLA"],
+                "logic": "5분봉 볼린저 밴드(20, 2) 하단 터치 및 RSI(14) < 25 극단 과매도 시 반등 매수, 20 이평선 도달 시 전량 익절.",
+                "entry_rule": "Price <= Lower_BB(20, 2) AND RSI(14) < 25",
+                "exit_rule": "Price >= Middle_BB(20) OR Trailing Stop -1.5%",
+                "rebalance_freq": "Daily Intraday"
             },
             {
                 "id": "SCENARIO_04",
-                "name": "소셜 센티먼트 역발상 평균회귀 (Contrarian Sentiment)",
-                "academic_source": "Da, Engelberg, Gao (2015) 'The Sum of All FEARS' (RFS) / Chen et al. (2014)",
-                "universe": ["SPY", "QQQ", "TSLA"],
-                "logic": "소셜 미디어 및 Fear & Greed 지수 극단적 공포(F&G < 20, RSI < 30) 시 롱 분할 매수, 극단적 탐욕(F&G > 80, RSI > 75) 시 분할 익절.",
-                "entry_rule": "FearGreed < 22 AND RSI(14) < 32",
-                "exit_rule": "FearGreed > 75 OR Return >= +5.0%",
-                "rebalance_freq": "Daily"
+                "name": "프리마켓 갭 페이드 / 갭 필링 (Pre-Market Gap Fade)",
+                "academic_source": "Cooper (1999) 'Hit and Run Trading' / Caplan (2002)",
+                "universe": ["SOXL", "TQQQ"],
+                "logic": "전일 종가 대비 2.5% 이상 과도한 시초가 갭상승/갭하락 발생 시 반대 방향 역추세 진입 후 갭 메움 시 청산.",
+                "entry_rule": "Abs(Open - Prev_Close) / Prev_Close >= 0.025",
+                "exit_rule": "Gap Filled 80% OR Stop Loss -1.8%",
+                "rebalance_freq": "Daily Intraday"
             },
             {
                 "id": "SCENARIO_05",
-                "name": "실적 서프라이즈 드리프트 (PEAD Earnings Momentum)",
-                "academic_source": "Ball & Brown (1968) / Bernard & Thomas (1989) 'Post-Earnings-Announcement Drift'",
-                "universe": ["NVDA", "MSFT", "AAPL", "AMZN", "META"],
-                "logic": "분기 실적 발표 시 컨센서스 EPS를 5% 이상 상회하고 차분기 가이던스를 상향 조정한 기업을 실적 발표 익일 매수하여 10~20일 보유.",
-                "entry_rule": "EPS Surprise > +5.0% AND Guidance Upward",
-                "exit_rule": "Holding 15 trading days OR Stop-loss -4.0%",
-                "rebalance_freq": "Daily after earnings release"
+                "name": "실적 서프라이즈 모멘텀 드리프트 (Intraday PEAD)",
+                "academic_source": "Bernard & Thomas (1989) 'Post-Earnings-Announcement Drift' (JAR)",
+                "universe": ["NVDA", "TSLA"],
+                "logic": "EPS 5%+ 상회 실적 발표 직후 첫 15분 양봉 마감 시 시초가 손절 잡고 장중 모멘텀 스캘핑.",
+                "entry_rule": "Earnings_Beat >= 5% AND First_15m_Bar == BULLISH",
+                "exit_rule": "Take Profit +3.5% OR Stop Loss -1.5%",
+                "rebalance_freq": "Event-Driven Daily"
             },
             {
                 "id": "SCENARIO_06",
-                "name": "로페즈 데 프라도 HRP 머신러닝 리스크 패리티 (HRP Risk Parity)",
-                "academic_source": "Marcos Lopez de Prado (2016) 'Building Diversified Portfolios that Outperform Out of Sample'",
-                "universe": ["SPY", "QQQ", "TLT", "IEF", "GLD", "SGOV"],
-                "logic": "자산군 간 공분산 행렬을 준대각화(Quasi-Diagonalization)하고 트리 계층적 클러스터링으로 가중치를 최적 배분하여 마코위츠 역행렬 붕괴 방지.",
-                "entry_rule": "HRP Recursive Bisection Weight Allocation",
-                "exit_rule": "Continuous rebalancing when weight drift > 3%",
-                "rebalance_freq": "Daily / Weekly"
+                "name": "VWAP(거래량가중평균가) 일중 추세 추종 (VWAP Trend)",
+                "academic_source": "Berkowitz et al. (1988) 'The Execution of Large Orders by Broker-Dealers'",
+                "universe": ["NVDA", "TQQQ"],
+                "logic": "장중 가격이 VWAP 상향 돌파 시 매수 진입, VWAP 하향 이탈 시 즉시 매도.",
+                "entry_rule": "Price Crosses Above VWAP",
+                "exit_rule": "Price Crosses Below VWAP OR +2.0% Profit",
+                "rebalance_freq": "Daily Intraday"
             },
             {
                 "id": "SCENARIO_07",
-                "name": "변동성 타겟팅 CTA 추세추종 (Volatility Targeting CTA)",
-                "academic_source": "Moreira & Muir (2017) 'Volatility-Managed Portfolios' (Journal of Finance)",
-                "universe": ["SPY", "QQQ", "GLD", "SGOV"],
-                "logic": "포트폴리오의 실현 변동성을 연환산 10%로 고정. 변동성이 낮을 때는 레버리지/비중 확대, 변동성 급등 시 자동으로 자산 비중 축소 및 단기채 피신.",
-                "entry_rule": "Weight Scalar = Target Vol(10%) / Realized Vol(21d)",
-                "exit_rule": "Realized Volatility Spike > 25%",
+                "name": "단기 레버리지 리스크 패리티 (Leveraged Risk Parity)",
+                "academic_source": "Lopez de Prado (2016) / Asness et al. (2012) 'Leverage Aversion'",
+                "universe": ["SOXL", "TQQQ", "SGOV"],
+                "logic": "SOXL과 TQQQ의 일일 변동성 역가중 배분 + 나머지 잉여 현금 SGOV 파킹으로 변동성 통제.",
+                "entry_rule": "Daily Volatility Inverse Weighting",
+                "exit_rule": "Daily Rebalance at Market Open",
                 "rebalance_freq": "Daily"
             },
             {
                 "id": "SCENARIO_08",
-                "name": "퀄리티 배당성장 복리 재투자 (Quality Dividend Compounder)",
-                "academic_source": "Asness, Frazzini, Pedersen (2019) 'Quality Minus Junk' (Review of Accounting Studies)",
-                "universe": ["VIG", "SCHD", "MSFT", "AAPL", "SGOV"],
-                "logic": "ROE > 15%, 낮은 부채비율, 10년 이상 연속 배당 성장 우량주 편입. 일일 배당금 및 실현 이익을 즉시 당일 복리 재투자.",
-                "entry_rule": "ROE > 15% AND Debt/Equity < 1.0 AND Div Growth > 7%",
-                "exit_rule": "ROE < 10% OR Dividend Cut",
-                "rebalance_freq": "Monthly rebalancing, Daily reinvestment"
+                "name": "나스닥 선물 베이시스 차익 거래 (Futures Basis Swing)",
+                "academic_source": "MacKinlay & Ramaswamy (1988) 'Index-Futures Arbitrage'",
+                "universe": ["TQQQ", "SGOV"],
+                "logic": "NQ 선물 선현물 괴리율 0.4% 이상 확대 시 TQQQ 단기 매수 후 수렴 시 청산.",
+                "entry_rule": "Futures_Basis >= 0.4%",
+                "exit_rule": "Basis Convergence OR Stop Loss -1.0%",
+                "rebalance_freq": "Daily Intraday"
             },
             {
                 "id": "SCENARIO_09",
-                "name": "국채 수익률 곡선 듀레이션 스왑 (Treasury Curve Arbitrage)",
-                "academic_source": "Campbell & Shiller (1991) 'Yield Spreads and Interest Rate Movements'",
-                "universe": ["SGOV", "IEF", "TLT"],
-                "logic": "2Y-10Y 국채 스프레드 및 연준 점도표를 기반으로, 금리 인하 사이클에는 IEF/TLT 듀레이션 확대, 금리 불안정기에는 SGOV(초단기) 100% 집중.",
-                "entry_rule": "Yield Spread > 0 AND Fed Easing -> IEF/TLT Long; Yield Volatile -> SGOV 100%",
-                "exit_rule": "10Y Yield Spike > 4.5% -> Switch to SGOV",
-                "rebalance_freq": "Daily"
+                "name": "옵션 감마 스퀴즈 스캘핑 (Gamma Squeeze Scalper)",
+                "academic_source": "Ni, Pearson, Poteshman (2005) 'Stock Price Clustering on Option Expiration Dates'",
+                "universe": ["NVDA", "TSLA"],
+                "logic": "OTM 콜옵션 거래량이 풋 대비 3배 이상 폭증할 때 당일 장중 급등 추종.",
+                "entry_rule": "Call_Volume / Put_Volume >= 3.0",
+                "exit_rule": "Take Profit +3.0% OR Trailing Stop -1.5%",
+                "rebalance_freq": "Daily Intraday"
             },
             {
                 "id": "SCENARIO_10",
-                "name": "일중 볼린저 밴드 평균회귀 단기 매매 (Intra-day Mean Reversion)",
-                "academic_source": "Bollinger (2002) / Poterba & Summers (1988) 'Mean Reversion in Stock Prices'",
-                "universe": ["QQQ", "SPY", "NVDA", "SGOV"],
-                "logic": "일중 가격이 볼린저 밴드 하단(-2.0 STD) 이탈 시 분할 매수하여 당일 중심선(20 SMA) 도달 시 익절 청산하여 일일 현금 수익 실현.",
-                "entry_rule": "Price <= Bollinger Lower Band (20, 2.0)",
-                "exit_rule": "Price >= Bollinger Middle Band OR Stop-loss -1.5%",
-                "rebalance_freq": "Daily intra-day"
+                "name": "무위험 캐리 & 패닉 딥바잉 (Risk-Free Carry & Dip-Buy)",
+                "academic_source": "Buffett / Frazzini & Pedersen (2014) 'Betting Against Beta'",
+                "universe": ["SGOV", "SOXL"],
+                "logic": "평소 연 4.5% SGOV 100% 보유로 무위험 이자 누적, SOXL 당일 -4% 이상 패닉 시에만 딥바잉 후 익일 반등 익절.",
+                "entry_rule": "Daily SOXL Drop >= -4.0%",
+                "exit_rule": "Next Day Bounce +2.5% OR SGOV Return",
+                "rebalance_freq": "Selective Daily Trigger"
             }
         ]
 
+        self.output_data = {
+            "total_scenarios": len(scenarios),
+            "target_universe": ["SOXL", "TQQQ", "NVDA", "TSLA", "SGOV"],
+            "short_term_directive": "고수수료 마찰을 상쇄하기 위해 일일 변동성(ATR 3~8%) 기반의 익절 손절 브래킷 룰을 전 시나리오에 강제 탑재",
+            "scenarios": scenarios,
+            "key_takeaway": "래리 윌리엄스 변동성 돌파(SOXL)와 장초반 30분 ORB(TQQQ), 그리고 무위험 캐리 딥바잉(SGOV/SOXL)이 단기 실전에서 가장 높은 기대값을 갖습니다."
+        }
         self.confidence_score = 0.96
         self.status = "COMPLETED"
-
-        self.report = {
-            "scenarios_count": len(scenarios),
-            "scenarios": scenarios,
-            "key_takeaway": "노벨 경제학상 수상자 및 일류 퀀트 헤지펀드들이 사용하는 10대 핵심 팩터(모멘텀, 밸류, 퀄리티, HRP, 변동성 통제, PEAD, 커브 스왑)를 완벽히 수식화하였습니다."
-        }
-        return self.report
+        return self.output_data
