@@ -3,8 +3,15 @@ Main Orchestrator for US Capital Preservation Quant System
 """
 
 import argparse
+import os
 import sys
 import yaml
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 from core.regime import RegimeDetector, MarketRegime
 from core.hrp import HierarchicalRiskParity
 from core.signals import MomentumEngine, VolatilityTargeting

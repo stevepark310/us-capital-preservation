@@ -12,6 +12,25 @@ from typing import Optional
 import urllib.parse
 import urllib.request
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+
+def _load_env_fallback():
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    k, v = k.strip(), v.strip()
+                    if k and k not in os.environ:
+                        os.environ[k] = v
+
 
 class NHBroker:
     LIVE_REST_URL = "https://api.nhplug.com:8443"
@@ -27,13 +46,19 @@ class NHBroker:
         dry_run: bool = True,
         token_cache_file: str = ".nh_token_cache.json",
     ):
+        _load_env_fallback()
         self.app_key = app_key or os.getenv("NH_APP_KEY", "")
         self.app_secret = app_secret or os.getenv("NH_APP_SECRET", "")
         self.act_no = act_no or os.getenv("NH_ACT_NO", "")
-        self.is_mock = is_mock
+        env_is_mock = os.getenv("NH_IS_MOCK", "").lower() in ("true", "1", "yes")
+        self.is_mock = is_mock or env_is_mock
         self.dry_run = dry_run
-        self.base_url = self.MOCK_REST_URL if is_mock else self.LIVE_REST_URL
-        self.token_cache_file = token_cache_file
+        self.base_url = self.MOCK_REST_URL if self.is_mock else self.LIVE_REST_URL
+        if token_cache_file == ".nh_token_cache.json":
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            self.token_cache_file = os.path.join(project_root, ".nh_token_cache.json")
+        else:
+            self.token_cache_file = token_cache_file
         self.access_token: Optional[str] = None
 
         if self.app_key and self.app_secret:
@@ -133,7 +158,12 @@ class NHBroker:
         cash_usd = float(out_0.get("fc_dca", 0.0) or 0.0)
         total_equity = float(out_0.get("fc_aet_amt", 0.0) or (total_eval_usd + cash_usd))
         if total_equity <= 0.0:
-            total_equity = 1.0  # Prevent division by zero
+            if self.dry_run:
+                print(f"[NH Broker] Account {self.act_no} has $0.00 USD balance. Simulating with $10,000.00 for Dry-Run rebalance preview.")
+                total_equity = 10000.0
+                cash_usd = 10000.0
+            else:
+                total_equity = 1.0  # Prevent division by zero
 
         weights = {}
         positions = {}
