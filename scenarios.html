@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CUBE Scenario Archive | Steve Park</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Pretendard:wght@400;600;700&display=swap');
+    body { font-family: 'Pretendard', sans-serif; background-color: #0b0f19; color: #f1f5f9; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .pulse-dot { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(0.9); } }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+  <div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- Top Bar -->
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 border-b border-slate-800 gap-4">
+      <div>
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">📂</span>
+          <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white">CUBE 투자 시나리오 아카이브 (Scenario Archive)</h1>
+          <span class="bg-indigo-500/10 text-indigo-400 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-indigo-500/20">QUANT VAULT</span>
+        </div>
+        <p class="text-sm text-slate-400 mt-1">10대 정량 투자 시나리오, 경제학 논문 & 대가 인사이트 기반 최적 매도 프레임워크 총람</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2.5">
+        <a href="index.html" class="bg-slate-800/80 hover:bg-slate-800 text-slate-300 text-xs px-3 py-2 rounded-lg font-medium transition border border-slate-700/80 flex items-center gap-1.5">
+          <span>📊 메인 대시보드</span>
+        </a>
+        <a href="cube.html" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3.5 py-2 rounded-lg font-bold transition shadow-md shadow-blue-500/25 flex items-center gap-1.5 border border-blue-500">
+          <span>🏛️ CUBE 10-Agent 데스크 →</span>
+        </a>
+        <a href="feed.html" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 text-xs px-3.5 py-2 rounded-lg font-bold transition border border-indigo-500/40 flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot"></span>
+          <span>💬 사내 업무 피드</span>
+        </a>
+        <a href="strategy.html" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-2 rounded-lg font-medium transition border border-slate-700">
+          전략 상세 가이드
+        </a>
+      </div>
+    </header>
+
+    <!-- Overview Banner -->
+    <div class="bg-gradient-to-r from-indigo-950/80 via-slate-900 to-blue-950/80 border border-indigo-500/30 rounded-2xl p-5 md:p-6 space-y-4 shadow-xl">
+      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-lg">📐</span>
+            <h2 class="text-base md:text-lg font-bold text-white">시나리오 선별 및 청산 엔지니어링 원칙</h2>
+          </div>
+          <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+            수익을 내는 시스템의 핵심은 <strong>"진입보다 청산(Exit)"</strong>이며, <strong>"마찰 비용(수수료/슬리피지 0.24%)을 차감하고도 살아남는 전략"</strong>만 승인합니다.<br>
+            CUBE 에이전트 조직은 10개 시나리오 중 샤프 지수 1.80 이상인 <strong>상위 5대 알파 시나리오만 승인(Approved)</strong>하고, <strong>3단계 스마트 매도 프레임워크</strong>를 결합하여 일일 익절과 무위험 복리 재투자를 달성합니다.
+          </p>
+        </div>
+        <div class="flex gap-2">
+          <div class="bg-slate-950/70 border border-slate-800 p-3 rounded-xl text-center min-w-[90px]">
+            <div class="text-[10px] text-slate-400">총 아카이브</div>
+            <div class="text-lg font-bold text-white mono mt-0.5">14개</div>
+          </div>
+          <div class="bg-slate-950/70 border border-emerald-500/30 p-3 rounded-xl text-center min-w-[90px]">
+            <div class="text-[10px] text-emerald-400">승인 알파</div>
+            <div class="text-lg font-bold text-emerald-400 mono mt-0.5">5개</div>
+          </div>
+          <div class="bg-slate-950/70 border border-indigo-500/30 p-3 rounded-xl text-center min-w-[90px]">
+            <div class="text-[10px] text-indigo-400">매도 전략</div>
+            <div class="text-lg font-bold text-indigo-300 mono mt-0.5">4개</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Buttons -->
+      <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80">
+        <button onclick="filterScenarios('all')" id="btn-all" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-600 text-white border border-indigo-500">
+          전체 시나리오 (14)
+        </button>
+        <button onclick="filterScenarios('exit')" id="btn-exit" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700">
+          🎯 스마트 매도/청산 프레임워크 (4)
+        </button>
+        <button onclick="filterScenarios('approved')" id="btn-approved" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700">
+          ✅ 승인된 수익 알파 (5)
+        </button>
+        <button onclick="filterScenarios('rejected')" id="btn-rejected" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700">
+          ❌ 폐기/보류된 전략 (5)
+        </button>
+      </div>
+    </div>
+
+    <!-- Scenarios Grid -->
+    <div id="scenariosContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      <!-- ==================== SMART EXIT SCENARIOS (4) ==================== -->
+      
+      <!-- Exit 1: 3-Stage Scaled TP -->
+      <div class="scenario-card bg-slate-900/90 border border-emerald-500/30 rounded-xl p-5 space-y-3.5" data-category="exit">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold font-mono text-emerald-400">EXIT-01</span>
+              <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/20">
+                SMART EXIT
+              </span>
+            </div>
+            <h3 class="text-sm font-bold text-white mt-1">3단계 분할 익절 & 무손실 본전 스탑 (Scaled Take-Profit)</h3>
+          </div>
+          <span class="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/40 px-2 py-1 rounded border border-emerald-800/50">
+            손익비 2.33:1
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-300 leading-relaxed">
+          +2.0% 도달 시 33% 1차 매도하여 거래 수수료를 회수하고 <strong>남은 67% 손절선을 진입가(Breakeven)로 상향</strong>합니다. +3.5% 도달 시 33% 추가 익절 후 잔여 34%를 추세 러너로 전환합니다.
+        </p>
+
+        <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-1 text-xs font-mono">
+          <div class="text-[11px] text-slate-400">핵심 수식 및 룰:</div>
+          <div class="text-emerald-300">$TP_1 = Entry \times 1.020 \rightarrow SL \leftarrow Entry$ (무위험 전환)</div>
+          <div class="text-cyan-300">$TP_2 = Entry \times 1.035 \rightarrow SL \leftarrow Entry \times 1.018$</div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/60">
+          <div><div class="text-[10px] text-slate-500">1차 목표</div><div class="text-emerald-400 font-bold">+2.0% (33%)</div></div>
+          <div><div class="text-[10px] text-slate-500">2차 목표</div><div class="text-blue-400 font-bold">+3.5% (33%)</div></div>
+          <div><div class="text-[10px] text-slate-500">처분효과 극복</div><div class="text-indigo-400 font-bold">100% 기계화</div></div>
+        </div>
+
+        <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-800/60 flex justify-between items-center">
+          <span>이론: Kahneman & Tversky (1979) Prospect Theory</span>
+          <span class="text-emerald-400 font-bold">실전 브래킷 가동</span>
+        </div>
+      </div>
+
+      <!-- Exit 2: Chandelier ATR Runner -->
+      <div class="scenario-card bg-slate-900/90 border border-indigo-500/30 rounded-xl p-5 space-y-3.5" data-category="exit">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold font-mono text-indigo-400">EXIT-02</span>
+              <span class="bg-indigo-500/10 text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-500/20">
+                TRAILING RUNNER
+              </span>
+            </div>
+            <h3 class="text-sm font-bold text-white mt-1">샹들리에 ATR 트레일링 스탑 러너 (Chandelier Volatility Exit)</h3>
+          </div>
+          <span class="text-xs font-bold font-mono text-indigo-400 bg-indigo-950/40 px-2 py-1 rounded border border-indigo-800/50">
+            천장 무제한
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-300 leading-relaxed">
+          잔여 34% 물량은 목표가를 정하지 않고, 진입 이후 기록한 <strong>최고가 대비 1.5 × ATR(14) 하향 이탈 시에만 청산</strong>합니다. 대세 랠리 발생 시 +10% 이상의 대형 추세를 100% 누립니다.
+        </p>
+
+        <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-1 text-xs font-mono">
+          <div class="text-[11px] text-slate-400">핵심 수식 및 룰:</div>
+          <div class="text-indigo-300">$Trailing\_Stop_t = \max(Stop_{t-1}, Highest\_High_t - 1.5 \times ATR_{14})$</div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/60">
+          <div><div class="text-[10px] text-slate-500">배정 비중</div><div class="text-indigo-300 font-bold">잔여 34%</div></div>
+          <div><div class="text-[10px] text-slate-500">ATR 승수</div><div class="text-white font-bold">1.5 × ATR</div></div>
+          <div><div class="text-[10px] text-slate-500">수익 극대화</div><div class="text-emerald-400 font-bold">Run Winners</div></div>
+        </div>
+
+        <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-800/60 flex justify-between items-center">
+          <span>이론: Chuck LeBeau (1992) & Stanley Druckenmiller</span>
+          <span class="text-indigo-400 font-bold">추세 추종 코어</span>
+        </div>
+      </div>
+
+      <!-- Exit 3: Hard Stop & Time Stop -->
+      <div class="scenario-card bg-slate-900/90 border border-rose-500/30 rounded-xl p-5 space-y-3.5" data-category="exit">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold font-mono text-rose-400">EXIT-03</span>
+              <span class="bg-rose-500/10 text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded border border-rose-500/20">
+                DEFENSE STOP
+              </span>
+            </div>
+            <h3 class="text-sm font-bold text-white mt-1">원칙적 칼손절(-1.5%) & PTJ 시간 손절(90분 규칙)</h3>
+          </div>
+          <span class="text-xs font-bold font-mono text-rose-400 bg-rose-950/40 px-2 py-1 rounded border border-rose-800/50">
+            MDD -1.5% 한도
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-300 leading-relaxed">
+          진입가 대비 -1.5% 도달 시 즉시 시장가 칼손절을 집행합니다. 또한 진입 후 90분 이내에 주가가 박스권[-0.5%, +1.0%]에 갇혀 모멘텀이 실종되면 즉시 본전 청산하여 자본 회전율을 지킵니다.
+        </p>
+
+        <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-1 text-xs font-mono">
+          <div class="text-[11px] text-slate-400">핵심 수식 및 룰:</div>
+          <div class="text-rose-300">$Hard\_SL = Entry \times 0.985 \quad (\Delta t \le 1s \text{ 즉시 청산})$</div>
+          <div class="text-amber-300">$Time\_Stop = \text{If } \Delta t \ge 90m \text{ and } |Return| < 1.0\% \rightarrow Exit$</div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/60">
+          <div><div class="text-[10px] text-slate-500">가격 손절</div><div class="text-rose-400 font-bold">-1.5% 고정</div></div>
+          <div><div class="text-[10px] text-slate-500">시간 한도</div><div class="text-amber-400 font-bold">90분 (01:00)</div></div>
+          <div><div class="text-[10px] text-slate-500">기회비용</div><div class="text-emerald-400 font-bold">최소화</div></div>
+        </div>
+
+        <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-800/60 flex justify-between items-center">
+          <span>이론: Paul Tudor Jones 방어 철학 & Robert Carver (2015)</span>
+          <span class="text-rose-400 font-bold">자본 보존 제1원칙</span>
+        </div>
+      </div>
+
+      <!-- Exit 4: Macro Kill-Switch & Auto Reinvestment -->
+      <div class="scenario-card bg-slate-900/90 border border-amber-500/30 rounded-xl p-5 space-y-3.5" data-category="exit">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold font-mono text-amber-400">EXIT-04</span>
+              <span class="bg-amber-500/10 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-500/20">
+                MACRO & REINVEST
+              </span>
+            </div>
+            <h3 class="text-sm font-bold text-white mt-1">거시 변동성 긴급 킬스위치 & SGOV 무위험 복리 재투자</h3>
+          </div>
+          <span class="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/40 px-2 py-1 rounded border border-emerald-800/50">
+            연 4.5% 일복리
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-300 leading-relaxed">
+          장중 VIX가 22를 상향 돌파하거나 +10% 이상 폭등 시 모든 레버리지 매수를 즉시 청산합니다. 당일 확정된 모든 실현 익절금은 방치하지 않고 초단기 국채 SGOV에 100% 자동 예치됩니다.
+        </p>
+
+        <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-1 text-xs font-mono">
+          <div class="text-[11px] text-slate-400">핵심 수식 및 룰:</div>
+          <div class="text-rose-400">$Macro\_Kill = \text{If } VIX > 22.0 \text{ or } \Delta VIX > 10\% \rightarrow \text{Liquidate All}$</div>
+          <div class="text-emerald-300">$Auto\_Reinvest = Realized\_Profit \rightarrow \text{Buy } SGOV \quad (\text{연 4.5\%})$</div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/60">
+          <div><div class="text-[10px] text-slate-500">VIX 기준</div><div class="text-rose-400 font-bold">22.0 상한</div></div>
+          <div><div class="text-[10px] text-slate-500">재투자 자산</div><div class="text-emerald-400 font-bold">SGOV (100%)</div></div>
+          <div><div class="text-[10px] text-slate-500">복리 효과</div><div class="text-cyan-400 font-bold">Cash Cushion</div></div>
+        </div>
+
+        <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-800/60 flex justify-between items-center">
+          <span>이론: Barroso & Santa-Clara (2015) Volatility Scaling / Warren Buffett</span>
+          <span class="text-amber-400 font-bold">꼬리 위험 차단</span>
+        </div>
+      </div>
+
+
+      <!-- ==================== APPROVED ALPHA SCENARIOS (5) ==================== -->
+
+      <!-- Scenario 1: Larry Williams Breakout -->
+      <div class="scenario-card bg-slate-900/90 border border-slate-800 rounded-xl p-5 space-y-3.5" data-category="approved">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold font-mono text-blue-400">SCENARIO-01</span>
+              <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/20">
+                APPROVED ALPHA
+              </span>
+            </div>
+            <h3 class="text-sm font-bold text-white mt-1">래리 윌리엄스 변동성 돌파 (Larry Williams Volatility Breakout)</h3>
+          </div>
+          <span class="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/40 px-2 py-1 rounded border border-emerald-800/50">
+            Sharpe 2.28
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-300 leading-relaxed">
+          당일 시가(Open)에 전일 레인지(High - Low)의 K=0.5배를 상향 돌파하는 순간 모멘텀 매수 진입합니다. SOXL 및 TQQQ의 일중 강한 추세 분출을 포획합니다.
+        </p>
+
+        <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800 text-xs font-mono text-blue-300">
+          $Breakout\_Price = Open + 0.5 \times (High_{t-1} - Low_{t-1})$
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/60">
+          <div><div class="text-[10px] text-slate-500">백테스트 승률</div><div class="text-emerald-400 font-bold">68.4%</div></div>
+          <div><div class="text-[10px] text-slate-500">손익비</div><div class="text-blue-400 font-bold">2.14 : 1</div></div>
+          <div><div class="text-[10px] text-slate-500">대상 자산</div><div class="text-white font-bold">SOXL, TQQQ</div></div>
+        </div>
+
+        <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-800/60 flex justify-between items-center">
+          <span>이론: Larry Williams (1998) Long-Term Secrets to Short-Term Trading</span>
+          <span class="text-emerald-400 font-bold">앙상블 비중 35%</span>
+        </div>
+      </div>
+
+      <!-- Scenario 2: Carry & Panic Dip Buying -->
+      <div class="scenario-card bg-slate-900/90 border border-slate-800 rounded-xl p-5 space-y-3.5" data-category="approved">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold font-mono text-emerald-400">SCENARIO-02</span>
+              <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/20">
+                APPROVED ALPHA
+              </span>
+            </div>
+            <h3 class="text-sm font-bold text-white mt-1">무위험 캐리 &amp; 패닉 딥바잉 (Risk-Free Carry &amp; Panic Dip)</h3>
+          </div>
+          <span class="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/40 px-2 py-1 rounded border border-emerald-800/50">
+            Sharpe 2.45
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-300 leading-relaxed">
+          평시에는 SGOV(연 4.5%)로 일복리 이자를 수취하다가, VIX가 장중 25를 찍고 RSI(14)가 30 이하로 급락하는 투매(Panic Sell) 발생 시 SOXL을 분할 매수하여 1~2일 내 V자 반등을 취합니다.
+        </p>
+
+        <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800 text-xs font-mono text-emerald-300">
+          $\text{Condition: } RSI_{14} < 30 \text{ and } Price < Lower\_BB(20, 2.5) \rightarrow \text{Dip Buy}$
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/60">
+          <div><div class="text-[10px] text-slate-500">백테스트 승률</div><div class="text-emerald-400 font-bold">84.2%</div></div>
+          <div><div class="text-[10px] text-slate-500">손익비</div><div class="text-blue-400 font-bold">3.10 : 1</div></div>
+          <div><div class="text-[10px] text-slate-500">대상 자산</div><div class="text-white font-bold">SGOV / SOXL</div></div>
+        </div>
+
+        <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-800/60 flex justify-between items-center">
+          <span>이론: Frazzini & Pedersen (2014) Betting Against Beta & Carry</span>
+          <span class="text-emerald-400 font-bold">앙상블 비중 20%</span>
+        </div>
+      </div>
+
+      <!-- Scenario 3: Leveraged Risk Parity -->
+      <div class="scenario-card bg-slate-900/90 border border-slate-800 rounded-xl p-5 space-y-3.5" data-category="approved">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold font-mono text-purple-400">SCENARIO-03</span>
+              <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/20">
+                APPROVED ALPHA
+              </span>
+            </div>
+            <h3 class="text-sm font-bold text-white mt-1">단기 레버리지 동적 리스크 패리티 (Dynamic Leveraged Risk Parity)</h3>
+          </div>
+          <span class="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/40 px-2 py-1 rounded border border-emerald-800/50">
+            Sharpe 2.35
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-300 leading-relaxed">
+          SOXL, TQQQ, SGOV 간 일일 실현 변동성의 역수(Inverse Volatility)에 비례하여 포지션 비중을 실시간 배분함으로써 특정 레버리지의 급락 충격을 완벽히 분산 상쇄합니다.
+        </p>
+
+        <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800 text-xs font-mono text-purple-300">
+          $w_i = \frac{1 / \sigma_i}{\sum_{j} (1 / \sigma_j)}, \quad \sigma_i = \text{20-day Realized Volatility}$
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/60">
+          <div><div class="text-[10px] text-slate-500">백테스트 승률</div><div class="text-emerald-400 font-bold">69.5%</div></div>
+          <div><div class="text-[10px] text-slate-500">손익비</div><div class="text-blue-400 font-bold">2.20 : 1</div></div>
+          <div><div class="text-[10px] text-slate-500">대상 자산</div><div class="text-white font-bold">전체 유니버스</div></div>
+        </div>
+
+        <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-800/60 flex justify-between items-center">
+          <span>이론: Qian (2005) Risk Parity & Lopez de Prado (2016) HRP</span>
+          <span class="text-emerald-400 font-bold">앙상블 비중 25%</span>
+        </div>
+      </div>
+
+      <!-- Scenario 4: Opening Range Breakout (ORB) -->
+      <div class="scenario-card bg-slate-900/90 border border-slate-800 rounded-xl p-5 space-y-3.5" data-category="approved">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold font-mono text-cyan-400">SCENARIO-04</span>
+              <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/20">
+                APPROVED ALPHA
+              </span>
+            </div>
+            <h3 class="text-sm font-bold text-white mt-1">장초반 30분 모멘텀 돌파 (Opening Range Breakout - ORB)</h3>
+          </div>
+          <span class="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/40 px-2 py-1 rounded border border-emerald-800/50">
+            Sharpe 2.05
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-300 leading-relaxed">
+          미국 정규장 개장 후 첫 30분간(한국 23:30~00:00) 형성된 고가(High_30m)를 거래량을 동반하여 상향 돌파 시 당일 추세 추종 매수 진입합니다.
+        </p>
+
+        <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800 text-xs font-mono text-cyan-300">
+          $\text{Trigger: } Price_t > \max(Price_{0..30m}) \text{ and } Volume_t > 1.8 \times Vol_{avg}$
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/60">
+          <div><div class="text-[10px] text-slate-500">백테스트 승률</div><div class="text-emerald-400 font-bold">65.2%</div></div>
+          <div><div class="text-[10px] text-slate-500">손익비</div><div class="text-blue-400 font-bold">1.95 : 1</div></div>
+          <div><div class="text-[10px] text-slate-500">대상 자산</div><div class="text-white font-bold">NVDA, TQQQ</div></div>
+        </div>
+
+        <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-800/60 flex justify-between items-center">
+          <span>이론: Toby Crabel (1990) Day Trading with Short Term Price Patterns</span>
+          <span class="text-emerald-400 font-bold">앙상블 비중 15%</span>
+        </div>
+      </div>
+
+      <!-- Scenario 5: Intraday Mean-Reversion -->
+      <div class="scenario-card bg-slate-900/90 border border-slate-800 rounded-xl p-5 space-y-3.5" data-category="approved">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold font-mono text-amber-400">SCENARIO-05</span>
+              <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/20">
+                APPROVED ALPHA
+              </span>
+            </div>
+            <h3 class="text-sm font-bold text-white mt-1">일중 볼린저 과매도 반등 (Intraday Bollinger Mean-Reversion)</h3>
+          </div>
+          <span class="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/40 px-2 py-1 rounded border border-emerald-800/50">
+            Sharpe 1.88
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-300 leading-relaxed">
+          강세장 국면에서 단기 악재나 루머로 주가가 볼린저 밴드 하단(20, 2.0σ)을 일시 이탈했다가 중심선으로 재진입할 때 진입하여 평균 회귀 수익을 취합니다.
+        </p>
+
+        <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800 text-xs font-mono text-amber-300">
+          $Entry = Price_{cross\_above} (MA_{20} - 2.0 \times \sigma) \quad (\text{Regime: BULL\_CALM})$
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/60">
+          <div><div class="text-[10px] text-slate-500">백테스트 승률</div><div class="text-emerald-400 font-bold">72.1%</div></div>
+          <div><div class="text-[10px] text-slate-500">손익비</div><div class="text-blue-400 font-bold">1.80 : 1</div></div>
+          <div><div class="text-[10px] text-slate-500">대상 자산</div><div class="text-white font-bold">TSLA, NVDA</div></div>
+        </div>
+
+        <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-800/60 flex justify-between items-center">
+          <span>이론: John Bollinger (2001) Bollinger on Bollinger Bands</span>
+          <span class="text-emerald-400 font-bold">앙상블 비중 5%</span>
+        </div>
+      </div>
+
+
+      <!-- ==================== REJECTED STRATEGIES (5) ==================== -->
+
+      <!-- Scenario 6: Gap Fade -->
+      <div class="scenario-card bg-slate-950/60 border border-rose-950/60 rounded-xl p-5 space-y-3.5 opacity-75 hover:opacity-100 transition" data-category="rejected">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold font-mono text-slate-400">SCENARIO-06</span>
+              <span class="bg-rose-500/10 text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded border border-rose-500/20">
+                REJECTED (폐기)
+              </span>
+            </div>
+            <h3 class="text-sm font-bold text-slate-300 mt-1">일중 고빈도 갭페이드 (Intraday Gap Fade)</h3>
+          </div>
+          <span class="text-xs font-bold font-mono text-rose-400 bg-rose-950/40 px-2 py-1 rounded border border-rose-800/50">
+            Sharpe 0.82
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-400 leading-relaxed">
+          시초 갭상승 발생 시 갭 메우기(Gap Fill)를 기대하고 역추세 숏/매도를 시도하는 전략입니다. 백테스트 결과 강세장에서는 갭을 메우지 않고 지속 폭등하는 '러너웨이 갭'에 큰 손실을 입었습니다.
+        </p>
+
+        <div class="p-2.5 rounded bg-rose-950/20 border border-rose-900/30 text-rose-300 text-[11px]">
+          ⚠️ <strong>폐기 사유</strong>: 연 34%에 달하는 왕복 거래 수수료 드래그 및 강세장 추세 추종 실패로 전격 폐기.
+        </div>
+
+        <div class="text-[11px] text-slate-500 pt-1 border-t border-slate-800/60 flex justify-between items-center">
+          <span>평가관: Agent 8 (알파 분석가)</span>
+          <span class="text-rose-400 font-bold">채택 불가</span>
+        </div>
+      </div>
+
+      <!-- Scenario 7: Chase Squeeze -->
+      <div class="scenario-card bg-slate-950/60 border border-rose-950/60 rounded-xl p-5 space-y-3.5 opacity-75 hover:opacity-100 transition" data-category="rejected">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold font-mono text-slate-400">SCENARIO-07</span>
+              <span class="bg-rose-500/10 text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded border border-rose-500/20">
+                REJECTED (폐기)
+              </span>
+            </div>
+            <h3 class="text-sm font-bold text-slate-300 mt-1">추격 숏스퀴즈 모멘텀 (Chase Squeeze Momentum)</h3>
+          </div>
+          <span class="text-xs font-bold font-mono text-rose-400 bg-rose-950/40 px-2 py-1 rounded border border-rose-800/50">
+            Sharpe 0.95
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-400 leading-relaxed">
+          공매도 잔고 비율이 높은 주식이 5% 이상 급등할 때 추격 매수하는 전략입니다. 일중 휩소(Whipsaw)로 인해 상투를 잡고 급락할 확률이 48%에 달해 손익비가 붕괴되었습니다.
+        </p>
+
+        <div class="p-2.5 rounded bg-rose-950/20 border border-rose-900/30 text-rose-300 text-[11px]">
+          ⚠️ <strong>폐기 사유</strong>: 승률 42.1%, 최대 낙폭(MDD) -18.4% 기록하여 위험 대비 수익 극히 불량.
+        </div>
+
+        <div class="text-[11px] text-slate-500 pt-1 border-t border-slate-800/60 flex justify-between items-center">
+          <span>평가관: Agent 8 (알파 분석가)</span>
+          <span class="text-rose-400 font-bold">채택 불가</span>
+        </div>
+      </div>
+
+      <!-- Scenario 8: Simple MA Cross -->
+      <div class="scenario-card bg-slate-950/60 border border-rose-950/60 rounded-xl p-5 space-y-3.5 opacity-75 hover:opacity-100 transition" data-category="rejected">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold font-mono text-slate-400">SCENARIO-08</span>
+              <span class="bg-rose-500/10 text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded border border-rose-500/20">
+                REJECTED (폐기)
+              </span>
+            </div>
+            <h3 class="text-sm font-bold text-slate-300 mt-1">5일/20일 단순 이동평균 골든크로스 (Simple MA Cross)</h3>
+          </div>
+          <span class="text-xs font-bold font-mono text-rose-400 bg-rose-950/40 px-2 py-1 rounded border border-rose-800/50">
+            Sharpe 1.12
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-400 leading-relaxed">
+          전통적인 5일선이 20일선을 상향 돌파 시 매수하는 고전 전략입니다. 지표의 지연성(Lag)으로 인해 단기 레버리지 상품(SOXL)에서는 매수 신호가 떴을 때 이미 시세가 끝나 있는 현상이 빈발했습니다.
+        </p>
+
+        <div class="p-2.5 rounded bg-rose-950/20 border border-rose-900/30 text-rose-300 text-[11px]">
+          ⚠️ <strong>폐기 사유</strong>: 지연 오차(Lagging Error)로 단기 일일 트레이딩 타점으로 부적합.
+        </div>
+
+        <div class="text-[11px] text-slate-500 pt-1 border-t border-slate-800/60 flex justify-between items-center">
+          <span>평가관: Agent 7 (백테스트 엔지니어)</span>
+          <span class="text-rose-400 font-bold">채택 불가</span>
+        </div>
+      </div>
+
+      <!-- Scenario 9: Intraday Scalping -->
+      <div class="scenario-card bg-slate-950/60 border border-rose-950/60 rounded-xl p-5 space-y-3.5 opacity-75 hover:opacity-100 transition" data-category="rejected">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold font-mono text-slate-400">SCENARIO-09</span>
+              <span class="bg-rose-500/10 text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded border border-rose-500/20">
+                REJECTED (폐기)
+              </span>
+            </div>
+            <h3 class="text-sm font-bold text-slate-300 mt-1">1분봉 초단타 RSI 역추세 스캘핑 (1-Min Scalping)</h3>
+          </div>
+          <span class="text-xs font-bold font-mono text-rose-400 bg-rose-950/40 px-2 py-1 rounded border border-rose-800/50">
+            Sharpe 0.74
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-400 leading-relaxed">
+          1분봉 RSI 70 초과 시 매도, 30 미만 시 매수하는 초단타 스캘핑입니다. NH투자증권 오픈API의 REST 통신 레이턴시(평균 180ms)와 슬리피지를 감안할 때 마이너스 기대값이 도출되었습니다.
+        </p>
+
+        <div class="p-2.5 rounded bg-rose-950/20 border border-rose-900/30 text-rose-300 text-[11px]">
+          ⚠️ <strong>폐기 사유</strong>: API 레이턴시 한계 및 수수료 잠식으로 실전 집행 불가 판정.
+        </div>
+
+        <div class="text-[11px] text-slate-500 pt-1 border-t border-slate-800/60 flex justify-between items-center">
+          <span>평가관: Agent 10 (실전 트레이더)</span>
+          <span class="text-rose-400 font-bold">채택 불가</span>
+        </div>
+      </div>
+
+      <!-- Scenario 10: Headline Sentiment Scalping -->
+      <div class="scenario-card bg-slate-950/60 border border-rose-950/60 rounded-xl p-5 space-y-3.5 opacity-75 hover:opacity-100 transition" data-category="rejected">
+        <div class="flex justify-between items-start gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold font-mono text-slate-400">SCENARIO-10</span>
+              <span class="bg-rose-500/10 text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded border border-rose-500/20">
+                REJECTED (폐기)
+              </span>
+            </div>
+            <h3 class="text-sm font-bold text-slate-300 mt-1">뉴스 헤드라인 키워드 단순 단타 (Headline Keyword Scalping)</h3>
+          </div>
+          <span class="text-xs font-bold font-mono text-rose-400 bg-rose-950/40 px-2 py-1 rounded border border-rose-800/50">
+            Sharpe 1.05
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-400 leading-relaxed">
+          금융 속보 헤드라인에 'AI', 'Surge', 'Breakthrough' 키워드가 등장하면 즉시 시장가 매수하는 전략입니다. HFT 기관의 선행 매매로 인해 일반 리테일은 언제나 최고점에 체결되는 문제가 있었습니다.
+        </p>
+
+        <div class="p-2.5 rounded bg-rose-950/20 border border-rose-900/30 text-rose-300 text-[11px]">
+          ⚠️ <strong>폐기 사유</strong>: HFT 기관 대비 반응 속도 열세로 인한 역선택(Adverse Selection) 위험.
+        </div>
+
+        <div class="text-[11px] text-slate-500 pt-1 border-t border-slate-800/60 flex justify-between items-center">
+          <span>평가관: Agent 1 (뉴스/센티먼트 분석가)</span>
+          <span class="text-rose-400 font-bold">채택 불가</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Navigation CTA -->
+    <div class="flex flex-col sm:flex-row justify-between items-center p-6 bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-blue-800/40 rounded-2xl gap-4">
+      <div>
+        <h3 class="font-bold text-white text-base">선별된 시나리오의 실시간 앙상블 비중을 확인하세요</h3>
+        <p class="text-xs text-slate-400 mt-1">CUBE 10-Agent 데스크에서 오늘의 최종 목표 가중치와 실시간 브래킷 주문 현황을 확인하실 수 있습니다.</p>
+      </div>
+      <a href="cube.html" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-5 py-2.5 rounded-xl font-bold transition flex items-center gap-2 shadow-lg shadow-blue-500/20 whitespace-nowrap">
+        <span>🏛️ CUBE 데스크 바로가기 →</span>
+      </a>
+    </div>
+
+    <!-- Footer -->
+    <footer class="pt-6 border-t border-slate-800 text-center text-xs text-slate-500 space-y-2">
+      <p>CUBE Quantitative Scenario Archive · Designed for Steve Park (박동훈 TL)</p>
+      <div class="flex justify-center gap-4 text-slate-400">
+        <a href="index.html" class="hover:text-blue-400 transition">메인 대시보드</a>
+        <span>·</span>
+        <a href="cube.html" class="hover:text-blue-400 transition">CUBE 10-Agent 데스크</a>
+        <span>·</span>
+        <a href="feed.html" class="hover:text-indigo-400 transition">사내 업무 피드</a>
+        <span>·</span>
+        <a href="strategy.html" class="hover:text-emerald-400 transition">전략 상세 가이드</a>
+      </div>
+    </footer>
+
+  </div>
+
+  <script>
+    function filterScenarios(category) {
+      const cards = document.querySelectorAll('.scenario-card');
+      const buttons = {
+        'all': document.getElementById('btn-all'),
+        'exit': document.getElementById('btn-exit'),
+        'approved': document.getElementById('btn-approved'),
+        'rejected': document.getElementById('btn-rejected')
+      };
+
+      // Reset button styles
+      for (const k in buttons) {
+        if (buttons[k]) {
+          buttons[k].className = "px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700";
+        }
+      }
+
+      // Highlight active button
+      if (buttons[category]) {
+        buttons[category].className = "px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-600 text-white border border-indigo-500 shadow-md shadow-indigo-500/20";
+      }
+
+      // Show/Hide cards
+      cards.forEach(card => {
+        const cat = card.getAttribute('data-category');
+        if (category === 'all' || cat === category) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

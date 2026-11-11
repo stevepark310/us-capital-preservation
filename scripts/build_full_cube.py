@@ -6,6 +6,7 @@ and generate the standalone feed.html for CUBE.
 
 import os
 import json
+import re
 
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 feed_json_path = os.path.join(base_dir, "data", "agent_feed.json")
@@ -247,14 +248,18 @@ header_feed_link = """<a href="#cube-feed-section" class="bg-indigo-600/30 hover
 if "#cube-feed-section" not in cube_html:
     cube_html = cube_html.replace(header_nav_target, header_feed_link + header_nav_target)
 
-# Insert macro radar before Section 1
+# Insert or replace macro radar before Section 1
 sec1_target = '<!-- Section 1: 10 Specialized Agents Interactive Desk -->'
-if "<!-- Global Macro & FX Radar Ticker Banner" not in cube_html:
+if "<!-- Global Macro & FX Radar Ticker Banner" in cube_html:
+    cube_html = re.sub(r'<!-- Global Macro & FX Radar Ticker Banner.*?(?=<!-- Section 1: 10 Specialized Agents)', lambda m: macro_radar_html + "\n\n    ", cube_html, flags=re.DOTALL)
+else:
     cube_html = cube_html.replace(sec1_target, macro_radar_html + "\n\n    " + sec1_target)
 
-# Insert Work Feed Section after Section 1
+# Insert or replace Work Feed Section after Section 1
 sec2_target = '<!-- Section 2: 10 Investment Scenarios & Alpha Selection Matrix -->'
-if "<!-- Section: 10-Agent Real-Time Work Feed" not in cube_html:
+if "<!-- Section: 10-Agent Real-Time Work Feed" in cube_html:
+    cube_html = re.sub(r'<!-- Section: 10-Agent Real-Time Work Feed.*?(?=<!-- Section 2: 10 Investment Scenarios)', lambda m: feed_section_html + "\n\n    ", cube_html, flags=re.DOTALL)
+else:
     cube_html = cube_html.replace(sec2_target, feed_section_html + "\n\n    " + sec2_target)
 
 # Add Feed JavaScript Functions before </body>
@@ -392,6 +397,9 @@ feed_html_template = f"""<!DOCTYPE html>
       </div>
 
       <div class="flex items-center gap-2">
+        <a href="scenarios.html" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 text-xs px-3.5 py-2 rounded-lg font-bold transition border border-indigo-500/40 flex items-center gap-1.5">
+          <span>📂 시나리오 아카이브</span>
+        </a>
         <a href="cube.html" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3.5 py-2 rounded-lg font-bold transition shadow-lg shadow-blue-600/20 flex items-center gap-1.5">
           <span>🏛️ CUBE 데스크로 돌아가기</span>
         </a>

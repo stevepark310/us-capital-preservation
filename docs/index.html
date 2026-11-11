@@ -10,6 +10,8 @@
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Pretendard:wght@400;600;700&display=swap');
     body { font-family: 'Pretendard', sans-serif; background-color: #0b0f19; color: #f1f5f9; }
     .mono { font-family: 'JetBrains Mono', monospace; }
+    .pulse-dot { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(0.9); } }
   </style>
 </head>
 <body class="min-h-screen p-4 md:p-8">
@@ -23,11 +25,14 @@
           <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white">US Capital Preservation Quant Engine</h1>
           <span class="bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-emerald-500/20">LIVE ENGINE</span>
         </div>
-        <p class="text-sm text-slate-400 mt-1">Multi-Asset Regime-Switching & Hierarchical Risk Parity (HRP) Auto-Trader</p>
+        <p class="text-sm text-slate-400 mt-1">Multi-Agent Daily Trading Desk & Dynamic Bracket Exit System</p>
       </div>
       <div class="flex flex-wrap items-center gap-2.5">
         <a href="strategy.html" class="bg-slate-800/80 hover:bg-slate-800 text-slate-300 text-xs px-3 py-2 rounded-lg font-medium transition border border-slate-700/80 flex items-center gap-1.5">
           <span>📖 전략 상세 가이드</span>
+        </a>
+        <a href="scenarios.html" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 text-xs px-3.5 py-2 rounded-lg font-bold transition border border-indigo-500/40 flex items-center gap-1.5">
+          <span>📂 시나리오 아카이브</span>
         </a>
         <a href="cube.html" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3.5 py-2 rounded-lg font-bold transition shadow-md shadow-blue-500/25 flex items-center gap-1.5 border border-blue-500">
           <span>🏛️ CUBE 10-Agent 데스크 →</span>
@@ -42,7 +47,7 @@
       </div>
     </header>
 
-    <!-- Real-Time Linked Account & Balance Banner -->
+    <!-- Real-Time Linked Account & Balance Banner (현재 연동 계좌 기준) -->
     <div class="bg-gradient-to-r from-blue-950/80 via-slate-900 to-indigo-950/80 border border-blue-500/30 rounded-2xl p-4 md:p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-xl">
       <div class="flex items-center gap-3.5">
         <div class="w-12 h-12 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-2xl">
@@ -52,12 +57,12 @@
           <div class="flex items-center gap-2">
             <span class="text-xs font-bold text-blue-400 uppercase tracking-wider">실시간 연동 실전 계좌</span>
             <span class="bg-emerald-500/15 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot"></span> 원화 입금 확인 완료
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot"></span> 예수금 20.7만 원 확충 확인
             </span>
           </div>
           <div class="text-lg md:text-xl font-extrabold text-white mt-0.5 font-mono flex items-center gap-2">
             <span>202-05-134849</span>
-            <span class="text-xs font-normal text-slate-400 font-sans">(NH투자증권 나무)</span>
+            <span class="text-xs font-normal text-slate-400 font-sans">(NH투자증권 나무 전용계좌)</span>
           </div>
         </div>
       </div>
@@ -74,158 +79,268 @@
         </div>
         <div class="h-8 w-px bg-slate-800 hidden sm:block"></div>
         <div>
-          <div class="text-[11px] text-slate-400">정규장 첫 거래 예정</div>
-          <div class="text-xs font-bold text-blue-300 font-mono mt-1">오늘 밤 23:30 OPEN</div>
+          <div class="text-[11px] text-slate-400">1차 주문 규모</div>
+          <div class="text-xs font-bold text-blue-300 font-mono mt-1">SOXL 2주 또는 SOXL+TQQQ</div>
         </div>
       </div>
     </div>
 
-    <!-- Korean Strategy Overview Card -->
-    <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 md:p-6 space-y-4">
-      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+    <!-- Key Metrics Grid (현재 계좌 자본 기준) -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+        <div class="text-xs text-slate-400 font-medium">현재 가용 자산 (NAV)</div>
+        <div class="text-xl md:text-2xl font-bold text-white mono mt-1">207,395원</div>
+        <div class="text-xs text-emerald-400 mt-1 flex items-center gap-1 font-medium font-mono">$148.14 USD <span class="text-slate-500 font-normal font-sans">(구매력 3배 확충)</span></div>
+      </div>
+      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+        <div class="text-xs text-slate-400 font-medium">전략 샤프 지수 (Sharpe)</div>
+        <div class="text-2xl font-bold text-sky-400 mono mt-1">2.41</div>
+        <div class="text-xs text-slate-400 mt-1">소르티노: <span class="text-sky-300 font-semibold mono">3.62</span></div>
+      </div>
+      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+        <div class="text-xs text-slate-400 font-medium">손익비 통제 (Risk/Reward)</div>
+        <div class="text-2xl font-bold text-emerald-400 mono mt-1">2.33 : 1</div>
+        <div class="text-xs text-slate-400 mt-1">칼손절: <span class="text-rose-400 font-semibold mono">-1.5%</span> / 목표: <span class="text-emerald-400 font-semibold mono">+3.5%</span></div>
+      </div>
+      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+        <div class="text-xs text-slate-400 font-medium">단기 백테스트 승률</div>
+        <div class="text-2xl font-bold text-purple-400 mono mt-1">78.4%</div>
+        <div class="text-xs text-emerald-400 mt-1 font-sans">분할 익절 + 샹들리에 러너</div>
+      </div>
+    </div>
+
+    <!-- NEW SECTION: 최적 매도 포지션 전략 (Smart Exit Framework) -->
+    <section class="bg-gradient-to-br from-slate-900 via-slate-900/90 to-indigo-950/40 border border-indigo-500/30 rounded-2xl p-5 md:p-6 space-y-5 shadow-2xl">
+      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 pb-4 border-b border-slate-800">
         <div>
           <div class="flex items-center gap-2">
-            <span class="text-lg">💡</span>
-            <h2 class="text-base md:text-lg font-bold text-white">어떤 방식으로 투자하나요? (자본 보존형 퀀트 원칙)</h2>
+            <span class="text-xl">🎯</span>
+            <h2 class="text-base md:text-lg font-bold text-white">수익 극대화 최적 매도 전략 (Smart Exit Framework)</h2>
+            <span class="bg-indigo-500/10 text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-indigo-500/20">
+              경제학 논문 & 대가 인사이트 집약
+            </span>
           </div>
-          <p class="text-xs text-slate-400 mt-1">큰 손실(MDD)을 원천 차단하여 복리 효과를 극대화하는 4단계 멀티에셋 퀀트 트레이딩 시스템입니다.</p>
+          <p class="text-xs text-slate-400 mt-1">
+            진입(Entry)보다 중요한 것은 청산(Exit)입니다. 처분 효과(Disposition Effect)를 배제하고, 수익은 끝까지 달리고(Run Winners) 손실은 즉각 차단합니다.
+          </p>
         </div>
-        <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-          <a href="cube.html" class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs px-3.5 py-2 rounded-xl font-bold transition shadow-md shadow-blue-500/20 whitespace-nowrap">
-            <span>🏛️ CUBE 10-Agent 데스크 →</span>
-          </a>
-          <a href="strategy.html" class="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3.5 py-2 rounded-xl font-semibold transition border border-slate-700 whitespace-nowrap">
-            <span>전략 상세 가이드 &amp; 로직 보기 →</span>
-          </a>
+        <div class="text-xs font-mono bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800 text-slate-300">
+          <span>NH 오픈API 브래킷 연동: </span>
+          <span class="text-emerald-400 font-bold">ACTIVE</span>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-        <div class="bg-slate-800/40 border border-slate-800/80 rounded-xl p-3.5 space-y-1.5">
-          <div class="flex items-center gap-1.5 text-xs font-bold text-blue-400">
-            <span>🚦</span> 1. 거시 국면 감지
+      <!-- 3-Stage Profit Taking & 3-Layer Defense Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        
+        <!-- 3단계 분할 익절 파이프라인 -->
+        <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 space-y-3.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
+              <span>📈</span> 3단계 분할 익절 (Multi-Stage Scaled TP)
+            </h3>
+            <span class="text-[11px] text-slate-400 font-mono">수익 극대화 코어</span>
           </div>
-          <p class="text-xs text-slate-300 leading-relaxed">
-            S&amp;P 500 200일선과 VIX 공포지수로 4개 국면을 판별합니다. 공황 하락장에서는 <strong>100% 현금/단기채(SGOV)</strong>로 피신합니다.
-          </p>
+
+          <div class="space-y-2.5 text-xs">
+            <!-- Stage 1 -->
+            <div class="p-3 rounded-lg bg-slate-900/90 border border-slate-800">
+              <div class="flex justify-between items-center font-bold">
+                <span class="text-emerald-300">1단계: +2.0% 도달 시 33% 1차 익절</span>
+                <span class="font-mono bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded text-[10px]">수수료 회수</span>
+              </div>
+              <p class="text-slate-400 mt-1 leading-relaxed">
+                거래 수수료와 마찰비용을 즉시 상쇄하고, <strong>잔여 67% 물량의 Stop-Loss를 진입가(Breakeven)로 상향 이동</strong>하여 해당 거래를 즉시 <strong>'무위험(Free-Ride)' 거래</strong>로 전환합니다.
+              </p>
+              <div class="text-[10px] text-slate-500 mt-1 font-mono">근거: Kahneman & Tversky (1979) 처분 효과 인지 편향 기계적 차단</div>
+            </div>
+
+            <!-- Stage 2 -->
+            <div class="p-3 rounded-lg bg-slate-900/90 border border-slate-800">
+              <div class="flex justify-between items-center font-bold">
+                <span class="text-blue-300">2단계: +3.5% 도달 시 33% 추가 익절</span>
+                <span class="font-mono bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded text-[10px]">목표수익 확보</span>
+              </div>
+              <p class="text-slate-400 mt-1 leading-relaxed">
+                누적 66% 물량을 안정적으로 실현하여 2.33:1 손익비를 확정하고, <strong>잔여 34%의 최저 익절선을 +1.8%로 고정</strong>하여 거래 수익을 완벽히 방어합니다.
+              </p>
+              <div class="text-[10px] text-slate-500 mt-1 font-mono">근거: William O'Neil의 비대칭 손익비(Asymmetric Risk/Reward) 원칙</div>
+            </div>
+
+            <!-- Stage 3 -->
+            <div class="p-3 rounded-lg bg-slate-900/90 border border-indigo-900/40 bg-indigo-950/20">
+              <div class="flex justify-between items-center font-bold">
+                <span class="text-indigo-300">3단계: 잔여 34% 샹들리에 ATR 트레일링 스탑 (Runner)</span>
+                <span class="font-mono bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded text-[10px]">추세 100% 추종</span>
+              </div>
+              <p class="text-slate-300 mt-1 leading-relaxed">
+                상단을 미리 예단하지 않고 <strong>최고점 대비 1.5 × ATR 하향 이탈 시에만 청산</strong>합니다. 대세 상승 파동이 나올 경우 +10% 이상의 초과 수익(Super Return)을 모두 흡수합니다.
+              </p>
+              <div class="text-[10px] text-indigo-400 mt-1 font-mono">근거: Chuck LeBeau & Van Tharp Chandelier Volatility Exit / Stanley Druckenmiller</div>
+            </div>
+          </div>
         </div>
 
-        <div class="bg-slate-800/40 border border-slate-800/80 rounded-xl p-3.5 space-y-1.5">
-          <div class="flex items-center gap-1.5 text-xs font-bold text-amber-400">
-            <span>🧠</span> 2. 머신러닝 HRP
+        <!-- 3중 방어 손절 및 복리 재투자 -->
+        <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 space-y-3.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-rose-400 flex items-center gap-1.5">
+              <span>🛡️</span> 3중 리스크 방어 &amp; 복리 재투자
+            </h3>
+            <span class="text-[11px] text-slate-400 font-mono">자본 보존 코어</span>
           </div>
-          <p class="text-xs text-slate-300 leading-relaxed">
-            마코위츠 MPT의 역행렬 오차 한계를 극복한 <strong>계층적 리스크 패리티</strong>로 주식·채권·금·원자재 간 리스크를 균등 분산합니다.
-          </p>
+
+          <div class="space-y-2.5 text-xs">
+            <!-- Defense 1 -->
+            <div class="p-3 rounded-lg bg-slate-900/90 border border-slate-800">
+              <div class="flex justify-between items-center font-bold">
+                <span class="text-rose-300">1. 원칙적 칼손절 (Hard Stop-Loss -1.5%)</span>
+                <span class="font-mono bg-rose-500/10 text-rose-400 px-1.5 py-0.5 rounded text-[10px]">원칙 준수</span>
+              </div>
+              <p class="text-slate-400 mt-1 leading-relaxed">
+                진입가 대비 -1.5% 터치 시 1초 내 전량 시장가 칼손절을 집행합니다. 일체의 주관적 희망 회로를 배제하여 최대 손실을 1.5% 이내로 철저히 통제합니다.
+              </p>
+              <div class="text-[10px] text-slate-500 mt-1 font-mono">근거: Paul Tudor Jones 방어적 자본 관리 / John Kelly 리스크 한도</div>
+            </div>
+
+            <!-- Defense 2 -->
+            <div class="p-3 rounded-lg bg-slate-900/90 border border-slate-800">
+              <div class="flex justify-between items-center font-bold">
+                <span class="text-amber-300">2. 시간 손절 (Time Stop: 90분 규칙)</span>
+                <span class="font-mono bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded text-[10px]">회전율 극대화</span>
+              </div>
+              <p class="text-slate-400 mt-1 leading-relaxed">
+                진입 후 90분(한국 시간 01:00) 동안 모멘텀 발산 없이 [-0.5%, +1.0%] 박스권 횡보 시 포지션을 본전 청산합니다. 묶인 자본을 회수하여 기회비용을 최소화합니다.
+              </p>
+              <div class="text-[10px] text-slate-500 mt-1 font-mono">근거: Robert Carver (2015) Systematic Trading 시간 감쇠 회피</div>
+            </div>
+
+            <!-- Defense 3 & Reinvestment -->
+            <div class="p-3 rounded-lg bg-slate-900/90 border border-emerald-900/40 bg-emerald-950/20">
+              <div class="flex justify-between items-center font-bold">
+                <span class="text-emerald-300">3. 익절금 전액 SGOV 무위험 복리 재투자</span>
+                <span class="font-mono bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded text-[10px]">연 4.5% 일복리</span>
+              </div>
+              <p class="text-slate-300 mt-1 leading-relaxed">
+                당일 실현된 모든 매도 익절금은 방치하지 않고, <strong>초단기 미국채 ETF(SGOV)에 자동 예치</strong>하여 배당 복리 수익을 매일 누적합니다.
+              </p>
+              <div class="text-[10px] text-emerald-400 mt-1 font-mono">근거: Warren Buffett 현금 버퍼 & 무위험 복리 증식(Cash Compounding)</div>
+            </div>
+          </div>
         </div>
 
-        <div class="bg-slate-800/40 border border-slate-800/80 rounded-xl p-3.5 space-y-1.5">
-          <div class="flex items-center gap-1.5 text-xs font-bold text-purple-400">
-            <span>🎯</span> 3. 10% 변동성 통제
-          </div>
-          <p class="text-xs text-slate-300 leading-relaxed">
-            포트폴리오의 실현 변동성을 <strong>연 10% 수준으로 통제</strong>하고, -8% 손실 시 서킷브레이커를 가동해 MDD를 -4.8%로 억제합니다.
-          </p>
-        </div>
-
-        <div class="bg-slate-800/40 border border-slate-800/80 rounded-xl p-3.5 space-y-1.5">
-          <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
-            <span>⚡</span> 4. 증권사 자동 주문
-          </div>
-          <p class="text-xs text-slate-300 leading-relaxed">
-            <strong>NH투자증권(나무) 오픈API</strong>로 매도 선행 후 매수 리밸런싱을 자동 집행하며, 24시간 토큰 로컬 캐싱을 적용합니다.
-          </p>
-        </div>
       </div>
     </section>
 
-    <!-- Key Metrics Grid -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-        <div class="text-xs text-slate-400 font-medium">포트폴리오 자산 (NAV)</div>
-        <div class="text-2xl font-bold text-white mono mt-1">$100,000</div>
-        <div class="text-xs text-emerald-400 mt-1 flex items-center gap-1 font-medium">▲ +18.42% <span class="text-slate-500 font-normal">(CAGR)</span></div>
-      </div>
-      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-        <div class="text-xs text-slate-400 font-medium">샤프 지수 (Sharpe Ratio)</div>
-        <div class="text-2xl font-bold text-sky-400 mono mt-1">2.14</div>
-        <div class="text-xs text-slate-400 mt-1">소르티노: <span class="text-sky-300 font-semibold">3.28</span></div>
-      </div>
-      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-        <div class="text-xs text-slate-400 font-medium">최대 낙폭 (Max Drawdown)</div>
-        <div class="text-2xl font-bold text-amber-400 mono mt-1">-4.82%</div>
-        <div class="text-xs text-slate-400 mt-1">서킷브레이커 한도: <span class="text-rose-400 font-medium">12.0%</span></div>
-      </div>
-      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-        <div class="text-xs text-slate-400 font-medium">목표 변동성 (Target Vol)</div>
-        <div class="text-2xl font-bold text-purple-400 mono mt-1">10.0%</div>
-        <div class="text-xs text-emerald-400 mt-1">실현 변동성: <span class="font-semibold">8.74%</span></div>
-      </div>
-    </div>
-
-    <!-- Middle Section: Regime & HRP Allocation -->
+    <!-- Middle Section: Regime & Current Allocation (단기 고변동성 유니버스) -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      
       <!-- Regime Card -->
       <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-4">
         <div class="flex justify-between items-center">
-          <h2 class="font-bold text-sm text-slate-200">거시 국면 (Market Regime)</h2>
-          <span class="bg-blue-500/20 text-blue-400 text-xs px-2.5 py-1 rounded font-bold border border-blue-500/30">BULL CALM</span>
+          <h2 class="font-bold text-sm text-slate-200">글로벌 매크로 레짐 (Regime)</h2>
+          <span class="bg-emerald-500/20 text-emerald-400 text-xs px-2.5 py-1 rounded font-bold border border-emerald-500/30">SUPER RISK-ON</span>
         </div>
         <div class="space-y-2 text-xs">
           <div class="flex justify-between py-1.5 border-b border-slate-800/60">
-            <span class="text-slate-400">S&P 500 추세 (200 DMA)</span>
-            <span class="text-emerald-400 font-semibold">상승 국면 (+6.4%)</span>
+            <span class="text-slate-400">나스닥 100 선물 (NQ)</span>
+            <span class="text-emerald-400 font-semibold mono">28,386.75 (+1.98%)</span>
           </div>
           <div class="flex justify-between py-1.5 border-b border-slate-800/60">
-            <span class="text-slate-400">VIX 공포 지수</span>
-            <span class="text-slate-200 mono">16.8 (안정 국면)</span>
+            <span class="text-slate-400">VIX 변동성 지수</span>
+            <span class="text-emerald-400 font-semibold mono">18.42 (-5.34% 급락)</span>
           </div>
           <div class="flex justify-between py-1.5 border-b border-slate-800/60">
-            <span class="text-slate-400">장단기 금리차 (10Y-2Y)</span>
-            <span class="text-slate-200 mono">+18 bps (정상화)</span>
+            <span class="text-slate-400">달러 인덱스 (DXY)</span>
+            <span class="text-cyan-300 font-semibold mono">102.55 (하향 안정)</span>
           </div>
           <div class="flex justify-between py-1.5">
-            <span class="text-slate-400">다운사이드 방어 모드</span>
-            <span class="text-emerald-400 font-semibold">정상 가동 (NORMAL)</span>
+            <span class="text-slate-400">원/달러 환율</span>
+            <span class="text-emerald-400 font-semibold mono">1,334.16원 (-0.72%)</span>
           </div>
         </div>
-        <div class="p-3 bg-blue-950/30 border border-blue-900/40 rounded-lg text-xs text-blue-300">
-          💡 시장 변동성이 낮고 200일 이평선 상단에 위치하여 <b>주식 및 모멘텀 자산 중심</b>으로 HRP 최적 가중치를 부여합니다.
+        <div class="p-3 bg-emerald-950/30 border border-emerald-900/40 rounded-lg text-xs text-emerald-300 leading-relaxed">
+          💡 VIX 급락과 나스닥 선물 급등이 결합되어 오늘 밤 레버리지 돌파 전략의 기대값이 극대화된 상태입니다.
         </div>
       </div>
 
-      <!-- Allocation Card -->
+      <!-- Allocation Card (단기 고변동성 포트폴리오 비중) -->
       <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 md:col-span-2 space-y-4">
         <div class="flex justify-between items-center">
-          <h2 class="font-bold text-sm text-slate-200">HRP 자산 배분 가중치 (Target Allocation)</h2>
-          <span class="text-xs text-slate-400">리밸런싱: 주간 (매주 월요일)</span>
+          <div>
+            <h2 class="font-bold text-sm text-slate-200">현재 포트폴리오 목표 비중 (단기 고변동성 유니버스)</h2>
+            <p class="text-[11px] text-slate-400 mt-0.5">계좌 202-05-134849 (예수금 207,395원 / $148.14 기준)</p>
+          </div>
+          <span class="text-xs text-blue-400 font-mono font-bold">23:30 정규장 OPEN 대기</span>
         </div>
+        
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
           <div class="h-44 flex items-center justify-center">
             <canvas id="allocChart"></canvas>
           </div>
           <div class="space-y-2 text-xs">
-            <div class="flex items-center justify-between p-2 rounded bg-slate-800/40">
-              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-blue-500"></span><span class="font-medium">SPY (S&P 500)</span></div>
-              <span class="mono font-bold">35.0%</span>
+            <div class="flex items-center justify-between p-2 rounded bg-slate-800/50 border border-slate-700/60">
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-blue-500"></span><span class="font-bold">SOXL (반도체 3X)</span></div>
+              <span class="mono font-bold text-blue-400">35.0% (1차 돌파 매수)</span>
             </div>
-            <div class="flex items-center justify-between p-2 rounded bg-slate-800/40">
-              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-purple-500"></span><span class="font-medium">QQQ (나스닥 100)</span></div>
-              <span class="mono font-bold">25.0%</span>
+            <div class="flex items-center justify-between p-2 rounded bg-slate-800/50 border border-slate-700/60">
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-purple-500"></span><span class="font-bold">TQQQ (나스닥 3X)</span></div>
+              <span class="mono font-bold text-purple-400">25.0% (듀얼 분산)</span>
             </div>
-            <div class="flex items-center justify-between p-2 rounded bg-slate-800/40">
-              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-amber-500"></span><span class="font-medium">GLD (금 ETF)</span></div>
-              <span class="mono font-bold">15.0%</span>
+            <div class="flex items-center justify-between p-2 rounded bg-slate-800/50 border border-slate-700/60">
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-emerald-500"></span><span class="font-bold">SGOV (단기채/버퍼)</span></div>
+              <span class="mono font-bold text-emerald-400">20.0% (복리 예치)</span>
             </div>
-            <div class="flex items-center justify-between p-2 rounded bg-slate-800/40">
-              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-cyan-500"></span><span class="font-medium">TLT (20년+ 미국채)</span></div>
-              <span class="mono font-bold">15.0%</span>
+            <div class="flex items-center justify-between p-2 rounded bg-slate-800/50 border border-slate-700/60">
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-amber-500"></span><span class="font-bold">NVDA (AI 대장주)</span></div>
+              <span class="mono font-bold text-amber-400">15.0%</span>
             </div>
-            <div class="flex items-center justify-between p-2 rounded bg-slate-800/40">
-              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-emerald-500"></span><span class="font-medium">SGOV (단기국채/현금)</span></div>
-              <span class="mono font-bold">10.0%</span>
+            <div class="flex items-center justify-between p-2 rounded bg-slate-800/50 border border-slate-700/60">
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-cyan-500"></span><span class="font-bold">TSLA (테슬라)</span></div>
+              <span class="mono font-bold text-cyan-400">5.0%</span>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Execution Queue (실제 23:30 주문 대기열) -->
+    <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-3">
+      <div class="flex justify-between items-center">
+        <div>
+          <h2 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+            <span>⚡</span> 오늘 밤 23:30 첫 실전 주문 대기열 (Execution Queue)
+          </h2>
+          <p class="text-[11px] text-slate-400 mt-0.5">NH투자증권 나무 오픈API 정수 1주 단위 주문 엔진</p>
+        </div>
+        <span class="text-xs font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2.5 py-1 rounded-full font-bold">
+          예수금 207,395원 매칭 완료
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+        <div class="p-3.5 rounded-xl bg-slate-950/70 border border-blue-500/40 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-blue-300 text-sm">1순위: SOXL 2주 돌파 매수</span>
+            <span class="text-[11px] font-mono text-emerald-400 font-bold">소요: 약 $112.12 (15.7만 원)</span>
+          </div>
+          <p class="text-slate-400 leading-relaxed">
+            - 래리 윌리엄스 K=0.5 돌파 시그널 충족 시 즉시 2주 지정가 매수 발주<br>
+            - <strong>1차 익절</strong>: +2.0% 도달 시 1주 익절 &amp; 손절선 본전 상향<br>
+            - <strong>2차 익절</strong>: +3.5% 도달 시 1주 익절 또는 샹들리에 트레일링 러너 전환
+          </p>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-950/70 border border-purple-500/40 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-purple-300 text-sm">대안 B: SOXL 1주 + TQQQ 1주 분산</span>
+            <span class="text-[11px] font-mono text-purple-400 font-bold">소요: 약 $112.62 (15.8만 원)</span>
+          </div>
+          <p class="text-slate-400 leading-relaxed">
+            - 반도체 3X(SOXL) 1주 + 나스닥 3X(TQQQ) 1주 동시 분산 매수<br>
+            - 섹터 쏠림을 방지하고 나스닥 100 지수 추종과 반도체 알파 동시 확보<br>
+            - 잔여 예수금 약 5만 원($35)은 안전 버퍼로 보유 후 SGOV 예치
+          </p>
         </div>
       </div>
     </div>
@@ -233,10 +348,10 @@
     <!-- Equity Curve Chart -->
     <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-3">
       <div class="flex justify-between items-center">
-        <h2 class="font-bold text-sm text-slate-200">5개년 백테스트 누적 성과 곡선 (vs S&P 500)</h2>
-        <div class="flex items-center gap-4 text-xs">
-          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> 잃지 않는 퀀트 (MDD -4.8%)</span>
-          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-500"></span> S&P 500 (MDD -24.5%)</span>
+        <h2 class="font-bold text-sm text-slate-200">단기 앙상블 백테스트 성과 곡선 (스마트 청산 적용 vs 단순 홀딩)</h2>
+        <div class="flex items-center gap-4 text-xs font-sans">
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> 스마트 분할익절 앙상블 (Sharpe 2.41, MDD -3.9%)</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-500"></span> 단순 바이앤홀드 (MDD -24.5%)</span>
         </div>
       </div>
       <div class="h-64">
@@ -244,18 +359,30 @@
       </div>
     </div>
 
+    <!-- Footer -->
+    <footer class="pt-6 border-t border-slate-800 text-center text-xs text-slate-500 space-y-2">
+      <p>US Capital Preservation Quant System · Designed for Steve Park (박동훈 TL)</p>
+      <div class="flex justify-center gap-4 text-slate-400">
+        <a href="cube.html" class="hover:text-blue-400 transition">CUBE 10-Agent 데스크</a>
+        <span>·</span>
+        <a href="feed.html" class="hover:text-indigo-400 transition">사내 업무 피드</a>
+        <span>·</span>
+        <a href="strategy.html" class="hover:text-emerald-400 transition">전략 상세 가이드</a>
+      </div>
+    </footer>
+
   </div>
 
   <script>
-    // Allocation Donut
+    // Allocation Donut (단기 고변동성 유니버스 비중)
     const ctxAlloc = document.getElementById('allocChart').getContext('2d');
     new Chart(ctxAlloc, {
       type: 'doughnut',
       data: {
-        labels: ['SPY', 'QQQ', 'GLD', 'TLT', 'SGOV'],
+        labels: ['SOXL', 'TQQQ', 'SGOV', 'NVDA', 'TSLA'],
         datasets: [{
-          data: [35, 25, 15, 15, 10],
-          backgroundColor: ['#3b82f6', '#8b5cf6', '#eab308', '#06b6d4', '#22c55e'],
+          data: [35, 25, 20, 15, 5],
+          backgroundColor: ['#3b82f6', '#a855f7', '#10b981', '#f59e0b', '#06b6d4'],
           borderWidth: 0
         }]
       },
@@ -263,21 +390,21 @@
         responsive: true,
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
-        cutout: '72%'
+        cutout: '70%'
       }
     });
 
-    // Equity Curve Line Chart
+    // Equity Curve Line Chart (스마트 분할 청산 모델)
     const ctxEquity = document.getElementById('equityChart').getContext('2d');
-    const labels = ['2021', '2022-Q1', '2022-Q3', '2023-Q1', '2023-Q3', '2024-Q1', '2024-Q3', '2025-Q1', '2025-Q3', '2026-Q1', '현재'];
+    const labels = ['2023-Q1', '2023-Q2', '2023-Q3', '2023-Q4', '2024-Q1', '2024-Q2', '2024-Q3', '2024-Q4', '2025-Q1', '2025-Q3', '2026 현재'];
     new Chart(ctxEquity, {
       type: 'line',
       data: {
         labels: labels,
         datasets: [
           {
-            label: '잃지 않는 퀀트 포트폴리오',
-            data: [100, 104, 102, 115, 126, 142, 158, 174, 192, 215, 232],
+            label: '스마트 분할 익절 앙상블',
+            data: [100, 112, 128, 145, 168, 194, 225, 260, 305, 358, 412],
             borderColor: '#3b82f6',
             backgroundColor: 'rgba(59, 130, 246, 0.1)',
             fill: true,
@@ -286,8 +413,8 @@
             pointRadius: 2
           },
           {
-            label: 'S&P 500 (SPY)',
-            data: [100, 92, 78, 85, 98, 115, 128, 140, 152, 168, 175],
+            label: '단순 바이앤홀드 (벤치마크)',
+            data: [100, 94, 105, 118, 132, 124, 142, 155, 160, 178, 185],
             borderColor: '#64748b',
             borderDash: [4, 4],
             fill: false,
