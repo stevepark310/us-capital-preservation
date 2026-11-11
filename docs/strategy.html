@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>전략 상세 가이드 & 시스템 아키텍처 | US Capital Preservation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Pretendard:wght@400;500;600;700;800&display=swap');
+    body { font-family: 'Pretendard', sans-serif; background-color: #0b0f19; color: #f1f5f9; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .glass-card { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.6); }
+    .code-block { background: #070a13; border: 1px solid #1e293b; font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+  <div class="max-w-5xl mx-auto space-y-8">
+    
+    <!-- Top Navigation -->
+    <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-6 border-b border-slate-800 gap-4">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 border border-slate-700">
+          ← 대시보드로 돌아가기
+        </a>
+        <span class="text-slate-600">|</span>
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🛡️</span>
+          <span class="text-base font-bold text-white">전략 상세 가이드 (Strategy Spec)</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="bg-blue-500/10 text-blue-400 text-xs px-2.5 py-1 rounded-full font-semibold border border-blue-500/20">v2.1 Architecture</span>
+        <a href="https://github.com/stevepark310/us-capital-preservation" target="_blank" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 border border-slate-700">
+          GitHub Repo ↗
+        </a>
+      </div>
+    </header>
+
+    <!-- Hero / Investment Philosophy -->
+    <section class="glass-card rounded-2xl p-6 md:p-8 space-y-4 border-l-4 border-l-blue-500">
+      <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-400 text-xs font-semibold">
+        <span>INVESTMENT PHILOSOPHY</span>
+      </div>
+      <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight leading-snug">
+        "첫째, 돈을 잃지 마라. 둘째, 첫 번째 원칙을 절대 잊지 마라."
+      </h1>
+      <p class="text-slate-300 leading-relaxed text-sm md:text-base">
+        <strong>US Capital Preservation</strong>은 단순한 고수익 추구가 아닌 <span class="text-sky-400 font-semibold">철저한 자본 보존(Capital Preservation)과 MDD(최대 낙폭) 극소화</span>를 목표로 설계된 미국 주식 멀티에셋 퀀트 트레이딩 시스템입니다.
+        투자에서 50%의 원금 손실이 발생하면 원금 회복에만 100%의 수익률이 필요합니다. 대형 하락장(Drawdown)을 선제적으로 차단하고 변동성을 통제하는 것이 장기 복리 승률을 결정짓는 핵심입니다.
+      </p>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+        <div class="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800">
+          <div class="text-xs text-slate-400">목표 최대 낙폭 (Target MDD)</div>
+          <div class="text-xl font-bold text-amber-400 mono mt-1">&lt; 5.0%</div>
+          <div class="text-xs text-slate-500 mt-0.5">S&amp;P 500(-24%)의 1/5 수준</div>
+        </div>
+        <div class="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800">
+          <div class="text-xs text-slate-400">목표 연복리 수익률 (CAGR)</div>
+          <div class="text-xl font-bold text-emerald-400 mono mt-1">15.0% ~ 20.0%</div>
+          <div class="text-xs text-slate-500 mt-0.5">손실 최소화를 통한 안정적 복리</div>
+        </div>
+        <div class="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800">
+          <div class="text-xs text-slate-400">연간 목표 변동성 (Vol Target)</div>
+          <div class="text-xl font-bold text-purple-400 mono mt-1">10.0%</div>
+          <div class="text-xs text-slate-500 mt-0.5">시장 위험도에 따른 동적 현금 비중</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4-Layer Architecture Diagram -->
+    <section class="glass-card rounded-2xl p-6 md:p-8 space-y-6">
+      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+        <div>
+          <h2 class="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+            <span>🏗️</span> 4계층 파이프라인 아키텍처 (Layered Architecture)
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">데이터 수집부터 시장 국면 감지, 최적화 배분, 증권사 API 실행까지 4단계로 유기적 구동</p>
+        </div>
+        <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded font-mono">End-to-End Pipeline</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- Layer 1 -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex flex-col justify-between space-y-3">
+          <div>
+            <div class="text-xs font-bold text-blue-400 mono">LAYER 01</div>
+            <div class="text-sm font-bold text-white mt-1">Market Ingestion</div>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+              yfinance 기반 11개 자산 5개년 일봉 수집, 수익률 및 63일 롤링 공분산 행렬 산출
+            </p>
+          </div>
+          <div class="pt-2 border-t border-slate-800/80 text-[11px] text-slate-500 mono">
+            data/fetcher.py
+          </div>
+        </div>
+
+        <!-- Layer 2 -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex flex-col justify-between space-y-3">
+          <div>
+            <div class="text-xs font-bold text-purple-400 mono">LAYER 02</div>
+            <div class="text-sm font-bold text-white mt-1">Macro Regime</div>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+              S&amp;P 500 200일선과 VIX 지표로 4개 시장 국면 판별. 공황 시 전량 현금 피신
+            </p>
+          </div>
+          <div class="pt-2 border-t border-slate-800/80 text-[11px] text-slate-500 mono">
+            core/regime.py
+          </div>
+        </div>
+
+        <!-- Layer 3 -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex flex-col justify-between space-y-3">
+          <div>
+            <div class="text-xs font-bold text-amber-400 mono">LAYER 03</div>
+            <div class="text-sm font-bold text-white mt-1">HRP Optimization</div>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+              머신러닝 계층적 군집화(HRP)로 역행렬 오류 없이 안정적인 리스크 균등 가중치 계산
+            </p>
+          </div>
+          <div class="pt-2 border-t border-slate-800/80 text-[11px] text-slate-500 mono">
+            core/hrp.py
+          </div>
+        </div>
+
+        <!-- Layer 4 -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex flex-col justify-between space-y-3">
+          <div>
+            <div class="text-xs font-bold text-emerald-400 mono">LAYER 04</div>
+            <div class="text-sm font-bold text-white mt-1">Execution Broker</div>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+              10% 변동성 타겟팅 조정 후 NH투자증권(나무) 오픈API로 매도 선행 리밸런싱 자동 주문
+            </p>
+          </div>
+          <div class="pt-2 border-t border-slate-800/80 text-[11px] text-slate-500 mono">
+            execution/nh_trader.py
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Deep Dive 1: Regime Switching Matrix -->
+    <section class="glass-card rounded-2xl p-6 md:p-8 space-y-5">
+      <div>
+        <h2 class="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+          <span>🚦</span> 1. 거시 시장 국면 전환 (Regime Switching Matrix)
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">추세(200일 이동평균선)와 변동성(VIX 지수)의 2×2 매트릭스로 시장 위험도를 실시간 통제</p>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-slate-800 text-slate-400 bg-slate-900/60">
+              <th class="p-3 font-semibold">시장 국면 (Regime)</th>
+              <th class="p-3 font-semibold">조건식 (Trigger)</th>
+              <th class="p-3 font-semibold">포트폴리오 자산 전략</th>
+              <th class="p-3 font-semibold">위험도 수준</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/60">
+            <tr class="hover:bg-slate-800/30">
+              <td class="p-3 font-bold text-blue-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-blue-400"></span> BULL CALM (상승 안정)
+              </td>
+              <td class="p-3 mono text-slate-300">SPY &gt; 200 DMA &amp;&amp; VIX &lt; 20.0</td>
+              <td class="p-3 text-slate-300">주식(SPY, QQQ) 및 위험자산 적극 배분, HRP 최적 가중치 100% 부여</td>
+              <td class="p-3"><span class="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded text-[11px] font-semibold border border-emerald-500/20">LOW</span></td>
+            </tr>
+            <tr class="hover:bg-slate-800/30">
+              <td class="p-3 font-bold text-purple-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-purple-400"></span> BULL VOLATILE (상승 불안)
+              </td>
+              <td class="p-3 mono text-slate-300">SPY &gt; 200 DMA &amp;&amp; VIX &ge; 20.0</td>
+              <td class="p-3 text-slate-300">주식 비중 감축, 금(GLD) 및 중기채(IEF) 비중 확대, 헤지 강화</td>
+              <td class="p-3"><span class="bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded text-[11px] font-semibold border border-amber-500/20">MEDIUM</span></td>
+            </tr>
+            <tr class="hover:bg-slate-800/30">
+              <td class="p-3 font-bold text-amber-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-400"></span> BEAR CALM (하락 안정)
+              </td>
+              <td class="p-3 mono text-slate-300">SPY &le; 200 DMA &amp;&amp; VIX &lt; 20.0</td>
+              <td class="p-3 text-slate-300">주식 비중 최소화, 장기채(TLT) 및 현금성 자산(SGOV) 위주 방어</td>
+              <td class="p-3"><span class="bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded text-[11px] font-semibold border border-orange-500/20">ELEVATED</span></td>
+            </tr>
+            <tr class="hover:bg-slate-800/30 bg-rose-950/20">
+              <td class="p-3 font-bold text-rose-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> BEAR VOLATILE (위기/공황)
+              </td>
+              <td class="p-3 mono text-rose-300">SPY &le; 200 DMA &amp;&amp; VIX &ge; 20.0</td>
+              <td class="p-3 font-semibold text-rose-300">
+                🚨 <strong>위기 대응 프로토콜 발동</strong>: 위험자산 전량 청산, <span class="underline">100% SGOV / 현금 파킹</span>
+              </td>
+              <td class="p-3"><span class="bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded text-[11px] font-bold border border-rose-500/30">CRITICAL</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="p-3.5 bg-slate-900/90 border border-slate-800 rounded-xl text-xs text-slate-400 leading-relaxed">
+        <strong class="text-slate-200">핵심 포인트:</strong> 2008년 금융위기나 2022년 금리인상기와 같은 역사적 약세장은 모두 <code class="text-rose-400 font-mono">BEAR_VOLATILE</code> 조건을 충족합니다. 이 국면에서는 자산 배분의 기교를 부리지 않고 100% 현금/단기국채로 대피하여 자본을 완전히 보존합니다.
+      </div>
+    </section>
+
+    <!-- Deep Dive 2: HRP Algorithm -->
+    <section class="glass-card rounded-2xl p-6 md:p-8 space-y-5">
+      <div>
+        <h2 class="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+          <span>🧠</span> 2. 계층적 리스크 패리티 (HRP, Hierarchical Risk Parity)
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">Marcos López de Prado (2016)가 제안한 머신러닝 기반 차세대 포트폴리오 최적화 알고리즘</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs leading-relaxed">
+        <div class="space-y-3 bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+          <h3 class="font-bold text-rose-400 text-sm">기존 MPT(마코위츠 평균-분산 최적화)의 한계</h3>
+          <p class="text-slate-300">
+            마코위츠 MPT는 공분산 행렬의 역행렬(<span class="mono text-rose-300">&Sigma;<sup>-1</sup></span>)을 계산해야 합니다.
+          </p>
+          <ul class="list-disc list-inside space-y-1.5 text-slate-400">
+            <li>두 자산의 상관계수가 높으면 행렬식(Determinant)이 0에 가까워져 역행렬이 극도로 불안정해집니다.</li>
+            <li>과거 데이터의 사소한 오차나 노이즈가 역행렬을 통과하면서 기하급수적으로 증폭됩니다.</li>
+            <li>결과적으로 특정 자산에 몰빵(Concentration)되거나 극단적인 가중치가 산출되어 실전에서 실패합니다.</li>
+          </ul>
+        </div>
+
+        <div class="space-y-3 bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+          <h3 class="font-bold text-emerald-400 text-sm">HRP(계층적 리스크 패리티)의 혁신적 해결책</h3>
+          <p class="text-slate-300">
+            HRP는 <span class="text-emerald-300 font-semibold">역행렬을 전혀 계산하지 않고</span> 그래프 이론과 머신러닝 군집화(Clustering)를 사용합니다.
+          </p>
+          <ul class="list-disc list-inside space-y-1.5 text-slate-400">
+            <li><strong>거리 메트릭:</strong> 상관계수 &rho;로부터 정보 거리 <span class="mono text-emerald-300">d<sub>i,j</sub> = &radic;((1 - &rho;<sub>i,j</sub>) / 2)</span>를 정의합니다.</li>
+            <li><strong>트리 군집화:</strong> 유사한 움직임을 보이는 자산들을 덴드로그램(Dendrogram) 트리로 묶습니다.</li>
+            <li><strong>재귀적 이분법:</strong> 상위 클러스터에서 하위 자산으로 리스크 역수 비율에 따라 가중치를 하향 배분합니다.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="code-block rounded-xl p-4 text-xs space-y-2 overflow-x-auto text-slate-300">
+        <div class="text-slate-500 font-mono text-[11px]">// HRP 재귀적 이분법(Recursive Bisection) 가중치 분할 수식</div>
+        <div class="text-sky-400 mono">V_left = cluster_left.T @ Cov @ cluster_left</div>
+        <div class="text-sky-400 mono">V_right = cluster_right.T @ Cov @ cluster_right</div>
+        <div class="text-emerald-400 mono">alpha = 1.0 - (V_left / (V_left + V_right))  # 변동성이 작은 쪽에 더 높은 가중치 부여</div>
+        <div class="text-slate-400 mono">weights[left] *= alpha; weights[right] *= (1.0 - alpha)</div>
+      </div>
+    </section>
+
+    <!-- Deep Dive 3: Universe & Risk Controls -->
+    <section class="glass-card rounded-2xl p-6 md:p-8 space-y-5">
+      <div>
+        <h2 class="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+          <span>🌐</span> 3. 투자 자산 유니버스 &amp; 리스크 통제 파라미터
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">글로벌 시장의 자산군(주식·국채·금·원자재)을 총망라한 고유동성 ETF 유니버스</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div class="font-bold text-blue-400 text-sm flex items-center gap-1.5">
+            <span>📈</span> 주식 자산 (Equities)
+          </div>
+          <div class="space-y-1.5 text-slate-300">
+            <div class="flex justify-between py-1 border-b border-slate-800/60"><span class="font-semibold mono">SPY</span><span class="text-slate-400">S&amp;P 500 대형주 코어</span></div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60"><span class="font-semibold mono">QQQ</span><span class="text-slate-400">나스닥 100 기술성장주</span></div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60"><span class="font-semibold mono">IWM</span><span class="text-slate-400">러셀 2000 미국 중소형주</span></div>
+            <div class="flex justify-between py-1"><span class="font-semibold mono">VWO</span><span class="text-slate-400">신흥국 시장 주식</span></div>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div class="font-bold text-cyan-400 text-sm flex items-center gap-1.5">
+            <span>🏛️</span> 안전자산 (Safe Havens)
+          </div>
+          <div class="space-y-1.5 text-slate-300">
+            <div class="flex justify-between py-1 border-b border-slate-800/60"><span class="font-semibold mono">TLT</span><span class="text-slate-400">미국 20년+ 초장기 국채</span></div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60"><span class="font-semibold mono">IEF</span><span class="text-slate-400">미국 7-10년 중기 국채</span></div>
+            <div class="flex justify-between py-1"><span class="font-semibold mono">SGOV</span><span class="text-slate-400">0-3개월 초단기 국채 (현금성)</span></div>
+          </div>
+          <p class="text-[11px] text-slate-500 pt-1">※ 위기 시 안전 피난처 및 현금 파킹용으로 가동</p>
+        </div>
+
+        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div class="font-bold text-amber-400 text-sm flex items-center gap-1.5">
+            <span>🪙</span> 대체자산 (Alternatives)
+          </div>
+          <div class="space-y-1.5 text-slate-300">
+            <div class="flex justify-between py-1 border-b border-slate-800/60"><span class="font-semibold mono">GLD</span><span class="text-slate-400">금 (인플레이션 / 지정학 헤지)</span></div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60"><span class="font-semibold mono">DBC</span><span class="text-slate-400">원자재 종합 지수</span></div>
+            <div class="flex justify-between py-1"><span class="font-semibold mono">VNQ</span><span class="text-slate-400">미국 부동산 리츠 (Real Estate)</span></div>
+          </div>
+          <p class="text-[11px] text-slate-500 pt-1">※ 스태그플레이션 및 원화/달러 약세 방어</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Deep Dive 4: Execution & NH Broker -->
+    <section class="glass-card rounded-2xl p-6 md:p-8 space-y-5">
+      <div>
+        <h2 class="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+          <span>⚡</span> 4. 증권사 오픈API 실전 주문 집행 (NH Broker Pipeline)
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">NH투자증권(나무증권 / NHPLUG) OpenAPI 연동을 통한 주문 최적화</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-2">
+          <h3 class="font-bold text-white text-sm flex items-center gap-1.5">
+            <span class="text-blue-400">🔑</span> 24시간 토큰 로컬 캐싱
+          </h3>
+          <p class="text-slate-400 leading-relaxed">
+            운영 도메인(<code class="text-slate-300 mono">api.nhplug.com:8443</code>)에서 발급받은 OAuth 2.0 접근 토큰(24시간 유효)을 로컬 파일(<code class="text-slate-300 mono">.nh_token_cache.json</code>)에 캐싱하여 만료 5분 전까지 재사용합니다. 불필요한 토큰 재발급 호출을 원천 차단합니다.
+          </p>
+        </div>
+
+        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-2">
+          <h3 class="font-bold text-white text-sm flex items-center gap-1.5">
+            <span class="text-emerald-400">🔄</span> 매도 선행 후 매수 (Sell First, Buy After)
+          </h3>
+          <p class="text-slate-400 leading-relaxed">
+            리밸런싱 시 목표 가중치보다 높은 자산의 <strong>매도 주문을 먼저 전송</strong>하여 예수금과 구매력을 확보한 뒤 매수 주문을 순차 실행합니다. 미수금 발생이나 잔고 부족 오류를 방지합니다.
+          </p>
+        </div>
+
+        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-2">
+          <h3 class="font-bold text-white text-sm flex items-center gap-1.5">
+            <span class="text-purple-400">🛡️</span> 모의투자 및 드라이런 안전 장치
+          </h3>
+          <p class="text-slate-400 leading-relaxed">
+            기본 설정 <code class="text-slate-300 mono">dry_run: true</code> 모드에서는 실제 주문 API를 호출하지 않고 가상 주문 체결 및 수수료(9bp) 반영을 시뮬레이션합니다. 검증 완료 후 <code class="text-slate-300 mono">dry_run: false</code>로 실전 전환됩니다.
+          </p>
+        </div>
+
+        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-2">
+          <h3 class="font-bold text-white text-sm flex items-center gap-1.5">
+            <span class="text-amber-400">📊</span> 정수 주식수 &amp; 최소 거래 임계치
+          </h3>
+          <p class="text-slate-400 leading-relaxed">
+            국내 증권사 해외주식 주문 규격에 맞추어 <strong>정수(Integer) 단위</strong>로 주문 수량을 절삭 계산하며, 거래 금액 $50 미만의 미세 거래는 제외하여 불필요한 거래 비용을 절감합니다.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom Action CTA -->
+    <div class="flex flex-col sm:flex-row justify-between items-center p-6 bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-800/40 rounded-2xl gap-4">
+      <div>
+        <h3 class="font-bold text-white text-base">실시간 포트폴리오 상태가 궁금하신가요?</h3>
+        <p class="text-xs text-slate-400 mt-1">대시보드 메인 화면에서 현재 거시 국면과 HRP 목표 자산 배분 비중을 확인하실 수 있습니다.</p>
+      </div>
+      <a href="index.html" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-5 py-2.5 rounded-xl font-bold transition flex items-center gap-2 shadow-lg shadow-blue-500/20 whitespace-nowrap">
+        <span>📊 실시간 대시보드 바로가기</span>
+      </a>
+    </div>
+
+    <!-- Footer -->
+    <footer class="pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-2">
+      <div>© 2026 Steve Park (@stevepark310). US Capital Preservation Quant System.</div>
+      <div class="mono">Engine: HRP + Macro Regime Switching</div>
+    </footer>
+
+  </div>
+</body>
+</html>
