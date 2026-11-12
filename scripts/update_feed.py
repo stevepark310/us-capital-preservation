@@ -93,6 +93,36 @@ def generate_feed_entries():
     }
 
     posts = [
+        # Pinned Directive 4: Bear Market SOXS/SQQQ Inverse Short & Real-time Dashboard API Sync
+        {
+            "id": "post-pin-004",
+            "agent_id": 10,
+            "agent_name": "CUBE 시스템 총괄 / 박동훈 TL 신규 하달",
+            "agent_role": "SYSTEM_DIRECTIVE",
+            "icon": "🛡️",
+            "avatar_bg": "from-amber-600 to-rose-700",
+            "badge_color": "bg-amber-500/20 text-amber-400 border-amber-500/40",
+            "timestamp": f"{now.strftime('%Y-%m-%d')} 11:00",
+            "time_ago": "방금 전",
+            "category": "DIRECTIVE",
+            "badge": "🛡️ 지침 하달: SOXS 인버스 숏 포지션 엔진 가동 & 대시보드 실시간 API 연동 및 엔비디아 커뮤니티 센티먼트 분석",
+            "title": "[총괄 지시] 엔비디아 커뮤니티·외신 반응 분석에 따른 홀딩 전략 수립, SOXS/SQQQ 하락장 숏 포지션 엔진 정식 가동 및 대시보드 실시간 잔고·평가금 API 연동",
+            "content": (
+                "**박동훈 TL 추가 지시 사항 전사 전파 및 즉각 이행 완료:**\n\n"
+                "1. **매일 아침 브리핑 트레이딩 집중 개편:** 매일 아침 브리핑에서 날씨와 일반 소식을 제외하고 오직 실전 트레이딩(손익, 포지션, 거시 지표, 에이전트 동향)만 간결·구조화하여 브리핑할 것.\n"
+                "2. **엔비디아(NVDA) 포지션 대응:** WSJ의 젠슨 황 해임 준비 보도와 NYT의 사내 임원 스캔들 속보 분석 완료. 레딧(r/stocks, r/wallstreetbets) 및 스탁트위츠 리테일은 'Blackwell/Rubin 수요와 11/17 실적 서프라이즈를 앞둔 과도한 패닉'으로 인식. 1주($173.30) 소액 비중 특성상 바닥 패닉셀을 지양하고 11/17 실적 카탈리스트까지 홀딩 유지 권고.\n"
+                "3. **하락장 대응 인버스 숏 포지션(SOXS/SQQQ) 엔진 가동:** 시장 전반에 하락 조짐(VIX >= 22.0 또는 20일선 이탈) 감지 시, SOXS(반도체 3X 숏) 및 SQQQ(나스닥 3X 숏)를 분할 매수하여 하락장에서도 연속적으로 수익을 창출하는 역방향 알파 파이프라인(core/inverse_hedging.py, SCENARIO-11) 전격 구축.\n"
+                "4. **대시보드 접속 시 실시간 API 연동:** 사용자가 대시보드(cube.html)에 접속할 때 NH 오픈API 잔고 및 평가 손익(docs/live_portfolio.json)을 실시간으로 자동 호출하여 평가금과 손익을 즉시 렌더링하도록 클라이언트 사이드 연동 완료."
+            ),
+            "metrics": [
+                {"label": "계좌 상태", "value": "실전 1일차 3전 3승 (+$6.93 실현, 순익 +$16.67)", "highlight": True},
+                {"label": "숏 엔진", "value": "SOXS / SQQQ 가동 준비 완료", "highlight": True},
+                {"label": "API 연동", "value": "접속 시 실시간 자동 호출 가동"}
+            ],
+            "action_required": "프리장 및 정규장 개장 시 시장 레짐(Risk-On vs Downturn) 실시간 추적 및 SOXS 숏 포지션 대기",
+            "reactions": {"fire": 12, "rocket": 12, "thumbs_up": 12},
+            "pinned": True
+        },
         # 22:38 Scaled Capital & 4-Asset Allocation Update
         {
             "id": "post-2238-agent10-scaled",

@@ -10,8 +10,17 @@ Build script to integrate:
 import os
 import json
 import re
+import sys
 
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, base_dir)
+
+try:
+    from scripts.sync_live_portfolio import sync_portfolio
+    sync_portfolio()
+except Exception as e:
+    print(f"Warning: sync_live_portfolio failed: {e}")
+
 feed_json_path = os.path.join(base_dir, "data", "agent_feed.json")
 news_json_path = os.path.join(base_dir, "data", "news_sentiment_report.json")
 
