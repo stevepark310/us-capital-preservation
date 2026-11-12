@@ -32,61 +32,62 @@ def sync_portfolio():
     wins = monthly_sum.get("wins", 3)
     total_trades = monthly_sum.get("total_trades", 3)
 
-    # Official Positions from market close / after-hours
+    # Official Positions from market close / after-hours (11-12 close / 11-13 06:00 KST)
+    fx_rate = 1334.70
     positions = [
         {
             "ticker": "SOXL",
             "name": "Direxion Daily Semiconductor Bull 3X",
             "qty": 2,
             "avg_price": 62.20,
-            "market_price": 66.07,
-            "eval_usd": 132.14,
-            "unrealized_usd": 7.74,
-            "unrealized_krw": 10449,
-            "return_pct": 6.22,
+            "market_price": 65.53,
+            "eval_usd": 131.06,
+            "unrealized_usd": 6.66,
+            "unrealized_krw": int(6.66 * fx_rate),
+            "return_pct": 5.35,
             "status": "2주 샹들리에 러너 (본전 손절 $62.20 무위험 보유)",
             "risk_status": "FREE_RIDE",
-            "bracket": "TP3 ATR 트레일링 / SL $62.20 (0% 손실)"
+            "bracket": "TP3 ATR 트레일링 / SL $62.20 (0% 손실 본전)"
         },
         {
             "ticker": "TQQQ",
             "name": "ProShares UltraPro QQQ 3X",
             "qty": 2,
             "avg_price": 59.75,
-            "market_price": 60.48,
-            "eval_usd": 120.96,
-            "unrealized_usd": 1.46,
-            "unrealized_krw": 1971,
-            "return_pct": 1.22,
+            "market_price": 59.88,
+            "eval_usd": 119.76,
+            "unrealized_usd": 0.26,
+            "unrealized_krw": int(0.26 * fx_rate),
+            "return_pct": 0.22,
             "status": "2주 보유 (본전 손절 $59.75 무위험 보유)",
             "risk_status": "FREE_RIDE",
-            "bracket": "TP2 $61.84 대기 / SL $59.75 (0% 손실)"
+            "bracket": "TP2 $61.84 대기 / SL $59.75 (0% 손실 본전)"
         },
         {
             "ticker": "NVDA",
             "name": "NVIDIA Corporation",
             "qty": 1,
             "avg_price": 173.30,
-            "market_price": 173.85,
-            "after_hours_price": 159.59,
-            "eval_usd": 173.85,
-            "unrealized_usd": 0.55,
-            "unrealized_krw": 743,
-            "return_pct": 0.32,
-            "status": "1주 보유 (시간외 젠슨 황 해임설 급락 추적 중)",
+            "market_price": 166.19,
+            "after_hours_price": 166.04,
+            "eval_usd": 166.19,
+            "unrealized_usd": -7.11,
+            "unrealized_krw": int(-7.11 * fx_rate),
+            "return_pct": -4.10,
+            "status": "1주 보유 (젠슨 황 사임 후 종가 $166.19 사수, $150 마지노선 홀딩 중)",
             "risk_status": "WATCHING_CATALYST",
-            "bracket": "11/17 실적 카탈리스트 / SL 검토 대기"
+            "bracket": "11/17 실적 카탈리스트 / 종가 $150 손절 마지노선"
         },
         {
             "ticker": "SGOV",
             "name": "iShares 0-3 Month Treasury Bond ETF",
             "qty": 1,
             "avg_price": 100.53,
-            "market_price": 100.52,
-            "eval_usd": 100.52,
-            "unrealized_usd": -0.01,
-            "unrealized_krw": -14,
-            "return_pct": -0.01,
+            "market_price": 100.53,
+            "eval_usd": 100.53,
+            "unrealized_usd": 0.00,
+            "unrealized_krw": 0,
+            "return_pct": 0.00,
             "status": "초단기 국채 캐리 파킹 (연 4.52% 일복리)",
             "risk_status": "RISK_FREE_CARRY",
             "bracket": "원금 보존 파킹"
@@ -94,15 +95,15 @@ def sync_portfolio():
     ]
 
     total_positions_eval_usd = sum(p["eval_usd"] for p in positions)
-    cash_buffer_usd = 388.68
+    cash_buffer_usd = 389.19
     total_eval_usd = round(total_positions_eval_usd + cash_buffer_usd, 2)
-    total_eval_krw = int(total_eval_usd * 1343.4)
+    total_eval_krw = int(total_eval_usd * fx_rate)
 
     total_unrealized_usd = round(sum(p["unrealized_usd"] for p in positions), 2)
-    total_unrealized_krw = int(total_unrealized_usd * 1343.4)
+    total_unrealized_krw = int(total_unrealized_usd * fx_rate)
 
     net_total_pnl_usd = round(realized_usd + total_unrealized_usd, 2)
-    net_total_pnl_krw = int(net_total_pnl_usd * 1343.4)
+    net_total_pnl_krw = int(net_total_pnl_usd * fx_rate)
     net_return_pct = round((net_total_pnl_usd / 900.18) * 100, 2)
 
     recent_trades = [
