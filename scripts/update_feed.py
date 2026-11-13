@@ -856,6 +856,17 @@ def generate_feed_entries():
         }
     ]
 
+    # Preserve manually recorded live-execution posts (id prefix 'post-live-') across hourly rebuilds
+    _p1, _p2 = get_base_data_path()
+    if os.path.exists(_p1):
+        try:
+            with open(_p1, "r", encoding="utf-8") as _f:
+                _prev = json.load(_f).get("posts", [])
+            _live = [p for p in _prev if str(p.get("id", "")).startswith("post-live-")]
+            posts = _live + [p for p in posts if p.get("id") not in {q.get("id") for q in _live}]
+        except Exception:
+            pass
+
     feed_data = {
         "title": "CUBE 10-Agent Work Feed & Global Macro Room",
         "last_updated": now_str,

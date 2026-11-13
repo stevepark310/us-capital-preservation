@@ -118,6 +118,11 @@ def run_check():
 
     for sym in ["SOXL", "TQQQ", "NVDA"]:
         cfg = brackets.get(sym, {})
+        # Guard: bracket absent or already fully closed -> nothing to monitor
+        if not cfg or "entry_price" not in cfg or int(cfg.get("bought_qty", 0) or 0) <= 0:
+            continue
+        if sym not in df["Close"]:
+            continue
         cur_price = float(df["Close"][sym].dropna().iloc[-1])
         print(f"[{sym}] Current: ${cur_price:.2f} | Entry: ${cfg['entry_price']:.2f}")
 
