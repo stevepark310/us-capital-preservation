@@ -32,10 +32,10 @@ def sync_portfolio():
     wins = monthly_sum.get("wins", 3)
     total_trades = monthly_sum.get("total_trades", 3)
 
-    # Official Positions (11-14 01:27 KST: SOXL 2주 과매도 반등 스캘핑 진입 반영)
+    # Official Positions (11-14 04:02 KST: SOXL 1차 익절 완료 후 잔여 1주 러너 운용)
     fx_rate = 1336.0
     # Live mark-to-market prices; falls back to the last confirmed levels if the feed fails.
-    _px = {"NVDA": 160.46, "SGOV": 100.53, "SOXL": 55.40}
+    _px = {"NVDA": 162.47, "SGOV": 100.55, "SOXL": 57.43}
     try:
         import yfinance as yf
         _close = yf.download(list(_px.keys()), period="1d", interval="1m", progress=False)["Close"].dropna()
@@ -50,17 +50,17 @@ def sync_portfolio():
         {
             "ticker": "SOXL",
             "name": "Direxion Daily Semiconductor Bull 3X",
-            "qty": 2,
+            "qty": 1,
             "avg_price": 55.10,
             "market_price": _px["SOXL"],
             "after_hours_price": _px["SOXL"],
-            "eval_usd": round(2 * _px["SOXL"], 2),
-            "unrealized_usd": round(2 * (_px["SOXL"] - 55.10), 2),
-            "unrealized_krw": int(round(2 * (_px["SOXL"] - 55.10), 2) * fx_rate),
+            "eval_usd": round(1 * _px["SOXL"], 2),
+            "unrealized_usd": round(1 * (_px["SOXL"] - 55.10), 2),
+            "unrealized_krw": int(round(1 * (_px["SOXL"] - 55.10), 2) * fx_rate),
             "return_pct": round((_px["SOXL"] / 55.10 - 1) * 100, 2),
-            "status": "2주 보유 (당일 -19% 급락 저점 $52.36 반등 스캘핑, 주문 240539)",
-            "risk_status": "ACTIVE_BRACKET",
-            "bracket": "TP1 $56.69(+2.9%, 1주) / TP2 $57.86(+5.0%, 1주) / SL $52.50 (당일 저점 직하단)"
+            "status": "1주 보유 (1차 익절 완료 +$2.33 / +4.2%, 잔여 1주 본전 손절 $55.10 무위험 러너)",
+            "risk_status": "FREE_RIDE_RUNNER",
+            "bracket": "TP2 $57.86(+5.0%, 1주) / SL $55.10 (매수가 본전 손절 무위험 보호)"
         },
         {
             "ticker": "NVDA",
@@ -94,7 +94,7 @@ def sync_portfolio():
     ]
 
     total_positions_eval_usd = sum(p["eval_usd"] for p in positions)
-    cash_buffer_usd = 519.37
+    cash_buffer_usd = 576.80
     total_eval_usd = round(total_positions_eval_usd + cash_buffer_usd, 2)
     total_eval_krw = int(total_eval_usd * fx_rate)
 
@@ -106,6 +106,7 @@ def sync_portfolio():
     net_return_pct = round((net_total_pnl_usd / 900.18) * 100, 2)
 
     recent_trades = [
+        {"time": "11-14 04:02 KST", "ticker": "SOXL", "type": "SELL (TP1 1차 익절)", "qty": 1, "price": 57.43, "pnl_usd": "+$2.33", "pnl_pct": "+4.23%", "order_no": "268333", "result": "체결완료"},
         {"time": "11-14 01:27 KST", "ticker": "SOXL", "type": "BUY (과매도 반등 스캘핑)", "qty": 2, "price": 55.10, "pnl_usd": "-", "pnl_pct": "-", "order_no": "240539", "result": "체결"},
         {"time": "11-13 23:37 KST", "ticker": "TQQQ", "type": "SELL (SL 본전보호)", "qty": 2, "price": 59.01, "pnl_usd": "-$1.48", "pnl_pct": "-1.24%", "order_no": "160638", "result": "체결완료"},
         {"time": "11-13 23:37 KST", "ticker": "SOXL", "type": "SELL (SL 본전보호)", "qty": 2, "price": 62.04, "pnl_usd": "-$0.32", "pnl_pct": "-0.26%", "order_no": "160622", "result": "체결완료"},
