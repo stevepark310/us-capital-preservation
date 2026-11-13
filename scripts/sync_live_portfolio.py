@@ -26,16 +26,16 @@ def sync_portfolio():
 
     # Realized from ledger
     monthly_sum = cal.get("monthly_summary", {})
-    realized_usd = monthly_sum.get("total_profit_usd", 6.93)
-    realized_krw = monthly_sum.get("total_profit_krw", 9355)
-    win_rate = monthly_sum.get("win_rate_pct", 100.0)
-    wins = monthly_sum.get("wins", 3)
-    total_trades = monthly_sum.get("total_trades", 3)
+    realized_usd = monthly_sum.get("total_profit_usd", 10.28)
+    realized_krw = monthly_sum.get("total_profit_krw", 13724)
+    win_rate = monthly_sum.get("win_rate_pct", 71.4)
+    wins = monthly_sum.get("wins", 5)
+    total_trades = monthly_sum.get("total_trades", 7)
 
-    # Official Positions (11-14 04:02 KST: SOXL 1차 익절 완료 후 잔여 1주 러너 운용)
-    fx_rate = 1336.0
+    # Official Positions (11-14 06:00 KST: 장마감 정산)
+    fx_rate = 1335.0
     # Live mark-to-market prices; falls back to the last confirmed levels if the feed fails.
-    _px = {"NVDA": 162.47, "SGOV": 100.55, "SOXL": 57.43}
+    _px = {"NVDA": 162.82, "SGOV": 100.56}
     try:
         import yfinance as yf
         _close = yf.download(list(_px.keys()), period="1d", interval="1m", progress=False)["Close"].dropna()
