@@ -183,7 +183,7 @@ def _cross_market_panel(feed_data: dict) -> str:
 
       <!-- LEI history sparkline + component table -->
       <div class="grid grid-cols-1 lg:grid-cols-5 gap-3">
-        <div class="lg:col-span-2 bg-slate-950/70 border border-slate-800 rounded-xl p-3">
+        <div class="lg:col-span-2 self-start bg-slate-950/70 border border-slate-800 rounded-xl p-3">
           <div class="text-[11px] font-bold text-slate-300">CUBE-LEI z 추이 (월별 실측)</div>
           {spark if spark else '<div class="text-[10px] text-slate-500 py-6">이력 부족</div>'}
           <div class="text-[10px] text-slate-500 font-mono">{spark_months if spark else ""}</div>
