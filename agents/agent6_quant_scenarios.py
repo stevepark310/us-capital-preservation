@@ -105,6 +105,54 @@ class QuantScenarioModelerAgent(BaseAgent):
             }
 
         approved = [s["id"] for s in scenarios if "검증 완료" in str(s["validated"].get("verdict", ""))]
+
+        # ---- 2026-11-14 확장: CUBE-LEI 국면·침체확률 기반 시나리오 확률 / 레버리지 상한 조정
+        leading = context.get("leading") or {}
+        lei = leading.get("cube_lei") or {}
+        prob = (leading.get("recession_probit") or {}).get("probability_used")
+        credit = leading.get("credit") or {}
+        regime = lei.get("regime") or "UNKNOWN"
+        lei_factor = float((leading.get("policy") or {}).get("max_gross_exposure_factor", 1.0) or 1.0)
+
+        # 설계 사전확률(prior)과 국면별 배수 — 실측이 아닌 모델 가정임을 명시
+        PRIORS = {"SCENARIO_01": 0.24, "SCENARIO_02": 0.12, "SCENARIO_03": 0.12, "SCENARIO_04": 0.10,
+                  "SCENARIO_05": 0.08, "SCENARIO_06": 0.10, "SCENARIO_07": 0.02, "SCENARIO_08": 0.02,
+                  "SCENARIO_09": 0.06, "SCENARIO_10": 0.14}
+        FAMILY = {"SCENARIO_01": "MOMENTUM", "SCENARIO_02": "MOMENTUM", "SCENARIO_03": "MEAN_REVERSION",
+                  "SCENARIO_04": "MEAN_REVERSION", "SCENARIO_05": "MOMENTUM", "SCENARIO_06": "MOMENTUM",
+                  "SCENARIO_07": "RISK_PARITY", "SCENARIO_08": "ARBITRAGE", "SCENARIO_09": "MOMENTUM",
+                  "SCENARIO_10": "DIP_BUY"}
+        FAMILY_MULT = {
+            "EXPANSION": {"MOMENTUM": 1.20, "MEAN_REVERSION": 0.90, "RISK_PARITY": 1.00, "ARBITRAGE": 1.00, "DIP_BUY": 0.95},
+            "LATE_CYCLE_SLOWDOWN": {"MOMENTUM": 0.85, "MEAN_REVERSION": 1.05, "RISK_PARITY": 1.10, "ARBITRAGE": 1.05, "DIP_BUY": 1.15},
+            "CONTRACTION_RISK": {"MOMENTUM": 0.50, "MEAN_REVERSION": 1.10, "RISK_PARITY": 1.20, "ARBITRAGE": 1.10, "DIP_BUY": 1.25},
+            "RECOVERY": {"MOMENTUM": 1.05, "MEAN_REVERSION": 1.00, "RISK_PARITY": 1.00, "ARBITRAGE": 0.95, "DIP_BUY": 1.20},
+        }.get(regime, {})
+        raw = {sid: PRIORS[sid] * FAMILY_MULT.get(FAMILY[sid], 1.0) for sid in PRIORS}
+        tot = sum(raw.values()) or 1.0
+        adj_prob = {sid: round(v / tot * 100, 1) for sid, v in raw.items()}
+        for s in scenarios:
+            s["prior_probability_pct"] = round(PRIORS[s["id"]] * 100, 1)
+            s["regime_adjusted_probability_pct"] = adj_prob.get(s["id"])
+            s["leverage_cap_factor"] = lei_factor
+            s["position_cap_pct"] = round(25.0 * lei_factor, 1)
+
+        leverage_filter = {
+            "cube_lei_index": lei.get("index"), "regime": regime, "regime_ko": lei.get("regime_ko"),
+            "recession_probability_pct": prob, "credit_level": credit.get("level"),
+            "hy_oas_bp": credit.get("hy_oas_bp"),
+            "leverage_cap_factor": lei_factor,
+            "position_cap_pct": round(25.0 * lei_factor, 1),
+            "position_cap_formula": "종목당 상한 25% × 국면 계수(EXPANSION 1.00 / LATE_CYCLE 0.70 / CONTRACTION 0.35 / RECOVERY 0.60)",
+            "probability_adjustment": adj_prob,
+            "probability_method": ("설계 사전확률(prior) × 국면 가족 배수 후 정규화 — 사전확률은 모델 가정이며 실측 빈도가 아닙니다."),
+            "regime_family_multipliers": FAMILY_MULT,
+            "applies_to": list(PRIORS.keys()),
+            "reading_ko": (f"국면 {regime}(CUBE-LEI {lei.get('index')}), 침체확률 {prob}% → 레버리지 상한 계수 {lei_factor}, "
+                           f"종목당 상한 {round(25.0 * lei_factor, 1)}%. 최우선 시나리오 "
+                           f"{max(adj_prob.items(), key=lambda kv: kv[1])[0] if adj_prob else '—'}({max(adj_prob.values()) if adj_prob else 0}%)."),
+        }
+
         self.output_data = {
             "phase": phase,
             "total_scenarios": len(scenarios),
@@ -112,9 +160,11 @@ class QuantScenarioModelerAgent(BaseAgent):
             "scenarios": scenarios,
             "weekend_playbook": weekend_playbook,
             "approved_now": approved,
+            "leading_indicator_filter": leverage_filter,
             "key_takeaway": (
                 f"ATR 기준 재정규화 완료(SOXL {atr_pct}%). 현재 검증상 유효 전략: {', '.join(approved)}. "
                 + ("월요일 개장 3개 시나리오(갭업/갭다운/보합) 산출." if weekend_playbook else "정규장 시나리오 유지.")
+                + f" CUBE-LEI {regime} → 레버리지 상한 {lei_factor}·종목 상한 {round(25.0 * lei_factor, 1)}%."
             ),
         }
         self.confidence_score = 0.9

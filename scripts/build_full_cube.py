@@ -24,6 +24,11 @@ try:
 except Exception as e:
     print(f"Warning: sync_live_portfolio failed: {e}")
 
+try:
+    from scripts._panel_cross_market import _cross_market_panel
+except Exception:  # direct execution of this file
+    from _panel_cross_market import _cross_market_panel
+
 feed_json_path = os.path.join(base_dir, "data", "agent_feed.json")
 news_json_path = os.path.join(base_dir, "data", "news_sentiment_report.json")
 
@@ -615,12 +620,41 @@ if "#cube-feed-section" not in cube_html:
 
 # Insert or replace macro radar before Section 1
 sec1_target = '<!-- Section 1: 10 Specialized Agents Interactive Desk -->'
-combined_pre_sec1 = macro_radar_html + "\n\n    " + news_controller_html
+cross_market_html = _cross_market_panel(feed_data)
+combined_pre_sec1 = macro_radar_html + "\n\n    " + cross_market_html + "\n\n    " + news_controller_html
 
 if "<!-- Global Macro & FX Radar Ticker Banner" in cube_html:
     cube_html = re.sub(r'<!-- Global Macro & FX Radar Ticker Banner.*?(?=<!-- Section 1: 10 Specialized Agents)', lambda m: combined_pre_sec1 + "\n\n    ", cube_html, flags=re.DOTALL)
 else:
     cube_html = cube_html.replace(sec1_target, combined_pre_sec1 + "\n\n    " + sec1_target)
+
+# ---- NAV banner: replace the static fallback numbers with the latest live ledger
+# (2026-11-14 관찰: 배너가 옛 값 1,230,755원 / $916.15 / 버퍼 $388.68을 그대로 보여줬다)
+try:
+    with open(os.path.join(base_dir, "data", "live_portfolio.json"), "r", encoding="utf-8") as _f:
+        _lp = json.load(_f)
+    _eq_krw = int(round(float(_lp.get("current_total_equity_krw") or 0)))
+    _eq_usd = float(_lp.get("current_total_equity_usd") or 0)
+    _cash_usd = float(_lp.get("cash_buffer_usd") or 0)
+    _cash_pct = float(_lp.get("cash_buffer_pct") or 0)
+    if _eq_krw and _eq_usd:
+        _new_krw = f"{_eq_krw:,}원"
+        _new_usd = f"${_eq_usd:,.2f}"
+        _new_buf = f"${_cash_usd:,.2f} (가용 버퍼 {_cash_pct:.1f}%)"
+        # banner ids
+        cube_html = re.sub(r'(id="live-total-equity-krw"[^>]*>)[^<]*(</div>)',
+                           lambda m: m.group(1) + _new_krw + m.group(2), cube_html)
+        cube_html = re.sub(r'(id="live-total-equity-usd"[^>]*>)[^<]*(</div>)',
+                           lambda m: m.group(1) + _new_usd + " USD" + m.group(2), cube_html)
+        cube_html = re.sub(r'(id="live-cash-buffer"[^>]*>)[^<]*(</div>)',
+                           lambda m: m.group(1) + _new_buf + m.group(2), cube_html)
+        # remaining static fallbacks of the same account (summary card + calendar JS)
+        cube_html = re.sub(r'1,230,755원', _new_krw, cube_html)
+        cube_html = re.sub(r'\$916\.15', _new_usd, cube_html)
+        cube_html = re.sub(r'\$388\.68', f"${_cash_usd:,.2f}", cube_html)
+        print(f"NAV fallback → {_new_krw} / {_new_usd} / buffer {_new_buf} (live_portfolio {_lp.get('last_synced')})")
+except Exception as e:
+    print(f"Warning: NAV fallback fill failed: {e}")
 
 # Insert or replace Work Feed Section after Section 1
 sec2_target = '<!-- Section 2: 10 Investment Scenarios & Alpha Selection Matrix -->'
@@ -1220,6 +1254,8 @@ feed_html_template = f"""<!DOCTYPE html>
     </header>
 
 {macro_radar_html}
+
+{cross_market_html}
 
 {news_controller_html}
 

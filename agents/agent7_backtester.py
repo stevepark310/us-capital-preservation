@@ -16,6 +16,15 @@ from agents.base import BaseAgent
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPORT = os.path.join(BASE_DIR, "data", "1y_backtest_report.json")
+LEI_FILTER_REPORT = os.path.join(BASE_DIR, "data", "lei_filter_backtest.json")
+
+
+def _load_lei_filter() -> Dict[str, Any]:
+    try:
+        with open(LEI_FILTER_REPORT, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
 
 def _load() -> Dict[str, Any]:
@@ -74,6 +83,62 @@ class BacktesterAgent(BaseAgent):
 
         best = max([r for r in results if r["metrics"].get("profit_factor")], key=lambda r: r["metrics"]["profit_factor"], default=None)
 
+        # ---- 2026-11-14 확장: 선행지표·장단기금리차 필터의 방어 효과(실측 시뮬)
+        filt = _load_lei_filter()
+        filter_results = filt.get("results") or {}
+        defence = filt.get("defence_effect") or []
+        soxl_rows = filter_results.get("SOXL_100") or {}
+        base_row = soxl_rows.get("NO_FILTER") or {}
+        filt_table = []
+        for fname in ("F1_TERM_SPREAD", "F2_SPY_200DMA", "F3_CREDIT_OAS", "F3B_CREDIT_OAS_Z",
+                      "F4_COMPOSITE_LEI", "F4_COMPOSITE_LEI_HALFSIZE"):
+            m = soxl_rows.get(fname) or {}
+            if not m:
+                continue
+            filt_table.append({
+                "filter": fname, "cagr_pct": m.get("cagr_pct"), "mdd_pct": m.get("mdd_pct"),
+                "sharpe": m.get("sharpe"), "calmar": m.get("calmar"),
+                "time_in_market_pct": m.get("time_in_market_pct"), "switches": m.get("switches"),
+                "mdd_delta_pp_vs_unfiltered": round((m.get("mdd_pct") or 0) - (base_row.get("mdd_pct") or 0), 2),
+                "cagr_delta_pp_vs_unfiltered": round((m.get("cagr_pct") or 0) - (base_row.get("cagr_pct") or 0), 2),
+                "sharpe_delta_vs_unfiltered": round((m.get("sharpe") or 0) - (base_row.get("sharpe") or 0), 2),
+            })
+        # Empirical verdict driven by the measured signs: filters whose state never
+        # triggers are inert and excluded from the judgement.
+        verdict = "NO_DATA"
+        active = [r for r in filt_table if abs(r["mdd_delta_pp_vs_unfiltered"]) > 0 or abs(r["cagr_delta_pp_vs_unfiltered"]) > 0]
+        inert = [r["filter"] for r in filt_table if r not in active]
+        mdd_wins = [r for r in active if r["mdd_delta_pp_vs_unfiltered"] > 0]
+        sharpe_loss = [r for r in active if r["sharpe_delta_vs_unfiltered"] < 0]
+        if active:
+            if len(mdd_wins) == len(active) and len(sharpe_loss) == len(active):
+                verdict = ("MDD는 모든 발동 필터에서 축소됐지만 Sharpe·CAGR도 함께 악화 → 바이너리 청산보다 "
+                           "사이징 축소(포지션 상한)로만 반영해야 함")
+            elif not mdd_wins:
+                verdict = "이 구간에서 필터의 MDD 방어 효과 없음 → 타이밍 킬스위치로 부적합"
+            else:
+                verdict = "필터별 결과 엇갈림 — 아래 표의 실측치로 개별 판단"
+        if inert:
+            verdict += f" (미발동 필터: {', '.join(inert)} — 임계값이 이 구간에서 한 번도 걸리지 않아 무필터와 동일)"
+        lei_filter = {
+            "is_simulation": filt.get("is_simulation", True),
+            "window": filt.get("window"), "friction": filt.get("friction"),
+            "filter_definitions": filt.get("filters"),
+            "filter_state_days": filt.get("filter_state_days"),
+            "unfiltered_baseline": {k: base_row.get(k) for k in ("cagr_pct", "mdd_pct", "sharpe", "calmar")},
+            "table": filt_table,
+            "portfolio_variants": {p: {f: {k: v.get(k) for k in ("cagr_pct", "mdd_pct", "sharpe", "time_in_market_pct")}
+                                      for f, v in rows.items()}
+                                  for p, rows in filter_results.items()},
+            "defence_effect": defence,
+            "verdict": verdict,
+            "key_takeaway": ((f"선행지표 필터 백테스트(시뮬, {filt.get('window',{}).get('start')}~{filt.get('window',{}).get('end')}): "
+                              f"무필터 SOXL CAGR {base_row.get('cagr_pct')}%/MDD {base_row.get('mdd_pct')}%/Sharpe {base_row.get('sharpe')} 대비 "
+                              f"복합필터 MDD {(soxl_rows.get('F4_COMPOSITE_LEI') or {}).get('mdd_pct')}%·Sharpe {(soxl_rows.get('F4_COMPOSITE_LEI') or {}).get('sharpe')}. "
+                              f"반감 축소 {((soxl_rows.get('F4_COMPOSITE_LEI_HALFSIZE') or {}).get('cagr_pct'))}%. {verdict}")
+                             if filt_table else "LEI 필터 백테스트 미실행 — 다음 파이프라인에서 산출"),
+        }
+
         self.output_data = {
             "phase": (context.get("clock") or {}).get("phase"),
             "report_path": "data/1y_backtest_report.json",
@@ -87,6 +152,7 @@ class BacktesterAgent(BaseAgent):
             "delta": rep.get("delta"),
             "bear_engine_sweep": sweep,
             "bear_engine_choice": choice,
+            "lei_filter_backtest": lei_filter,
             "benchmarks": rep.get("benchmarks"),
             "key_takeaway": (
                 f"현행 장중 회전 {base.get('total_return_pct')}% (PF {base.get('profit_factor')}) → 개선 {up.get('total_return_pct')}% "
@@ -95,6 +161,7 @@ class BacktesterAgent(BaseAgent):
                 + (f" 숏 엔진 최적 트리거 VIX {choice.get('vix_trigger')}." if choice else "")
             ),
         }
+        self.output_data["key_takeaway"] = (self.output_data["key_takeaway"] + " " + lei_filter["key_takeaway"])[:900]
         self.confidence_score = 0.95 if base else 0.5
         self.status = "COMPLETED"
         return self.output_data

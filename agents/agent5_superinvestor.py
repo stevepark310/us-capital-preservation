@@ -95,6 +95,86 @@ class SuperinvestorAgent(BaseAgent):
         bias = ("PUT_HEAVY (하방 헤지 우위)" if pc and pc > 1.0 else
                 "CALL_HEAVY (상방 베팅 우위)" if pc and pc < 0.8 else "BALANCED")
 
+        # ---- 2026-11-14 확장: 크레딧 · 듀레이션 · 기관 크립토 자금흐름
+        snap = context.get("snapshot") or {}
+        q = snap.get("quotes", {})
+        leading = context.get("leading") or {}
+        credit_obs = leading.get("credit") or {}
+
+        def g(sym, key="last"):
+            return (q.get(sym) or {}).get(key)
+
+        hyg_ief = ((leading.get("bonds", {}) or {}).get("etfs") or {})
+
+        def ret20(sym):
+            return hyg_ief.get(sym, {}).get("ret_20d") if hyg_ief.get(sym) else None
+
+        hyg_r20, lqd_r20 = ret20("HYG"), ret20("LQD")
+        tlt_rvol = g("TLT", "rvol")
+        tlt_r20 = ret20("TLT")
+        ief_r20 = ret20("IEF")
+        credit_flow = {
+            "metric": "HYG/LQD 상대강도 · HY OAS 수준(GZ 2012 프록시) · HYG RVOL",
+            "hyg_ret_20d_pct": hyg_r20, "lqd_ret_20d_pct": lqd_r20,
+            "hyg_vs_lqd_20d_pp": (round((hyg_r20 or 0) - (lqd_r20 or 0), 2) if hyg_r20 is not None and lqd_r20 is not None else None),
+            "hyg_rvol": g("HYG", "rvol"), "hyg_last": g("HYG"), "lqd_last": g("LQD"),
+            "hy_oas_bp": credit_obs.get("hy_oas_bp"), "hy_oas_z_5y": credit_obs.get("hy_oas_z_5y"),
+            "credit_level": credit_obs.get("level"), "gz_proxy_z": credit_obs.get("gz_proxy_z"),
+            "interpretation": ("하이일드 우위 = 신용 리스크온(기관 리스크 수용 확대)" if (hyg_r20 is not None and lqd_r20 is not None and hyg_r20 > lqd_r20)
+                               else "투자등급 우위 = 신용 리스크오프(안전자산 선호)" if hyg_r20 is not None and lqd_r20 is not None else "데이터 부족"),
+        }
+        credit_flow["reading_ko"] = (
+            f"HY OAS {credit_flow['hy_oas_bp']}bp({credit_flow['credit_level']}), "
+            f"HYG-LQD 20일 {credit_flow['hyg_vs_lqd_20d_pp']}%p → {credit_flow['interpretation']}"
+            if credit_flow["hy_oas_bp"] is not None else "크레딧 데이터 미확보")
+
+        duration_flow = {
+            "metric": "TLT 20일 수익률·RVOL·ATR(듀레이션 리스크) vs IEF",
+            "tlt_ret_20d_pct": tlt_r20, "ief_ret_20d_pct": ief_r20,
+            "tlt_rvol": tlt_rvol, "tlt_atr_pct": ((context.get("technical") or {}).get("TLT") or {}).get("atr_pct"),
+            "tlt_last": g("TLT"), "ief_last": g("IEF"),
+            "long_duration_demand": ("INFLOW (장듀레이션 매수 우위)" if (tlt_r20 is not None and ief_r20 is not None and tlt_r20 > ief_r20)
+                                     else "OUTFLOW (장듀레이션 회피)" if tlt_r20 is not None and ief_r20 is not None else "UNKNOWN"),
+        }
+        duration_flow["reading_ko"] = (
+            f"TLT 20일 {duration_flow['tlt_ret_20d_pct']}% (IEF {duration_flow['ief_ret_20d_pct']}%, RVOL {tlt_rvol}) → {duration_flow['long_duration_demand']}"
+            if tlt_r20 is not None else "듀레이션 데이터 미확보")
+
+        ibit_r20 = g("IBIT", "change_pct")
+        btc_m = (snap.get("crypto_market") or {}).get("btc") or {}
+        btc_r20 = btc_m.get("ret_30d")
+        ibit_vs_btc = None
+        try:
+            hist = context.get("history", {}) or {}
+            ib_hist = hist.get("IBIT")
+            if ib_hist is not None and len(ib_hist) > 21:
+                c = ib_hist["Close"].astype(float)
+                ibit_r20 = round((float(c.iloc[-1]) / float(c.iloc[-21]) - 1) * 100, 2)
+            # BTC도 같은 20거래일 창으로 재산출해야 비교가 성립한다
+            b_hist = hist.get("BTC-USD")
+            if b_hist is not None and len(b_hist) > 21:
+                bc = b_hist["Close"].astype(float)
+                btc_r20 = round((float(bc.iloc[-1]) / float(bc.iloc[-21]) - 1) * 100, 2)
+            if ibit_r20 is not None and btc_r20 is not None:
+                ibit_vs_btc = round(ibit_r20 - btc_r20, 2)
+        except Exception:
+            pass
+        crypto_flow = {
+            "metric": "IBIT 20거래일 수익률 - BTC 20거래일 수익률(현물 ETF 수요 프록시) · IBIT/COIN RVOL",
+            "ibit_last": g("IBIT"), "ibit_rvol": g("IBIT", "rvol"), "ibit_ret_20d_pct": ibit_r20,
+            "coin_last": g("COIN"), "coin_chg_pct": g("COIN", "change_pct"),
+            "btc_last": btc_m.get("last"), "btc_ret_20d_pct": btc_r20,
+            "btc_ret_30d_pct_ref": btc_m.get("ret_30d"),
+            "ibit_minus_btc_pp": ibit_vs_btc,
+            "institutional_demand": ("ETF_CREATION_DEMAND (기관 현물 수요 우위)" if (ibit_vs_btc or 0) > 0.5
+                                     else "ETF_REDEMPTION_PRESSURE (기관 환매 우위)" if (ibit_vs_btc or 0) < -0.5
+                                     else "NEUTRAL (추적오차 범위)"),
+            "note": "IBIT-NAV 괴리 데이터는 무료 소스에 없어 가격 상대성과로 대체했습니다(지표명에 '프록시' 표기).",
+        }
+        crypto_flow["reading_ko"] = (
+            f"IBIT 20일 {crypto_flow['ibit_ret_20d_pct']}% vs BTC 20일 {crypto_flow['btc_ret_20d_pct']}% "
+            f"(차이 {crypto_flow['ibit_minus_btc_pp']}%p) → {crypto_flow['institutional_demand']}")
+
         self.output_data = {
             "phase": clock.get("phase"),
             "expiry_used": qqq.get("expiry"),
@@ -106,9 +186,13 @@ class SuperinvestorAgent(BaseAgent):
             "nvda_gamma_wall": nvda.get("gamma_wall_strike"),
             "nvda_max_pain": nvda.get("max_pain_strike"),
             "institutional_bias": bias,
+            "credit_flow": credit_flow,
+            "duration_flow": duration_flow,
+            "crypto_institutional_flow": crypto_flow,
             "key_takeaway": (
                 f"QQQ Put/Call OI {pc} · 거래량비 {qqq.get('put_call_volume')} → {bias}. "
-                f"NVDA 감마월 ${nvda.get('gamma_wall_strike')} (OI {nvda.get('gamma_wall_oi')}), 맥스페인 ${nvda.get('max_pain_strike')}."
+                f"NVDA 감마월 ${nvda.get('gamma_wall_strike')} (OI {nvda.get('gamma_wall_oi')}), 맥스페인 ${nvda.get('max_pain_strike')}. "
+                f"[신용] {credit_flow.get('reading_ko')} [듀레이션] {duration_flow.get('reading_ko')} [크립토] {crypto_flow.get('reading_ko')}"
             ) if chains else "옵션 체인 조회 실패 — 다음 주기 재시도",
         }
         self.confidence_score = 0.9 if chains else 0.4

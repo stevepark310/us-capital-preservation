@@ -1,0 +1,533 @@
+{
+  "engine": "CUBE-LEI v1",
+  "generated_at_kst": "2026-11-14 21:54:19",
+  "as_of_market_bar": "2026-11-13",
+  "cube_lei": {
+    "z": 0.224,
+    "index": 102.2,
+    "index_scale": "100 = 장기 추세, 1σ = 10pt (OECD CLI 진폭조정)",
+    "score": 58.9,
+    "score_scale": "0-100 (표준정규 CDF 매핑)",
+    "equal_weight_z": -0.068,
+    "weighted_vs_equal_gap": 0.292,
+    "trend_3m_z_change": -0.388,
+    "regime": "LATE_CYCLE_SLOWDOWN",
+    "regime_ko": "후기 사이클 둔화",
+    "monthly_history": [
+      {
+        "month": "2025-10",
+        "z": 0.322
+      },
+      {
+        "month": "2025-11",
+        "z": 0.235
+      },
+      {
+        "month": "2025-12",
+        "z": 0.498
+      },
+      {
+        "month": "2026-01",
+        "z": 0.538
+      },
+      {
+        "month": "2026-02",
+        "z": 0.211
+      },
+      {
+        "month": "2026-03",
+        "z": 0.176
+      },
+      {
+        "month": "2026-04",
+        "z": 0.545
+      },
+      {
+        "month": "2026-05",
+        "z": 0.586
+      },
+      {
+        "month": "2026-06",
+        "z": 0.479
+      },
+      {
+        "month": "2026-07",
+        "z": 0.612
+      },
+      {
+        "month": "2026-08",
+        "z": 0.663
+      },
+      {
+        "month": "2026-09",
+        "z": 0.457
+      },
+      {
+        "month": "2026-10",
+        "z": 0.129
+      }
+    ],
+    "components_used": 9,
+    "components_total": 9
+  },
+  "recession_probit": {
+    "formula": "P(12개월 내 침체) = Φ(-0.6045 - 0.8180 × (10Y-3M, %p))",
+    "source": "Estrella & Mishkin (1998), REStat 80(1):45-61",
+    "spread_10y3m_bp": 83.0,
+    "probability_10y3m": 10.0,
+    "spread_10y2y_bp": 27.0,
+    "probability_10y2y_same_coefficients": 20.5,
+    "probability_10y2y_note": "동일 계수를 10Y-2Y에 적용한 근사값 — 원계수는 10Y-3M 기준이므로 방향 참고용. 10Y-2Y 자체 계수는 별도 재추정이 필요합니다.",
+    "months_since_curve_uninverted": 12.9,
+    "uninversion_note": "금리차가 역전에서 벗어난 뒤 약 12개월에 침체 신호가 정점(Estrella & Mishkin 1998).",
+    "probability_used": 10.0
+  },
+  "components": [
+    {
+      "key": "term_spread_10y3m",
+      "name": "미 국채 10Y-3M 금리차",
+      "source": "FRED T10Y3M",
+      "why": "Estrella & Mishkin (1998) — 역전 후 12개월 내 침체 확률 상승",
+      "value": 0.83,
+      "z": 0.91,
+      "sign": 1,
+      "weight": 0.3,
+      "contribution": 0.273,
+      "available": true,
+      "detail": {
+        "mean_5y": -0.1097,
+        "std_5y": 1.0317,
+        "as_of": "2026-11-13",
+        "source_state": "FRED cache (fresh)",
+        "bp": 83.0
+      }
+    },
+    {
+      "key": "term_spread_10y2y",
+      "name": "미 국채 10Y-2Y 금리차",
+      "source": "FRED T10Y2Y",
+      "why": "Estrella & Hardouvelis (1991) — 기간프리미엄·실물 선행성",
+      "value": 0.27,
+      "z": 0.47,
+      "sign": 1,
+      "weight": 0.1,
+      "contribution": 0.047,
+      "available": true,
+      "detail": {
+        "mean_5y": 0.0361,
+        "std_5y": 0.5013,
+        "as_of": "2026-11-13",
+        "source_state": "FRED cache (fresh)",
+        "bp": 27.0
+      }
+    },
+    {
+      "key": "credit_oas",
+      "name": "미 하이일드 OAS",
+      "source": "FRED BAMLH0A0HYM2",
+      "why": "Gilchrist & Zakrajšek (2012) — 신용스프레드 확대는 실물 위축 선행",
+      "value": 3.2,
+      "z": 0.4,
+      "sign": -1,
+      "weight": 0.15,
+      "contribution": -0.061,
+      "available": true,
+      "detail": {
+        "mean_5y": 3.0635,
+        "std_5y": 0.3373,
+        "as_of": "2026-11-12",
+        "source_state": "FRED cache (fresh)",
+        "bp": 320.0
+      }
+    },
+    {
+      "key": "nfci",
+      "name": "시카고 연준 금융여건지수",
+      "source": "FRED NFCI",
+      "why": "Stock & Watson (1989) 금융여건 성분 — (+)는 긴축",
+      "value": -0.462,
+      "z": -0.54,
+      "sign": -1,
+      "weight": 0.15,
+      "contribution": 0.081,
+      "available": true,
+      "detail": {
+        "mean_5y": -0.3919,
+        "std_5y": 0.1303,
+        "as_of": "2026-11-06",
+        "source_state": "FRED cache (fresh)"
+      }
+    },
+    {
+      "key": "claims_yoy",
+      "name": "신규 실업수당 청구 4주평균 YoY",
+      "source": "FRED ICSA",
+      "why": "Stock & Watson (1989) 실업청구 성분(역방향)",
+      "value": -13.9868,
+      "z": -0.1,
+      "sign": -1,
+      "weight": 0.1,
+      "contribution": 0.01,
+      "available": true,
+      "detail": {
+        "mean_5y": -11.5622,
+        "std_5y": 24.0385,
+        "claims_4wk_avg": 195250,
+        "as_of": "2026-11-07",
+        "source_state": "FRED cache (fresh)"
+      }
+    },
+    {
+      "key": "consumer_sentiment",
+      "name": "미시간대 소비자심리지수",
+      "source": "FRED UMCSENT",
+      "why": "Stock & Watson (1989) 기대심리 성분",
+      "value": 48.1,
+      "z": -1.67,
+      "sign": 1,
+      "weight": 0.05,
+      "contribution": -0.084,
+      "available": true,
+      "detail": {
+        "mean_5y": 62.1417,
+        "std_5y": 8.4041,
+        "as_of": "2026-09-01",
+        "source_state": "FRED cache (fresh)"
+      }
+    },
+    {
+      "key": "equity_momentum_12m",
+      "name": "S&P500 12개월 모멘텀",
+      "source": "Yahoo SPY 일봉",
+      "why": "Stock & Watson (1989) 주가 성분 / CB LEI S&P500 기여",
+      "value": 10.3881,
+      "z": -0.41,
+      "sign": 1,
+      "weight": 0.08,
+      "contribution": -0.033,
+      "available": true,
+      "detail": {
+        "mean_5y": 15.4329,
+        "std_5y": 12.2066,
+        "bar_date": "2026-11-13"
+      }
+    },
+    {
+      "key": "copper_gold",
+      "name": "구리/금 비율",
+      "source": "Yahoo HG=F / GC=F",
+      "why": "Stock & Watson (1989) 원자재 수요 사이클 프록시",
+      "value": 0.0016,
+      "z": -0.58,
+      "sign": 1,
+      "weight": 0.04,
+      "contribution": -0.023,
+      "available": true,
+      "detail": {
+        "mean_5y": 0.001776,
+        "std_5y": 0.000364,
+        "copper": 6.0795,
+        "gold": 3886.3
+      }
+    },
+    {
+      "key": "consumer_rotation",
+      "name": "임의소비재/필수소비재 비율(XLY/XLP)",
+      "source": "Yahoo XLY / XLP",
+      "why": "Burns & Mitchell (1946) 소비 사이클 로테이션",
+      "value": 1.2992,
+      "z": 0.43,
+      "sign": 1,
+      "weight": 0.03,
+      "contribution": 0.013,
+      "available": true,
+      "detail": {
+        "mean_5y": 1.2279,
+        "std_5y": 0.166292,
+        "xly": 119.98,
+        "xlp": 92.35
+      }
+    }
+  ],
+  "credit": {
+    "metric": "HY OAS level + HYG/IEF 상대강도 (GZ 2012 EBP의 공개데이터 프록시 — EBP 아님)",
+    "hy_oas_bp": 320.0,
+    "hy_oas_z_5y": 0.4,
+    "hyg_ief_rel_63d_pct": -0.33,
+    "gz_proxy_z": 0.3,
+    "level": "NORMAL",
+    "level_thresholds_bp": {
+      "NORMAL": "<350",
+      "WATCH": "350-500",
+      "STRESS": "500-700",
+      "CRISIS": ">700"
+    },
+    "reading_ko": "HY OAS 320.0bp(z 0.4) · HYG-IEF 63일 상대 -0.33%p → NORMAL"
+  },
+  "bonds": {
+    "yields_pct": {
+      "3m": 4.122,
+      "2y": 4.86,
+      "5y": 4.981,
+      "10y": 5.1,
+      "30y": 5.481
+    },
+    "curve_bp": {
+      "10y3m": 83.0,
+      "10y2y": 27.0,
+      "30y10y": 38.1,
+      "5y10y": 11.9
+    },
+    "curve_shape": "STEEP (정상 우상향)",
+    "curve_source": "FRED T10Y3M",
+    "term_premium_proxy_bp": 38.1,
+    "etfs": {
+      "TLT": {
+        "last": 79.38,
+        "chg_pct": -0.43,
+        "ret_20d": -0.84,
+        "ret_63d": -2.42,
+        "duration_years": 16.8
+      },
+      "IEF": {
+        "last": 90.04,
+        "chg_pct": -0.19,
+        "ret_20d": -0.42,
+        "ret_63d": -3.02,
+        "duration_years": 7.2
+      },
+      "SHY": {
+        "last": 81.17,
+        "chg_pct": 0.04,
+        "ret_20d": -0.23,
+        "ret_63d": -1.01,
+        "duration_years": 1.8
+      },
+      "SGOV": {
+        "last": 100.56,
+        "chg_pct": 0.03,
+        "ret_20d": -0.03,
+        "ret_63d": 0.0,
+        "duration_years": 0.1
+      },
+      "TIP": {
+        "last": 104.61,
+        "chg_pct": -0.15,
+        "ret_20d": -0.88,
+        "ret_63d": -2.02,
+        "duration_years": 4.6
+      },
+      "HYG": {
+        "last": 76.94,
+        "chg_pct": -0.05,
+        "ret_20d": 0.1,
+        "ret_63d": -3.35,
+        "duration_years": 3.1
+      },
+      "LQD": {
+        "last": 102.81,
+        "chg_pct": -0.23,
+        "ret_20d": -0.57,
+        "ret_63d": -2.73,
+        "duration_years": 8.4
+      }
+    },
+    "duration_pnl_per_10bp_pct": {
+      "TLT": -1.68,
+      "IEF": -0.72,
+      "SHY": -0.18,
+      "TIP": -0.46,
+      "LQD": -0.84,
+      "HYG": -0.31
+    },
+    "inflation_breakeven_proxy": {
+      "tip_minus_ief_63d_pct": 1.0,
+      "note": "TIP(물가연동채) 63일 수익률 - IEF(명목 7-10Y) 63일 수익률: (+)면 기대인플레 상승 우위"
+    },
+    "read_ko": "2Y 4.86% / 10Y 5.1% / 30Y 5.481%, 10Y-3M 83.0bp(STEEP (정상 우상향))"
+  },
+  "fx": {
+    "usd_krw": {
+      "last": 1336.2,
+      "chg_pct": 0.18,
+      "ret_5d": -1.94,
+      "ret_20d": 0.21
+    },
+    "dxy": {
+      "last": 103.41,
+      "chg_pct": 0.23,
+      "ret_20d": 1.54
+    },
+    "usd_jpy": {
+      "last": 159.875,
+      "chg_pct": 0.09,
+      "ret_20d": 1.1
+    },
+    "eur_usd": {
+      "last": 1.105,
+      "chg_pct": -0.41,
+      "ret_20d": -1.45
+    },
+    "usd_cny": {
+      "last": 6.6712,
+      "chg_pct": 0.01,
+      "ret_20d": -0.29
+    },
+    "dollar_regime": "NEUTRAL_DOLLAR",
+    "krw_regime": "KRW_STABLE",
+    "read_ko": "USD/KRW 1336.2 (20일 0.21%), DXY 103.41 (0.23%)"
+  },
+  "crypto": {
+    "btc": {
+      "last": 67052.3438,
+      "chg_pct": -1.75,
+      "ret_7d": -11.48,
+      "ret_30d": -18.37
+    },
+    "eth": {
+      "last": 1902.01,
+      "chg_pct": -1.33,
+      "ret_7d": -14.95,
+      "ret_30d": -22.06
+    },
+    "sol": {
+      "last": 75.62,
+      "chg_pct": -3.17,
+      "ret_7d": -15.67,
+      "ret_30d": -28.21
+    },
+    "xrp": {
+      "last": 0.9935,
+      "chg_pct": -1.58,
+      "ret_7d": -14.5,
+      "ret_30d": -25.48
+    },
+    "ibit": {
+      "last": 38.94,
+      "chg_pct": -3.52,
+      "ret_20d": -15.62
+    },
+    "coin": {
+      "last": 127.65,
+      "chg_pct": -2.31,
+      "ret_20d": -26.28
+    },
+    "weekend_return_pct": -1.75,
+    "risk_on_proxy_score": 43.4,
+    "read_ko": "BTC $67,052 (24h -1.75%, 7d -11.48%), ETH $1,902 (-1.33%)"
+  },
+  "policy": {
+    "max_gross_exposure_factor": 0.7,
+    "parking_preference": "SGOV 우선 (0-3M T-bill, 듀레이션 0.1년·금리 리스크 최소)",
+    "bond_duration_stance": "SHORT_DURATION (TLT 신규 진입 자제, SGOV/SHY 중심)",
+    "crypto_weekend_alert": false,
+    "fx_hedge_note": "원/달러 보합권 — 환노출 영향 제한적(20일 변동 ±1% 이내)"
+  },
+  "notes": [],
+  "methodology": {
+    "equations": {
+      "probit": "P = Φ(-0.6045 - 0.8180 × spread_10y3m)",
+      "composite": "Z = Σ w_i · sign_i · z_i / Σ w_i  (z_i = 5년 평균/표준편차 표준화)",
+      "index": "CUBE-LEI = 100 + 10·Z",
+      "score": "score = Φ(Z)·100"
+    },
+    "weights": {
+      "term_spread_10y3m": 0.3,
+      "term_spread_10y2y": 0.1,
+      "credit_oas": 0.15,
+      "nfci": 0.15,
+      "claims_yoy": 0.1,
+      "equity_momentum_12m": 0.08,
+      "consumer_sentiment": 0.05,
+      "copper_gold": 0.04,
+      "consumer_rotation": 0.03
+    },
+    "z_window_years": 5.0,
+    "regime_rule": "z<=-1.0 또는 P>=50% → CONTRACTION_RISK / z<0 & 3개월 변화>0 → RECOVERY / z<0.3 또는 3개월 변화<=-1.0 → LATE_CYCLE_SLOWDOWN / 그 외 EXPANSION",
+    "weight_note": "가중치는 Conference Board LEI 성분 기여 순서를 따르되 무료 공개 데이터로 재현 가능한 성분만으로 정규화한 CUBE 설계값입니다(CB 원계수 재게시 아님).",
+    "references": [
+      {
+        "key": "estrella_mishkin_1998",
+        "cite": "Estrella, A. & Mishkin, F.S. (1998). Predicting U.S. Recessions: Financial Variables as Leading Indicators. The Review of Economics and Statistics 80(1), 45-61.",
+        "used_for": "12개월 경기침체 프로빗 확률 P = Φ(-0.6045 - 0.8180 × (10Y-3M))"
+      },
+      {
+        "key": "estrella_hardouvelis_1991",
+        "cite": "Estrella, A. & Hardouvelis, G.A. (1991). The Term Structure as a Predictor of Real Economic Activity. Journal of Finance 46(2), 555-576.",
+        "used_for": "장단기 금리차의 실물경제 선행성 — 금리차 성분의 정당화"
+      },
+      {
+        "key": "stock_watson_1989",
+        "cite": "Stock, J.H. & Watson, M.W. (1989). New Indexes of Coincident and Leading Economic Indicators. NBER Macroeconomics Annual 4, 351-394.",
+        "used_for": "다변량 표준화 선행지수 합성(금리차·주가·금융여건·실업청구·구리/금·소비재 비율)"
+      },
+      {
+        "key": "stock_watson_2002",
+        "cite": "Stock, J.H. & Watson, M.W. (2002). Macroeconomic Forecasting Using Diffusion Indexes. Journal of Business & Economic Statistics 20(2), 147-162.",
+        "used_for": "동일가중 확산지수(diffusion index) 로버스트니스 비교"
+      },
+      {
+        "key": "gilchrist_zakrajsek_2012",
+        "cite": "Gilchrist, S. & Zakrajšek, E. (2012). Credit Spreads and Business Cycle Fluctuations. American Economic Review 102(4), 1692-1720.",
+        "used_for": "회사채 신용스프레드의 경기 선행성 — HY OAS 기반 신용리스크 프록시(EBP 아님)"
+      },
+      {
+        "key": "burns_mitchell_1946",
+        "cite": "Burns, A.F. & Mitchell, W.C. (1946). Measuring Business Cycles. NBER.",
+        "used_for": "경기 국면(expansion / slowdown / contraction / recovery) 4국면 구분"
+      },
+      {
+        "key": "cb_lei_oecd_cli",
+        "cite": "The Conference Board (2016) LEI methodology; OECD (2012) System of Composite Leading Indicators handbook.",
+        "used_for": "성분 표준화·진폭조정(1σ = 10 지수점, 장기평균 100) 및 종합지수 구성"
+      }
+    ]
+  },
+  "data_provenance": {
+    "fred": {
+      "T10Y3M": {
+        "latest": 0.83,
+        "date": "2026-11-13",
+        "source": "FRED cache (fresh)"
+      },
+      "T10Y2Y": {
+        "latest": 0.27,
+        "date": "2026-11-13",
+        "source": "FRED cache (fresh)"
+      },
+      "DGS2": {
+        "latest": 4.86,
+        "date": "2026-11-12",
+        "source": "FRED cache (fresh)"
+      },
+      "DGS10": {
+        "latest": 5.1,
+        "date": "2026-11-12",
+        "source": "FRED cache (fresh)"
+      },
+      "BAMLH0A0HYM2": {
+        "latest": 3.2,
+        "date": "2026-11-12",
+        "source": "FRED cache (fresh)"
+      },
+      "NFCI": {
+        "latest": -0.462,
+        "date": "2026-11-06",
+        "source": "FRED cache (fresh)"
+      },
+      "ICSA": {
+        "latest": 200000.0,
+        "date": "2026-11-07",
+        "source": "FRED cache (fresh)"
+      },
+      "UMCSENT": {
+        "latest": 48.1,
+        "date": "2026-09-01",
+        "source": "FRED cache (fresh)"
+      }
+    },
+    "yahoo": "SPY/HG=F/GC=F/XLY/XLP/IWM 5년 일봉 (data_cache/lei_history_5y.pkl)",
+    "snapshot": "2026-11-14 21:52:41",
+    "hardcoded_values": false
+  }
+}

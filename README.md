@@ -157,3 +157,55 @@ python3 scripts/monitor_and_exit.py --dry-run
 - 검증 결과 장중 회전은 마찰 후 기대값이 음수였고, 과매도 매수·2~3세션 보유(DIP_SWING)가
   1년 PF 1.98 / MDD -6.63%, 2년 PF 2.04 / MDD -6.64%로 검증되었습니다(시뮬레이션).
   DIP_SWING은 **오버나이트 보유 승인 대기** 상태로, 승인 전에는 집행하지 않습니다.
+
+---
+
+## 6. 채권 · 환율 · 코인 · 경기선행지표 (2026-11-14 확장)
+
+사용자 지시(2026-11-14 21:31): *"코인과 미국 국채 등 채권 그리고 환율 시장에서도 모니터링과 분석이 필요해.
+경기 선행지표를 각종 논문과 경제학 서적을 참고해서 산출하고 ... 각 담당 에이전트 직원들에게 감시하고 분석해서
+업무보고를 올리도록 해줘."* — 각 에이전트의 정식 직무와 업무보고에 4대 영역이 편입되었습니다.
+
+### 6.1 실데이터 수집 확장 (`core/market_snapshot.py`)
+| 영역 | 심볼 |
+|---|---|
+| 미국 국채/채권 | `^TNX`(10Y) `^IRX`(3M) `^FVX`(5Y) `^TYX`(30Y) `TLT` `IEF` `SHY` `SGOV` `TIP` `HYG` `LQD` |
+| 외환 | `DX-Y.NYB` `KRW=X` `JPY=X` `EURUSD=X` `CNY=X` |
+| 코인 | `BTC-USD` `ETH-USD` `SOL-USD` `XRP-USD` `IBIT` `COIN` |
+| 경기순환 프록시 | `HG=F`(구리) `GC=F`(금) `XLY` `XLP` `IWM` |
+
+FRED 공개 CSV(`fredgraph.csv`, API 키 불필요) 로더 추가: `T10Y3M` `T10Y2Y` `DGS2` `DGS10`
+`BAMLH0A0HYM2`(HY OAS) `NFCI` `ICSA` `UMCSENT`. `data_cache/fred/*.csv`에 TTL 6시간 캐시,
+실패 시 이전 캐시 → 스냅샷 값 순으로 폴백하며 각 값에 `source`를 남깁니다.
+
+### 6.2 경기선행지표 엔진 (`core/leading_indicators.py`)
+| 방법론 | 출처 | 적용 |
+|---|---|---|
+| 12개월 침체 프로빗 | Estrella & Mishkin (1998) *REStat* 80(1):45-61 / Estrella & Hardouvelis (1991) *JF* 46(2) | `P = Φ(-0.6045 - 0.8180 × (10Y-3M))` |
+| 다변량 선행지수 | Stock & Watson (1989) *NBER Macro Annual* 4 / (2002) *JBES* 20(2) | 표준화 성분 가중합 + 동일가중 확산지수 비교 |
+| 신용·유동성 | Gilchrist & Zakrajšek (2012) *AER* 102(4) | HY OAS 수준·z + HYG/IEF 상대강도 (EBP 프록시) |
+| 국면·합성 | Burns & Mitchell (1946) / Conference Board LEI / OECD CLI | 4국면 판정, 1σ = 10pt 진폭조정 |
+
+- `CUBE-LEI = 100 + 10·Z` (Z는 5년 표준화 성분의 가중합), `score = Φ(Z)·100`.
+- 성분 9개: 10Y-3M · 10Y-2Y · HY OAS · NFCI · 실업수당 YoY · S&P500 12M · 미시간 소비자심리 · 구리/금 · XLY/XLP.
+- 검증 가능한 값만 사용하며, 미확보 성분은 가중치 재정규화 후 보고서에 명시합니다.
+
+### 6.3 에이전트별 반영
+| Agent | 확장된 담당 업무 |
+|---|---|
+| 1 | 채권/연준 · 외환 · 크립토 섹터 센티먼트 **분리 보고** (`sector_sentiment`) |
+| 2 | TLT·IEF·SHY·HYG·LQD, DXY·원/달러·엔/달러·유로·위안, BTC·ETH·SOL·XRP·IBIT 기술적 레벨 (`cross_asset_levels`) |
+| 4 | 4대 영역 통합(선행지표·채권·환율·코인) + `handoff_to_agents` |
+| 5 | HYG/LQD 크레딧, TLT 듀레이션 흐름, IBIT/BTC 기관 크립토 흐름 |
+| 6 | 국면별 시나리오 확률 재배분 + 레버리지 상한 계수·종목 상한 |
+| 7 | 선행지표·금리차 필터의 MDD/Sharpe 방어효과 5년 실측 검증 (`lei_filter_backtest`) |
+| 8 | 환노출 민감도·일간 VaR, SGOV 캐리 vs 현금 기회비용, BTC 주말→월요일 QQQ 갭 회귀 |
+| 9 | 5축(주식·채권·외환·코인·사이클) 융합 → `RISK_ON` / `CAUTIOUS_ROTATION` / `DEFENSIVE_TBILL` / `BEAR_HEDGE` |
+| 10 | 국면별 사이징·종목 상한, SGOV/SHY 파킹 제안, 환율 코멘트, 코인 주말 경보 (DIP_SWING 승인·NVDA $173/$150·BEAR ALPHA 게이트 보존) |
+
+### 6.4 실행
+```bash
+python3 core/leading_indicators.py          # CUBE-LEI 단독 산출 → data/leading_indicators.json
+python3 scripts/run_lei_filter_backtest.py  # 필터 방어효과 5년 시뮬 → data/lei_filter_backtest.json
+python3 scripts/run_full_pipeline.py        # 위 두 단계 포함 전체 파이프라인
+```

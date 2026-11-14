@@ -41,11 +41,22 @@ class DailyTraderAgent(BaseAgent):
         ensemble = context.get("ensemble") or {}
         alpha = context.get("alpha") or {}
         dip = (context.get("technical_report") or {}).get("dip_swing_watchlist") or {}
+        leading = context.get("leading") or {}
+        lei = leading.get("cube_lei") or {}
+        probit = leading.get("recession_probit") or {}
+        credit = leading.get("credit") or {}
+        policy = leading.get("policy") or {}
+        alpha_x = alpha.get("fx_exposure") or {}
+        carry_block = (alpha.get("sgov_vs_cash") or {})
+        gap_risk = (alpha.get("crypto_weekend_gap_risk") or {})
 
         review = ledger_mod.validate(snapshot=snap, fix=True)
         led = ledger_mod.summary(snapshot=snap)
         phase = clock.get("phase", "UNKNOWN")
         quotes = snap.get("quotes", {})
+        regime_factor = float(policy.get("max_gross_exposure_factor", 1.0) or 1.0)
+        stance = ensemble.get("market_stance") or "UNKNOWN"
+        pos_cap_pct = round(25.0 * regime_factor, 1)
 
         # ---- open bracket review, re-anchored on the realised fill
         bracket_review: List[Dict[str, Any]] = []
@@ -91,14 +102,19 @@ class DailyTraderAgent(BaseAgent):
         dip_watch = dip.get("watch") or []
         mode = alpha.get("recommended_execution_mode")
         def size_by_risk(price: float, stop_pct: float, risk_pct: float = 0.02, cap_pct: float = 0.25) -> Dict[str, Any]:
-            """Integer-share sizing from the risk budget, capped by position weight."""
+            """Integer-share sizing from the risk budget, capped by position weight.
+
+            2026-11-14: cap_pct ↔ position_cap_pct = 25% × CUBE-LEI 국면 계수.
+            하드코딩 상한 대신 국면별 사이징을 적용한다(선행지표 필터의 실측 결론:
+            바이너리 청산보다 사이징 축소가 CAGR·Sharpe 손실이 작다).
+            """
             if not price or price <= 0 or stop_pct <= 0:
                 return {"qty": 0, "cost_usd": 0.0, "risk_usd": 0.0, "risk_pct": 0.0}
-            risk_budget = equity * risk_pct
+            risk_budget = equity * risk_pct * regime_factor
             stop_dist = price * stop_pct / 100.0
-            qty = max(1, int(risk_budget // stop_dist))
-            if qty * price > equity * cap_pct:
-                qty = max(1, int((equity * cap_pct) // price))
+            qty = max(1, int(risk_budget // stop_dist)) if risk_budget > 0 else 0
+            if qty * price > equity * cap_pct / 100.0:
+                qty = max(1, int((equity * cap_pct / 100.0) // price))
             cost = round(qty * price, 2)
             return {"qty": qty, "cost_usd": cost, "risk_usd": round(qty * stop_dist, 2),
                     "risk_pct": round(qty * stop_dist / equity * 100, 2) if equity else 0.0}
@@ -123,7 +139,7 @@ class DailyTraderAgent(BaseAgent):
                     "tp_pct": s["validated_tp_pct"], "sl_pct": s["validated_sl_pct"],
                     "max_hold_sessions": s["max_hold_sessions"],
                     "risk_per_trade_pct": 2.0,
-                    **size_by_risk(s["close"], s["validated_sl_pct"]),
+                    **size_by_risk(s["close"], s["validated_sl_pct"], cap_pct=pos_cap_pct),
                     "bracket_rule": "진입 시점 ATR×1.5 대칭 TP/SL · 최대 3세션 시간청산",
                     "approval": f"{appr_block['status']} ({appr_block.get('approved_at_kst')})",
                     "status": dip_status,
@@ -137,7 +153,7 @@ class DailyTraderAgent(BaseAgent):
                     "tp_pct": s["validated_tp_pct"], "sl_pct": s["validated_sl_pct"],
                     "max_hold_sessions": s["max_hold_sessions"],
                     "risk_per_trade_pct": 2.0,
-                    **size_by_risk(s["close"], s["validated_sl_pct"]),
+                    **size_by_risk(s["close"], s["validated_sl_pct"], cap_pct=pos_cap_pct),
                     "status": dip_status,
                 })
         elif mode == "DIP_SWING" and not dip_signals:
@@ -147,7 +163,7 @@ class DailyTraderAgent(BaseAgent):
                     "condition": w.get("why_not"),
                     "validated_tp": w["validated_tp"], "validated_sl": w["validated_sl"],
                     "tp_pct": w["validated_tp_pct"], "sl_pct": w["validated_sl_pct"],
-                    **size_by_risk(w["close"], w["validated_sl_pct"]),
+                    **size_by_risk(w["close"], w["validated_sl_pct"], cap_pct=pos_cap_pct),
                     "bracket_rule": "진입 시점 ATR×1.5 대칭 TP/SL · 최대 3세션 시간청산",
                     "approval": f"{appr_block['status']} ({appr_block.get('approved_at_kst')})",
                     "status": wait_status,
@@ -171,6 +187,56 @@ class DailyTraderAgent(BaseAgent):
 
         reanchor_needed = [b for b in bracket_review if b["status"] == "HOLDING" and b.get("current_bracket", {}).get("sl")]
         cash_krw = led.get("cash_krw")
+
+        # ---- 2026-11-14 확장: 선행지표 국면별 사이징 · 단기채 파킹 · 환율 · 코인 주말 경보
+        lei_block = {
+            "cube_lei_index": lei.get("index"), "regime": lei.get("regime"), "regime_ko": lei.get("regime_ko"),
+            "recession_probability_pct": probit.get("probability_used"),
+            "credit_level": credit.get("level"), "hy_oas_bp": credit.get("hy_oas_bp"),
+            "leverage_cap_factor": regime_factor, "position_cap_pct": pos_cap_pct,
+            "risk_per_trade_pct_effective": round(2.0 * regime_factor, 2),
+            "sizing_rule": "리스크 2%/거래 × 국면계수, 종목 상한 25% × 국면계수 (core/leading_indicators policy)",
+            "applied_to": "DIP_SWING 신호 사이징 및 장중 회전 목표비중",
+        }
+        parking = {
+            "preference": policy.get("parking_preference"),
+            "bond_duration_stance": policy.get("bond_duration_stance"),
+            "sgov_carry": carry_block,
+            "cash_usd": cash, "cash_krw": cash_krw,
+            "proposal": (f"미배치 현금 ${cash:,.2f} 중 장중 회전 대기분을 제외한 버퍼를 SGOV(또는 유동성 필요 시 SHY)로 파킹 "
+                         f"— 실측 연환산 {carry_block.get('annual_yield_pct')}% 적용 시 월 "
+                         f"${carry_block.get('monthly_interest_usd')} 약 {carry_block.get('opportunity_cost_if_cash_sits_idle_krw_per_month')}원 "
+                         f"(무위험·원금보존, 주문은 개장 후 집행)"),
+            "note": "파킹은 제안이며 자동 집행하지 않습니다. 기존 SGOV 보유분은 CARRY_PARKING으로 유지됩니다.",
+        }
+        fx_note = {
+            "usd_krw": (snap.get("fx_market") or {}).get("usd_krw", {}).get("last"),
+            "regime": (leading.get("fx") or {}).get("krw_regime"),
+            "per_10won_krw": (alpha.get("fx_exposure") or {}).get("sensitivity", {}).get("per_10won_krw"),
+            "daily_var_95_krw": (alpha.get("fx_exposure") or {}).get("daily_var_95_krw"),
+            "note": ((alpha.get("fx_exposure") or {}).get("hedge_note")),
+            "entry_commentary": (f"원/달러 {(snap.get('fx_market') or {}).get('usd_krw', {}).get('last')}원 기준: "
+                                 f"신규 USD 매수 시 환율 10원 상승은 계좌 평가금 +"
+                                 f"{(alpha.get('fx_exposure') or {}).get('sensitivity', {}).get('per_10won_krw')}원 효과. "
+                                 f"NH는 원화 증거금을 자동환전하므로 체결 시점 환율이 원가에 반영됩니다.") if cash else "환율 데이터 미확보",
+        }
+        weekend_alert = {
+            "triggered": bool(policy.get("crypto_weekend_alert") or gap_risk.get("implied_monday_qqq_gap_pct") is not None and abs(gap_risk.get("implied_monday_qqq_gap_pct") or 0) >= 1.0),
+            "btc_weekend_return_pct": (leading.get("crypto") or {}).get("weekend_return_pct"),
+            "implied_monday_qqq_gap_pct": gap_risk.get("implied_monday_qqq_gap_pct"),
+            "regression": {k: gap_risk.get(k) for k in ("beta_monday_gap_per_1pct_weekend_btc", "r_squared", "sample_weeks")},
+            "action": ("월요일 개장 첫 30분은 갭 확인 후 진입(ORB 추격 금지, DIP_SWING 트리거 대기)" if
+                       abs(gap_risk.get("implied_monday_qqq_gap_pct") or 0) >= 1.0 else
+                       "주말 코인 변동으로 인한 월요일 갭 경보 없음 — 통상 개장 계획 유지"),
+            "reading_ko": gap_risk.get("reading_ko"),
+        }
+        preserved = {
+            "dip_swing_approval": f"{appr_block['status']} ({appr_block.get('approved_at_kst')})",
+            "nvda_levels_locked": "TP $173.0 / SL $150.0 — 사용자 지정, 변경 금지",
+            "bear_alpha_gate": "VIX ≥ 24 + 확인 2개 (변경 금지)",
+            "intraday_rotation": "유지 — DIP_SWING은 병행이며 회전 매매를 대체하지 않음",
+            "checked_at": self.last_run,
+        }
         self.output_data = {
             "phase": phase, "phase_label": clock.get("label_ko"),
             "execution_broker": "NH투자증권 (나무) Open API",
@@ -199,15 +265,26 @@ class DailyTraderAgent(BaseAgent):
                                       "오버나이트 보유는 리스크 프로파일 변경이므로 사용자 승인 전 집행하지 않습니다.")},
             "capital_plan": {
                 "cash_usd": cash,
-                "dip_swing_cap_usd": round(equity * float(appr_block.get("position_cap_pct") or 25) / 100.0 * max_pos, 2),
-                "rule": "DIP_SWING 1순위(최대 2종목·종목 상한 25%) → 잔여 현금으로 장중 회전 병행",
+                "dip_swing_cap_usd": round(equity * pos_cap_pct / 100.0 * max_pos, 2),
+                "rule": f"DIP_SWING 1순위(최대 {max_pos}종목·종목 상한 {pos_cap_pct}%) → 잔여 현금으로 장중 회전 병행",
                 "max_positions": max_pos,
+                "position_cap_pct": pos_cap_pct,
+                "regime_factor": regime_factor,
             },
+            "leading_indicator_controls": lei_block,
+            "parking_plan": parking,
+            "fx_commentary": fx_note,
+            "crypto_weekend_alert": weekend_alert,
+            "preserved_controls": preserved,
+            "market_stance": stance,
             "key_takeaway": (
                 f"{clock.get('label_ko')}. 원장 정합성 {review['status']} (이슈 {len(review['issues'])}건, "
                 f"거래일 플래그 {len(review.get('fixed_days', []))}건 수정). "
                 f"현금 ${cash:,.2f} / {cash_krw:,}원 ({led.get('cash_pct')}%), 평가 ${equity:,.2f}. "
                 f"DIP_SWING 오버나이트 {appr_block['status']}. "
+                f"CUBE-LEI {lei.get('regime_ko')} → 레버리지 계수 {regime_factor}·종목 상한 {pos_cap_pct}%·태세 {stance}. "
+                f"SGOV 파킹 시 월 {carry_block.get('monthly_interest_usd')}달러 이자. "
+                f"코인 주말 경보 {'발생' if weekend_alert['triggered'] else '없음'}. "
                 f"다음 개장 {clock.get('next_open_kst')}. 대기 계획 {len(planned)}건."
             ),
         }

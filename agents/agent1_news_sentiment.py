@@ -119,6 +119,7 @@ class NewsSentimentAgent(BaseAgent):
         macro_flow = {t: by_topic(t) for t in ("FED_RATES", "TARIFF_TRADE", "OIL_ENERGY", "CRYPTO", "AI_CAPEX")}
         fresh_24h = sum(1 for it in items if (it.get("age_hours") or 99) <= 24)
         weekend = self._weekend_block(snap, clock)
+        sector_sentiment = self._sector_sentiment(items)
 
         avg = round(sum(ticker_reports[t]["sentiment_score"] for t in ["SOXL", "TQQQ", "NVDA", "TSLA"]) / 4.0, 1)
         mood = ("RISK_OFF (매크로 악화)" if avg < 40 else
@@ -144,6 +145,12 @@ class NewsSentimentAgent(BaseAgent):
             "monitored_tickers": list(ticker_reports.keys()),
             "ticker_reports": ticker_reports,
             "macro_news_flow": macro_flow,
+            "sector_sentiment": sector_sentiment,
+            "sector_coverage": {
+                "note": "업무 범위 2026-11-14 확장: 주식/매크로 외에 채권·연준, 외환(FX), 크립토를 섹터별로 분리 보고합니다.",
+                "sectors": list(sector_sentiment.keys()),
+                "method": "헤드라인 키워드 매칭 → 가중 센티먼트 합산 → 0~100 점수(50=중립). 시장 내재 앵커와 별도 산출.",
+            },
             "weekend_block": weekend,
             "top_headlines": [{"title": it["title"], "source": it["source"], "published": it["published"],
                                "link": it["link"], "tickers": it.get("tickers", []), "sentiment": it["sentiment"]}
@@ -181,6 +188,61 @@ class NewsSentimentAgent(BaseAgent):
         flow = (s.get("top_headlines") or [{}])[0].get("title", "")
         return (f"뉴스 점수 {s.get('news_score', 50)} + 시장 내재 {anchor['score']} (NQ {anchor['components'].get('nasdaq_fut_pct')}%, "
                 f"VIX {anchor['components'].get('vix')}) → 종합 {s.get('sentiment_score', 50)}. 최근 헤드라인: {flow[:70]}")
+
+    @staticmethod
+    def _sector_sentiment(items: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Bond/FX/crypto headline sentiment, separated from the equity scores.
+
+        Same lexicon as the ticker scores (core/news_engine weighted_sentiment),
+        but the relevance filter is sector-level instead of ticker-level. A sector
+        with no fresh headline reports score 50.0 with `headline_count: 0` — it is
+        never given a made-up value.
+        """
+        SECTORS = {
+            "BONDS_FED": {"label": "채권·연준 (국채/금리/FOMC)",
+                          "keywords": ["treasury", "yield", "bond", "fomc", "fed ", "federal reserve",
+                                       "rate cut", "rate hike", "powell", "duration", "auction", "oas",
+                                       "high yield", "credit spread"],
+                          "proxy": "TLT / IEF / SHY · 10Y-3M 스프레드"},
+            "FX": {"label": "외환 (달러/원/엔/유로)",
+                   "keywords": ["dollar", "yen", "euro", "yuan", "currency", "forex", "dxy",
+                                "exchange rate", "greenback", "won"],
+                   "proxy": "DXY / USD-KRW / USD-JPY"},
+            "CRYPTO": {"label": "크립토 (비트코인/이더/알트)",
+                       "keywords": ["bitcoin", "btc", "ethereum", "ether", "crypto", "solana", "xrp",
+                                    "stablecoin", "coinbase", "spot etf", "binance"],
+                       "proxy": "BTC-USD / ETH-USD · IBIT"},
+        }
+        out: Dict[str, Any] = {}
+        for key, cfg in SECTORS.items():
+            rel = []
+            for it in items:
+                low = f"{it.get('title','')} {it.get('summary','')}".lower()
+                if any(k in low for k in cfg["keywords"]):
+                    rel.append(it)
+            # de-duplicate by title, keep the strongest |sentiment|
+            seen, uniq = set(), []
+            for it in sorted(rel, key=lambda x: -abs(x.get("weighted_sentiment", 0.0))):
+                if it.get("title") in seen:
+                    continue
+                seen.add(it.get("title"))
+                uniq.append(it)
+            w = sum(it.get("weighted_sentiment", 0.0) for it in uniq[:40])
+            score = round(50.0 + 50.0 * (w / (abs(w) + 6.0)), 1) if uniq else 50.0
+            bullish = sum(1 for it in uniq if it.get("sentiment") == "POSITIVE")
+            bearish = sum(1 for it in uniq if it.get("sentiment") == "NEGATIVE")
+            out[key] = {
+                "label": cfg["label"], "proxy": cfg["proxy"],
+                "sentiment_score": score,
+                "grade": news_engine.grade_for(score),
+                "headline_count": len(uniq),
+                "positive": bullish, "negative": bearish,
+                "weighted_sentiment": round(w, 2),
+                "top_headlines": [{"title": it["title"], "source": it["source"],
+                                   "published": it["published"], "link": it["link"],
+                                   "sentiment": it["sentiment"]} for it in uniq[:4]],
+            }
+        return out
 
     @staticmethod
     def _weekend_block(snap: Dict[str, Any], clock: Dict[str, Any]) -> Dict[str, Any]:

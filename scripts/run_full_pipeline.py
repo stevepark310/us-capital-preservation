@@ -47,22 +47,28 @@ def sync_widget() -> bool:
 
 def main():
     stages = [
-        ("1/5 live portfolio sync", [sys.executable, "scripts/sync_live_portfolio.py"]),
-        ("2/5 10-agent pipeline + feed", [sys.executable, "scripts/update_feed.py"]),
-        ("3/5 dashboard build", [sys.executable, "scripts/build_full_cube.py"]),
+        ("0/6 LEI filter backtest (시뮬·캐시 활용)", [sys.executable, "scripts/run_lei_filter_backtest.py"]),
+        ("1/6 live portfolio sync", [sys.executable, "scripts/sync_live_portfolio.py"]),
+        ("2/6 10-agent pipeline + feed", [sys.executable, "scripts/update_feed.py"]),
+        ("3/6 dashboard build", [sys.executable, "scripts/build_full_cube.py"]),
     ]
     ok = True
     for name, cmd in stages:
         ok = run(name, cmd) and ok
-    print("\n=== 4/5 widget sync")
+    print("\n=== 4/6 widget sync")
     ok = sync_widget() and ok
-    print("\n=== 5/5 summary")
+    print("\n=== 5/6 summary")
     import json
     try:
         rep = json.load(open(os.path.join(BASE_DIR, "data", "cube_report.json"), encoding="utf-8"))
         feed = json.load(open(os.path.join(BASE_DIR, "data", "agent_feed.json"), encoding="utf-8"))
         print(f"  phase {rep.get('phase')} | agents {rep.get('agents_ok')}/{rep.get('total_agents')} | "
               f"posts {feed.get('total_posts')} | next open {rep.get('next_open_kst')}")
+        cm = feed.get("cross_market") or {}
+        lei = cm.get("cube_lei") or {}
+        probit = cm.get("recession_probit") or {}
+        print(f"  CUBE-LEI {lei.get('index')} ({lei.get('regime')}) | P(침체) {probit.get('probability_used')}% | "
+              f"태세 {cm.get('market_stance')} | 성분 {len(cm.get('components') or [])}개")
     except Exception as e:
         print(f"  summary read failed: {e}")
         ok = False

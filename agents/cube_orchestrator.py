@@ -32,7 +32,7 @@ from agents.agent8_alpha_evaluator import AlphaEvaluatorAgent
 from agents.agent9_ensemble_synthesizer import EnsembleSynthesizerAgent
 from agents.agent10_daily_trader import DailyTraderAgent
 
-from core import market_clock, market_snapshot, news_engine, technical, ledger as ledger_mod
+from core import market_clock, market_snapshot, news_engine, technical, ledger as ledger_mod, leading_indicators
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPORT_PATH = os.path.join(BASE_DIR, "data", "cube_report.json")
@@ -56,7 +56,13 @@ class CubeOrchestrator:
 
         hist = market_snapshot.fetch_history(force=force_refresh)
         techs = {}
-        for sym in ["SOXL", "TQQQ", "NVDA", "TSLA", "SGOV", "SOXS", "SQQQ", "SPY", "QQQ", "^VIX"]:
+        scan = ["SOXL", "TQQQ", "NVDA", "TSLA", "SGOV", "SOXS", "SQQQ", "SPY", "QQQ", "^VIX",
+                # 2026-11-14: 채권 · 외환 · 코인 · 경기순환 프록시도 기술적 분석 대상
+                "TLT", "IEF", "SHY", "HYG", "LQD", "TIP",
+                "DX-Y.NYB", "KRW=X", "JPY=X", "EURUSD=X", "CNY=X",
+                "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "IBIT",
+                "IWM", "XLY", "XLP", "HG=F", "GC=F"]
+        for sym in scan:
             if sym in hist:
                 techs[sym] = technical.analyze(sym, hist[sym], snap.get("quotes", {}).get(sym))
 
@@ -75,6 +81,15 @@ class CubeOrchestrator:
 
         led = ledger_mod.summary(snapshot=snap)
 
+        # Business-cycle leading index (core/leading_indicators) — computed once per
+        # pipeline, consumed by Agents 4/5/6/7/8/9/10 through ctx["leading"].
+        try:
+            lei = leading_indicators.compute(snapshot=snap, force=force_refresh)
+            leading_indicators.export(lei)
+        except Exception as e:
+            lei = {"error": str(e), "cube_lei": {}, "components": []}
+            print(f"[orchestrator] leading indicator engine failed: {e}")
+
         bt = {}
         bt_path = os.path.join(BASE_DIR, "data", "1y_backtest_report.json")
         if os.path.exists(bt_path):
@@ -87,7 +102,7 @@ class CubeOrchestrator:
         return {
             "clock": clock, "phase": clock["phase"], "snapshot": snap, "history": hist,
             "technical": techs, "news_payload": payload, "sentiment": senti,
-            "ledger": led, "backtest_report": bt,
+            "ledger": led, "backtest_report": bt, "leading": lei,
         }
 
     # ------------------------------------------------------------------ pipeline
@@ -103,6 +118,12 @@ class CubeOrchestrator:
         ctx["vix"] = (snap.get("macro", {}).get("vix") or {}).get("last") or 20.0
         ctx["dxy"] = (snap.get("macro", {}).get("dxy") or {}).get("last") or 100.0
         ctx["us_10y_yield"] = snap.get("macro", {}).get("us_10y_yield")
+        ctx.setdefault("leading", {})
+        if not ctx.get("leading"):
+            try:
+                ctx["leading"] = leading_indicators.compute(snapshot=snap)
+            except Exception as e:
+                ctx["leading"] = {"error": str(e), "cube_lei": {}, "components": []}
 
         summaries: List[Dict[str, Any]] = []
         if not quiet:
@@ -139,7 +160,6 @@ class CubeOrchestrator:
             elif aid == 9:
                 ctx["ensemble"] = result
                 ctx["target_portfolio_weights"] = result.get("target_portfolio_weights", {})
-
             summary = agent.get_summary()
             summary["report"] = result if isinstance(result, dict) else {}
             summaries.append(summary)
@@ -161,6 +181,9 @@ class CubeOrchestrator:
             "total_agents": len(self.agents),
             "data_provenance": {
                 "market": "Yahoo Finance (yfinance) — daily + 5m intraday",
+                "macro_official": "FRED fredgraph.csv — T10Y3M/T10Y2Y/DGS2/DGS10/BAMLH0A0HYM2/NFCI/ICSA/UMCSENT (API 키 불필요, 6시간 캐시)",
+                "leading_index": f"CUBE-LEI {((ctx.get('leading') or {}).get('cube_lei') or {}).get('index')} "
+                                 f"({((ctx.get('leading') or {}).get('cube_lei') or {}).get('regime')}) — Estrella & Mishkin (1998) · Stock & Watson (1989) · Gilchrist & Zakrajšek (2012) · Burns & Mitchell (1946) 기반 core/leading_indicators.py",
                 "news": f"{ctx['news_payload'].get('feeds_ok')}/{ctx['news_payload'].get('feeds_total')} feeds, "
                         f"{ctx['news_payload'].get('item_count')} items, health {ctx['news_payload'].get('source_health')}",
                 "ledger": "data/daily_trading_calendar.json + data/live_portfolio.json (single FX source)",
@@ -184,6 +207,10 @@ class CubeOrchestrator:
             "agents": summaries,
             "executive_summary": {
                 "macro_regime": (ctx.get("macro") or {}).get("macro_regime"),
+                "cube_lei": (ctx.get("leading") or {}).get("cube_lei"),
+                "recession_probability_pct": ((ctx.get("leading") or {}).get("recession_probit") or {}).get("probability_used"),
+                "credit_level": ((ctx.get("leading") or {}).get("credit") or {}).get("level"),
+                "market_stance": (ctx.get("ensemble") or {}).get("market_stance"),
                 "sentiment_avg": (ctx.get("news_report") or {}).get("average_sentiment_score"),
                 "market_implied_anchor": (ctx.get("news_report") or {}).get("market_implied_anchor", {}).get("score"),
                 "approved_strategies": [a["id"] for a in (ctx.get("alpha") or {}).get("profitable_scenarios", [])],
