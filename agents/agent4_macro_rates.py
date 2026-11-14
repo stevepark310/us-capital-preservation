@@ -46,7 +46,7 @@ class MacroRatesAgent(BaseAgent):
         slope = round((ten_y - three_m) * 100, 1) if ten_y and three_m else None
 
         # regime from real bars
-        hist = market_data.get("history") or {}
+        hist = market_data.get("history") or context.get("history") or {}
         spy = hist.get("SPY")
         vix_series = None
         try:
@@ -55,6 +55,10 @@ class MacroRatesAgent(BaseAgent):
         except Exception:
             vix_series = None
         regime_label, diag = "UNKNOWN", {}
+        if (spy is None or len(spy) < 60):
+            from core import market_snapshot as _ms
+            hist = _ms.fetch_history(["SPY", "^VIX"]) or hist
+            spy = hist.get("SPY")
         if spy is not None and len(spy) >= 60:
             try:
                 import pandas as pd

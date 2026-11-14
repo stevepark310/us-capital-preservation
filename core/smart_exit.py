@@ -195,11 +195,13 @@ class SmartExitSystem:
                 "macro_kill_switch": "VIX 22 돌파 시 강제 청산",
                 "profit_reinvestment": "일일 실현 익절금 전액 SGOV(연 4.5% 일복리) 자동 예치"
             },
+            # 측정값은 data/1y_backtest_report.json (60분봉 경로, 왕복 0.24%)에서 읽습니다.
+            # 과거 이 자리에 있던 수치는 출처 없는 값이어서 제거했습니다.
             "backtest_comparison": {
-                "benchmark_fixed_exit": {"cagr": "18.42%", "mdd": "-6.85%", "sharpe": "1.82"},
-                "smart_scaled_exit": {"cagr": "27.65%", "mdd": "-3.92%", "sharpe": "2.68"},
-                "news_dynamic_exit": {"cagr": "32.18%", "mdd": "-3.14%", "sharpe": "3.12"},
-                "improvement": "뉴스 연동 시 샤프 3.12 달성, 불필요한 급락 휩소 손실 -42% 감소"
+                "source": "data/1y_backtest_report.json",
+                "baseline": "현행 고정 브래킷 장중 회전",
+                "upgraded": "ATR 동적·체결가 기준 브래킷 + 러너 이중 트레일",
+                "measured": "scripts/run_1y_backtest.py 실행 결과 참조 (시뮬레이션, 실전 원장과 분리)"
             }
         }
 

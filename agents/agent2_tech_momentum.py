@@ -32,7 +32,7 @@ class TechnicalMomentumAgent(BaseAgent):
         clock = context.get("clock") or {}
         phase = clock.get("phase", "UNKNOWN")
         techs = context.get("technical") or {}
-        history = market_data.get("history") or {}
+        history = market_data.get("history") or context.get("history") or {}
         quotes = snap.get("quotes", {})
         nq_chg = (snap.get("futures", {}).get("nq") or {}).get("change_pct") or 0.0
         sentiment = context.get("sentiment", {}).get("tickers", {})
