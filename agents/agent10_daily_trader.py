@@ -89,6 +89,19 @@ class DailyTraderAgent(BaseAgent):
         dip_signals = dip.get("signals") or []
         dip_watch = dip.get("watch") or []
         mode = alpha.get("recommended_execution_mode")
+        def size_by_risk(price: float, stop_pct: float, risk_pct: float = 0.02, cap_pct: float = 0.25) -> Dict[str, Any]:
+            """Integer-share sizing from the risk budget, capped by position weight."""
+            if not price or price <= 0 or stop_pct <= 0:
+                return {"qty": 0, "cost_usd": 0.0, "risk_usd": 0.0, "risk_pct": 0.0}
+            risk_budget = equity * risk_pct
+            stop_dist = price * stop_pct / 100.0
+            qty = max(1, int(risk_budget // stop_dist))
+            if qty * price > equity * cap_pct:
+                qty = max(1, int((equity * cap_pct) // price))
+            cost = round(qty * price, 2)
+            return {"qty": qty, "cost_usd": cost, "risk_usd": round(qty * stop_dist, 2),
+                    "risk_pct": round(qty * stop_dist / equity * 100, 2) if equity else 0.0}
+
         planned: List[Dict[str, Any]] = []
         if mode == "DIP_SWING" and dip_signals:
             for s in dip_signals:
@@ -99,7 +112,7 @@ class DailyTraderAgent(BaseAgent):
                     "tp_pct": s["validated_tp_pct"], "sl_pct": s["validated_sl_pct"],
                     "max_hold_sessions": s["max_hold_sessions"],
                     "risk_per_trade_pct": 2.0,
-                    "size_guide_usd": round(min(equity * 0.25, equity * 0.02 / max(0.02, s["validated_sl_pct"] / 100)), 2),
+                    **size_by_risk(s["close"], s["validated_sl_pct"]),
                     "status": "PENDING_APPROVAL (오버나이트 보유 승인 필요)",
                 })
         elif mode == "DIP_SWING" and not dip_signals:
@@ -109,7 +122,7 @@ class DailyTraderAgent(BaseAgent):
                     "condition": w.get("why_not"),
                     "validated_tp": w["validated_tp"], "validated_sl": w["validated_sl"],
                     "tp_pct": w["validated_tp_pct"], "sl_pct": w["validated_sl_pct"],
-                    "size_guide_usd": round(equity * 0.25, 2),
+                    **size_by_risk(w["close"], w["validated_sl_pct"]),
                     "status": "PENDING_APPROVAL (오버나이트 보유 승인 필요)",
                 })
         elif mode and mode != "CASH_ONLY":

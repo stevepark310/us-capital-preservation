@@ -7,6 +7,17 @@ Enables continuous alpha generation during market downturns by automatically dep
 from typing import Dict, Any, List
 
 class InverseHedgingEngine:
+    """숏 엔진 트리거.
+
+    검증(2026-11-14, 60분봉 1년, data/1y_backtest_report.json `bear_engine_sweep`):
+    VIX 단독/OR 조건은 휩쏘가 많아 숏 거래가 전체의 47~55%까지 늘고 누적 기여가
+    -18%p 수준이었다. VIX 24 이상을 **필수 게이트**로 두고 추가 확인 1개를 요구하면
+    숏 거래가 14%로 줄고 총수익이 -9.65% → +5.77%로 개선됐다(Calmar 최적).
+    """
+
+    VIX_GATE = 24.0            # validated gate (was 22.0)
+    CONFIRMATIONS_REQUIRED = 2  # VIX gate + 1 more
+
     def __init__(self):
         self.inverse_universe = {
             "SOXS": {
@@ -48,8 +59,8 @@ class InverseHedgingEngine:
         triggers = []
         is_downturn = False
 
-        if vix >= 22.0:
-            triggers.append(f"VIX 경보 레벨 도달 ({vix:.2f} >= 22.0, 공포 국면 진입)")
+        if vix >= self.VIX_GATE:
+            triggers.append(f"VIX 게이트 통과 ({vix:.2f} >= {self.VIX_GATE:.1f}, 검증된 공포 국면)")
         if dxy >= 104.5:
             triggers.append(f"달러 인덱스 급등 ({dxy:.2f} >= 104.5, 기술주 유동성 유출)")
         if news_sentiment_score < 45.0:
@@ -59,13 +70,16 @@ class InverseHedgingEngine:
         if tech_indicators.get("semi_death_cross", False) or tech_indicators.get("nasdaq_below_20ema", False):
             triggers.append("주요 지수 20일 이평선 하향 이탈 및 데드크로스 확인")
 
-        # If 2 or more triggers fire, pivot to BEAR_HEDGE mode
-        if len(triggers) >= 2 or vix >= 25.0:
-            is_downturn = True
+        # VIX gate is mandatory: without it the short engine whipsaws (see class docstring).
+        vix_gate_passed = vix >= self.VIX_GATE
+        is_downturn = vix_gate_passed and len(triggers) >= self.CONFIRMATIONS_REQUIRED
 
         return {
             "is_downturn": is_downturn,
             "mode": "BEAR_MARKET_INVERSE_ACTIVE (SOXS/SQQQ 숏 포지션 가동)" if is_downturn else "BULL_EXPANSION_LONG_ACTIVE (SOXL/TQQQ 롱 포지션 가동)",
+            "vix_gate": self.VIX_GATE,
+            "confirmations_required": self.CONFIRMATIONS_REQUIRED,
+            "confirmations_fired": len(triggers),
             "triggers_fired": triggers,
             "recommended_inverse_tickers": ["SOXS", "SQQQ"] if is_downturn else []
         }

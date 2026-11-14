@@ -263,10 +263,18 @@ def portfolio_backtest(daily: Dict[str, pd.DataFrame], params: Dict[str, Any] = 
     monthly = {}
     for m, g in r.groupby(r.index.to_period("M")):
         monthly[str(m)] = round(((1 + g).prod() - 1) * 100, 2)
+    n_days = max(1, len(eq))
+    cagr = ((eq.iloc[-1] / 1_000_000) ** (TRADING_DAYS / n_days) - 1) * 100
+    avg_win = float(np.mean([t["ret_pct"] for t in wins])) if wins else 0.0
+    avg_loss = float(np.mean([t["ret_pct"] for t in losses])) if losses else 0.0
     return {
         "strategy": "DIP_SWING (과매도 패닉 매수 · 2~3세션 보유)",
         "period": f"{eq.index[0].date()} ~ {eq.index[-1].date()} ({len(eq)}거래일)",
         "total_return_pct": round(float(total), 2),
+        "cagr_pct": round(float(cagr), 2),
+        "avg_win_pct": round(avg_win, 2),
+        "avg_loss_pct": round(avg_loss, 2),
+        "exposure_note": f"1회 리스크 2% · 종목 비중 상한 25% · 최대 {p['max_positions']}종목 동시 보유",
         "mdd_pct": round(float(dd.min()), 2),
         "win_rate_pct": round(len(wins) / max(1, len(trades)) * 100, 1),
         "total_trades": len(trades),
