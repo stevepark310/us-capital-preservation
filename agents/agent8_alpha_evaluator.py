@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List
 
 from agents.base import BaseAgent
+from core import strategy_approval
 
 
 class AlphaEvaluatorAgent(BaseAgent):
@@ -49,6 +50,7 @@ class AlphaEvaluatorAgent(BaseAgent):
 
         approved.sort(key=lambda x: -(x["pf"] or 0))
         recommended = approved[0]["id"] if approved else "CASH_ONLY"
+        overnight = strategy_approval.plan_block()
 
         self.output_data = {
             "phase": phase,
@@ -57,10 +59,11 @@ class AlphaEvaluatorAgent(BaseAgent):
             "profitable_scenarios": approved,
             "rejected_scenarios": rejected,
             "recommended_execution_mode": recommended,
+            "overnight_approval": overnight,
             "approval_note": (
                 "승인 기준을 통과한 전략이 없으면 현금(SGOV) 보유가 최적입니다."
                 if not approved else f"{len(approved)}개 전략 승인. 최우선 {recommended}."
-            ),
+            ) + (f" 오버나이트 보유(DIP_SWING) {overnight['status_ko']}." if recommended == "DIP_SWING" else ""),
             "key_takeaway": (
                 f"승인 {len(approved)}개 / 폐기 {len(rejected)}개. 최우선 {recommended}"
                 + (f" (PF {approved[0]['pf']}, MDD {approved[0]['mdd_pct']}%)" if approved else "")

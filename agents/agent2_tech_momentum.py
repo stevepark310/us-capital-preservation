@@ -60,7 +60,7 @@ class TechnicalMomentumAgent(BaseAgent):
                 "gap_plan": technical.gap_scenarios(t, nq_chg) if phase in ("WEEKEND_PREP", "OFF_HOURS", "HOLIDAY_PREP", "PRE_MARKET") else None,
             }
 
-        # validated dip-swing watchlist (research-backed, execution pending approval)
+        # validated dip-swing watchlist (research-backed; overnight approval: config/swing_approval.json)
         dip = {}
         try:
             daily = {k: history[k] for k in ("SOXL", "TQQQ") if k in history}

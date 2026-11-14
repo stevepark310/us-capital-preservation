@@ -8,15 +8,16 @@ trades that did not exist. Now it:
   * reads the real ledger (single FX rate, one cash figure) and checks it,
   * re-computes every open bracket from the realised fill (fill-based anchoring),
   * produces a Monday-open plan with prices, brackets and cash allocation,
-  * reports the validated DIP_SWING candidate as PENDING_APPROVAL, because
-    holding overnight is a risk change the user has to accept,
+  * plans the validated DIP_SWING signal as an overnight-capable order only when
+    config/swing_approval.json carries the user's approval (approved 2026-11-14
+    21:29 KST), and keeps the intraday rotation running in parallel,
   * never marks an order as filled.
 """
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List
 
 from agents.base import BaseAgent
-from core import ledger as ledger_mod, technical
+from core import ledger as ledger_mod, technical, strategy_approval
 from core.exit_planner import AdaptiveExitPlanner
 
 
@@ -103,8 +104,18 @@ class DailyTraderAgent(BaseAgent):
                     "risk_pct": round(qty * stop_dist / equity * 100, 2) if equity else 0.0}
 
         planned: List[Dict[str, Any]] = []
-        if mode == "DIP_SWING" and dip_signals:
-            for s in dip_signals:
+        # ---- overnight approval gate: overnight holding is the user's risk call
+        appr = strategy_approval.load()
+        appr_block = strategy_approval.plan_block(appr)
+        overnight_ok = appr_block["approved"]
+        max_pos = int(appr_block.get("max_positions") or 2)
+        dip_status = (f"APPROVED (오버나이트 보유 승인 · 최대 {appr_block.get('max_hold_sessions')}세션)"
+                      if overnight_ok else "PENDING_APPROVAL (오버나이트 보유 승인 필요)")
+        wait_status = ("APPROVED (오버나이트 승인됨 · 트리거 미충족 대기)"
+                       if overnight_ok else "PENDING_APPROVAL (오버나이트 보유 승인 필요)")
+
+        if mode == "DIP_SWING" and dip_signals and overnight_ok:
+            for s in dip_signals[:max_pos]:
                 planned.append({
                     "ticker": s["symbol"], "action": "BUY_AT_NEXT_OPEN (DIP_SWING)",
                     "reference_price": s["close"],
@@ -113,19 +124,37 @@ class DailyTraderAgent(BaseAgent):
                     "max_hold_sessions": s["max_hold_sessions"],
                     "risk_per_trade_pct": 2.0,
                     **size_by_risk(s["close"], s["validated_sl_pct"]),
-                    "status": "PENDING_APPROVAL (오버나이트 보유 승인 필요)",
+                    "bracket_rule": "진입 시점 ATR×1.5 대칭 TP/SL · 최대 3세션 시간청산",
+                    "approval": f"{appr_block['status']} ({appr_block.get('approved_at_kst')})",
+                    "status": dip_status,
+                })
+        elif mode == "DIP_SWING" and dip_signals and not overnight_ok:
+            for s in dip_signals[:max_pos]:
+                planned.append({
+                    "ticker": s["symbol"], "action": "BUY_AT_NEXT_OPEN (DIP_SWING·보류)",
+                    "reference_price": s["close"],
+                    "validated_tp": s["validated_tp"], "validated_sl": s["validated_sl"],
+                    "tp_pct": s["validated_tp_pct"], "sl_pct": s["validated_sl_pct"],
+                    "max_hold_sessions": s["max_hold_sessions"],
+                    "risk_per_trade_pct": 2.0,
+                    **size_by_risk(s["close"], s["validated_sl_pct"]),
+                    "status": dip_status,
                 })
         elif mode == "DIP_SWING" and not dip_signals:
-            for w in dip_watch[:2]:
+            for w in dip_watch[:max_pos]:
                 planned.append({
                     "ticker": w["symbol"], "action": "WAIT_FOR_DIP_TRIGGER",
                     "condition": w.get("why_not"),
                     "validated_tp": w["validated_tp"], "validated_sl": w["validated_sl"],
                     "tp_pct": w["validated_tp_pct"], "sl_pct": w["validated_sl_pct"],
                     **size_by_risk(w["close"], w["validated_sl_pct"]),
-                    "status": "PENDING_APPROVAL (오버나이트 보유 승인 필요)",
+                    "bracket_rule": "진입 시점 ATR×1.5 대칭 TP/SL · 최대 3세션 시간청산",
+                    "approval": f"{appr_block['status']} ({appr_block.get('approved_at_kst')})",
+                    "status": wait_status,
                 })
-        elif mode and mode != "CASH_ONLY":
+
+        # ---- intraday rotation stays on (11-14 01:38 지시) — DIP_SWING은 병행, 대체 아님
+        if mode and mode != "CASH_ONLY":
             for sym, w in weights.items():
                 if sym == "SGOV" or w <= 0:
                     continue
@@ -137,7 +166,7 @@ class DailyTraderAgent(BaseAgent):
                     "trigger": (t.get("breakout_trigger") or (t.get("weekly_pivots") or {}).get("pivot")),
                     "target_weight": w, "size_guide_usd": round(equity * w, 2),
                     "bracket": f"ATR {t.get('atr_pct')}% 기준 (core/exit_planner 재산정)",
-                    "status": "PLANNED (개장 후 신호 확인)",
+                    "status": "PLANNED (장중 회전 병행 · 개장 후 신호 확인)",
                 })
 
         reanchor_needed = [b for b in bracket_review if b["status"] == "HOLDING" and b.get("current_bracket", {}).get("sl")]
@@ -164,11 +193,21 @@ class DailyTraderAgent(BaseAgent):
             "execution_status": ("NO_TRADE_WINDOW (주말·휴장)" if clock.get("is_off_hours") else "MONITORING"),
             "next_open_kst": clock.get("next_open_kst"),
             "swing_mode": {"recommended": mode == "DIP_SWING", "signals": dip_signals, "watch": dip_watch,
-                           "policy": "오버나이트 보유는 리스크 프로파일 변경이므로 사용자 승인 전 집행하지 않습니다."},
+                           "overnight_approval": appr_block,
+                           "policy": ("오버나이트 보유는 config/swing_approval.json의 사용자 승인(2026-11-14 21:29)으로 활성화됨. "
+                                      "DIP_SWING은 장중 회전 매매와 병행하며 대체하지 않습니다." if overnight_ok else
+                                      "오버나이트 보유는 리스크 프로파일 변경이므로 사용자 승인 전 집행하지 않습니다.")},
+            "capital_plan": {
+                "cash_usd": cash,
+                "dip_swing_cap_usd": round(equity * float(appr_block.get("position_cap_pct") or 25) / 100.0 * max_pos, 2),
+                "rule": "DIP_SWING 1순위(최대 2종목·종목 상한 25%) → 잔여 현금으로 장중 회전 병행",
+                "max_positions": max_pos,
+            },
             "key_takeaway": (
                 f"{clock.get('label_ko')}. 원장 정합성 {review['status']} (이슈 {len(review['issues'])}건, "
                 f"거래일 플래그 {len(review.get('fixed_days', []))}건 수정). "
                 f"현금 ${cash:,.2f} / {cash_krw:,}원 ({led.get('cash_pct')}%), 평가 ${equity:,.2f}. "
+                f"DIP_SWING 오버나이트 {appr_block['status']}. "
                 f"다음 개장 {clock.get('next_open_kst')}. 대기 계획 {len(planned)}건."
             ),
         }

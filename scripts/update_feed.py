@@ -142,13 +142,16 @@ def post_agent2(r: Dict[str, Any], clock) -> Dict[str, Any]:
         rows.append(f"    돌파 ${v.get('breakout_trigger')} (+{v.get('breakout_pct')}%) / 이탈 ${v.get('breakdown_trigger')}")
     gap = (lv.get("SOXL") or {}).get("gap_plan") or {}
     dip = r.get("dip_swing_watchlist") or {}
-    dip_txt = ""
+    oa = dip.get("overnight_approval") or {}
+    head = (f"\n\n[DIP_SWING 오버나이트 {oa.get('status')}] {oa.get('entry_rule')} · 최대 {oa.get('max_hold_sessions')}세션 · "
+            f"1회 리스크 {oa.get('risk_per_trade_pct')}% · 최대 {oa.get('max_positions')}종목" if oa else "")
+    dip_txt = head
     if dip.get("signals"):
-        dip_txt = "\n\n[DIP_SWING 신호]\n" + "\n".join(
+        dip_txt += "\n\n[DIP_SWING 신호]\n" + "\n".join(
             f"• {s['symbol']} ${s['close']} — RSI2 {s['rsi2']}, %B {s['pct_b']}, 검증 TP ${s['validated_tp']} / SL ${s['validated_sl']}"
             for s in dip["signals"])
     elif dip.get("watch"):
-        dip_txt = "\n\n[DIP_SWING 관찰]\n" + "\n".join(
+        dip_txt += "\n\n[DIP_SWING 관찰]\n" + "\n".join(
             f"• {w['symbol']} RSI2 {w.get('rsi2')} · %B {w.get('pct_b')} · RVOL {w.get('rvol')} → 미충족"
             for w in dip["watch"][:2])
     content = ("실측 일봉으로 계산한 종목별 레벨입니다.\n\n" + "\n".join(rows) +
@@ -316,6 +319,14 @@ def post_agent10(r: Dict[str, Any], clock) -> Dict[str, Any]:
                     f"체결가 ${_fmt(b.get('entry_fill'))} → 현재 TP1 ${_fmt(cur.get('tp1'))} / SL ${_fmt(cur.get('sl'))} "
                     f"| 재산정 TP1 ${_fmt(rc.get('tp1'))} / TP2 ${_fmt(rc.get('tp2'))} / SL ${_fmt(rc.get('sl'))} (ATR {rc.get('atr_pct')}%)")
     ptxt = [f"• {p['ticker']} {p['action']} — {p.get('status')}" for p in plan] or ["• 대기 주문 없음"]
+    sw = r.get("swing_mode") or {}
+    oa = sw.get("overnight_approval") or {}
+    cap = r.get("capital_plan") or {}
+    swing_txt = ""
+    if oa:
+        swing_txt = (f"\n\n[DIP_SWING 오버나이트 {oa.get('status')}] {oa.get('entry_rule')} · 최대 {oa.get('max_hold_sessions')}세션 · "
+                     f"1회 리스크 {oa.get('risk_per_trade_pct')}% · 최대 {oa.get('max_positions')}종목 · 상한 ${_fmt(cap.get('dip_swing_cap_usd'))}" +
+                     (f"\n승인 {oa.get('approved_at_kst')} ({oa.get('approved_by')}) · {oa.get('execution_mode')}" if oa.get("approved") else ""))
     content = (
         f"원장 정합성 {r.get('consistency_check', {}).get('status')} "
         f"(이슈 {len(r.get('consistency_check', {}).get('issues', []))}건, 거래일 플래그 "
@@ -324,7 +335,7 @@ def post_agent10(r: Dict[str, Any], clock) -> Dict[str, Any]:
         f"평가 ${_fmt(led.get('equity_usd'))} ({_fmt(led.get('equity_krw'), 0)}원)\n"
         f"현금 ${_fmt(led.get('cash_usd'))} / {_fmt(led.get('cash_krw'), 0)}원 ({led.get('cash_pct')}%) · 환율 {led.get('fx_rate')}원 "
         f"({led.get('fx_source')})\n\n[브래킷 재산정]\n" + ("\n".join(rows) if rows else "• 활성 브래킷 없음") +
-        "\n\n[개장 대기 계획]\n" + "\n".join(ptxt) +
+        "\n\n[개장 대기 계획]\n" + "\n".join(ptxt) + swing_txt +
         f"\n\n다음 개장 {r.get('next_open_kst')} · 상태 {r.get('execution_status')}"
     )
     return _post(10, clock, "⚡ 원장·브래킷·개장 계획",
@@ -334,7 +345,7 @@ def post_agent10(r: Dict[str, Any], clock) -> Dict[str, Any]:
                   {"label": "현금", "value": f"{_fmt(led.get('cash_usd'))}"},
                   {"label": "누적 실현", "value": f"+${_fmt(led.get('realized_pnl_usd'))}"},
                   {"label": "승률", "value": f"{led.get('win_rate_pct')}%"}],
-                 "주문은 개장 세션에서 신호 확인 후 집행합니다. 주말·휴장에는 어떤 주문도 보내지 않습니다.")
+                 "주문은 개장 세션에서 신호 확인 후 집행합니다. DIP_SWING 오버나이트는 승인된 규칙(진입 조건·최대 3세션·리스크 2%)으로 집행합니다.")
 
 
 def directive_posts(clock) -> List[Dict[str, Any]]:

@@ -12,8 +12,11 @@ This module is the production logic for that signal:
   signal → next-open entry plan → ATR bracket → max-hold exit, with portfolio
   concurrency limits so the backtest is capital-honest.
 
-It is deliberately NOT enabled in execution until the user approves overnight
-holding (Agent 10 reports it as PENDING_APPROVAL).
+Overnight holding is a risk-profile change, so execution is gated on an explicit
+user approval kept in config/swing_approval.json (read through
+core/strategy_approval). The user approved it on 2026-11-14 21:29 KST; every scan
+carries the current approval state so a revoked flag blocks planning again without
+a code change.
 """
 
 import json
@@ -25,6 +28,7 @@ import numpy as np
 import pandas as pd
 
 from core.exit_planner import AdaptiveExitPlanner, ROUND_TRIP_FEE_PCT as ROUND_TRIP_FEE
+from core import strategy_approval
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SGOV_APR = 0.0452
@@ -43,6 +47,34 @@ DIP_PARAMS = {
     "max_positions": 2,
     "min_gap_days": 0,
 }
+
+
+def approval_state() -> Dict[str, Any]:
+    """Current approval record plus a check that the running parameters are the
+    terms the user approved (silent parameter drift would invalidate the edge)."""
+    rec = strategy_approval.load()
+    block = strategy_approval.plan_block(rec)
+    cond, exitr, risk = (rec.get("entry_conditions") or {}), (rec.get("exit_rules") or {}), (rec.get("risk_limits") or {})
+
+    def _eq(a, b) -> bool:
+        try:
+            return abs(float(a) - float(b)) < 1e-9
+        except Exception:
+            return False
+
+    checks = {
+        "rsi2_max": _eq(cond.get("rsi2_max"), DIP_PARAMS["rsi2_max"]),
+        "pct_b_max": _eq(cond.get("pct_b_max"), DIP_PARAMS["pct_b_max"]),
+        "rvol_min": _eq(cond.get("rvol_min"), DIP_PARAMS["rvol_min"]),
+        "max_hold_sessions": _eq(exitr.get("max_hold_sessions"), DIP_PARAMS["max_hold_days"]),
+        "atr_bracket_mult": _eq(exitr.get("atr_bracket_mult"), DIP_PARAMS["tp_atr_mult"]),
+        "max_positions": _eq(risk.get("max_positions"), DIP_PARAMS["max_positions"]),
+        "risk_per_trade_pct": _eq(risk.get("risk_per_trade_pct"), DIP_PARAMS["risk_per_trade_pct"] * 100.0),
+    }
+    block["params_consistent"] = all(checks.values())
+    block["param_checks"] = checks
+    block["universe_consistent"] = set(rec.get("universe") or DIP_PARAMS["universe"]) == set(DIP_PARAMS["universe"])
+    return block
 
 
 def _rsi(series: pd.Series, n: int) -> pd.Series:
@@ -100,7 +132,7 @@ def scan_latest(daily: Dict[str, pd.DataFrame], params: Dict[str, Any] = None) -
     """Signals on the most recent completed session (used by agents on weekends)."""
     p = params or DIP_PARAMS
     planner = AdaptiveExitPlanner()
-    out = {"as_of": None, "signals": [], "watch": []}
+    out = {"as_of": None, "signals": [], "watch": [], "overnight_approval": approval_state()}
     for sym in p["universe"]:
         df = daily.get(sym)
         if df is None or len(df) < 30:

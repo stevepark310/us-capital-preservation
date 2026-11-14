@@ -1,0 +1,38 @@
+{
+  "strategy": "DIP_SWING",
+  "title": "과매도 패닉 매수 · 최대 3세션 보유 (오버나이트 허용)",
+  "overnight_status": "APPROVED",
+  "execution_mode": "PARALLEL_WITH_INTRADAY",
+  "approved_by": "박동훈 (사용자)",
+  "approved_at_kst": "2026-11-14 21:29",
+  "approval_quote": "DIP_SWING 오버나이트 병행을 승인합니다. 플래그를 켜고 다음 개장 계획을 재생성해 주세요.",
+  "effective_from_open_kst": "2026-11-16 23:30",
+  "universe": ["SOXL", "TQQQ"],
+  "entry_conditions": {
+    "rsi2_max": 20.0,
+    "pct_b_max": 0.15,
+    "rvol_min": 1.0,
+    "entry_timing": "신호 다음 세션 시가"
+  },
+  "exit_rules": {
+    "atr_bracket_mult": 1.5,
+    "max_hold_sessions": 3,
+    "bracket_basis": "진입 시점 ATR × 1.5 (TP·SL 대칭)"
+  },
+  "risk_limits": {
+    "risk_per_trade_pct": 2.0,
+    "max_positions": 2,
+    "position_cap_pct": 25.0
+  },
+  "preserved_controls": {
+    "intraday_rotation": "유지 — DIP_SWING은 장중 회전과 병행하며 회전 매매를 대체하지 않음",
+    "nvda_levels_locked": "TP $173.0 / SL $150.0 (사용자 지정, 변경 금지)",
+    "bear_alpha_gate": "VIX >= 24 + 확인 2개 (변경 금지)",
+    "small_cap_surge_model": "실전 배제 유지 (11-13 지시)"
+  },
+  "evidence": {
+    "backtest_1y": "+19.19% · PF 1.98 · 승률 58.1% · Sharpe 1.49 · MDD -6.63% · 31회 (60분봉·왕복 0.24% 마찰)",
+    "backtest_2y": "+38.17% (2년, 리스크 2%/거래 기준)",
+    "note": "시뮬레이션 수치이며 실전 원장과 분리"
+  }
+}
