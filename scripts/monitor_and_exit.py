@@ -49,7 +49,7 @@ def save_brackets(b: Dict[str, Any]) -> None:
 
 def reanchor(bracket: Dict[str, Any], ticker: str, atr_pct: float, sentiment: float) -> Dict[str, Any]:
     """Recompute levels from the realised fill; record the provenance."""
-    if bracket.get("bracket_version") == "fill_anchored_v2":
+    if bracket.get("bracket_version") in ("fill_anchored_v2", "swing_validated"):
         return bracket
     qty = int(bracket.get("bought_qty", 1) or 1)
     hard_floor = float(bracket["sl"]) if ticker == "NVDA" else None
@@ -63,6 +63,16 @@ def reanchor(bracket: Dict[str, Any], ticker: str, atr_pct: float, sentiment: fl
     before = {k: bracket.get(k) for k in ("tp1", "tp2", "sl")}
     bracket["recomputed"] = {"tp1": plan.tp1_price, "tp2": plan.tp2_price, "sl": plan.hard_sl_price,
                              "atr_pct": round(atr_pct, 2)}
+    if bracket.get("swing_hold"):
+        # DIP_SWING (사용자 승인 2026-11-14 21:29): the validated ATR×1.5 bracket and the
+        # 3-session hold are the approved terms. Intraday re-anchoring would tighten the
+        # stop and cut the position on day one, so the validated levels stay as registered.
+        bracket["bracket_version"] = "swing_validated"
+        bracket["recalc_note"] = (f"DIP_SWING 검증 레벨 유지 (TP {bracket.get('tp')} / SL {bracket.get('sl')}, "
+                                  f"최대 {bracket.get('max_hold_sessions', 3)}세션). "
+                                  f"참고 재산정: TP1 {plan.tp1_price} / TP2 {plan.tp2_price} / SL {plan.hard_sl_price}")
+        bracket.setdefault("highest_high", bracket.get("entry_price"))
+        return bracket
     if bracket.get("levels_locked"):
         # user-specified exits stay exactly as given; the recomputed values are informational only
         bracket["bracket_version"] = "fill_anchored_locked"
@@ -125,6 +135,30 @@ def sentiment_scores() -> Dict[str, float]:
         return {}
 
 
+def swing_exit_decision(bracket: Dict[str, Any], price: float, clock: Dict[str, Any]) -> Dict[str, Any]:
+    """Exit rule for an approved DIP_SWING overnight position.
+
+    The approved terms are: validated ATR×1.5 bracket, whole-position exit, and a hard
+    cap of `max_hold_sessions` sessions (time exit near that session's close). No intraday
+    partial take-profits and no stop tightening — that is the intraday rotation's rule.
+    """
+    session = clock.get("session_date")
+    if bracket.get("last_session_date") and bracket["last_session_date"] != session:
+        bracket["sessions_held"] = int(bracket.get("sessions_held", 1) or 1) + 1
+    bracket["last_session_date"] = session
+    bracket.setdefault("sessions_held", 1)
+    max_hold = int(bracket.get("max_hold_sessions", 3) or 3)
+    late = str(clock.get("now_kst", ""))[11:16] >= "05:45"   # 정규장 마감(06:00 KST) 15분 전
+
+    if float(price) <= float(bracket.get("sl", 0)):
+        return {"reason": f"DIP_SWING STOP (${price:.2f} ≤ ${bracket['sl']:.2f})", "close": False, "stop": True}
+    if bracket.get("tp") and float(price) >= float(bracket["tp"]):
+        return {"reason": f"DIP_SWING TARGET (${price:.2f} ≥ ${bracket['tp']:.2f})", "close": True, "stop": False}
+    if int(bracket.get("sessions_held", 1)) >= max_hold and late:
+        return {"reason": f"DIP_SWING TIME EXIT ({max_hold}세션 종가 청산)", "close": True, "stop": False}
+    return None
+
+
 def run_check() -> List[Dict[str, Any]]:
     clock = market_clock.resolve()
     senti = sentiment_scores()
@@ -171,6 +205,18 @@ def run_check() -> List[Dict[str, Any]]:
 
         remaining = qty_total - (int(b.get("tp1_qty", 0)) if b.get("tp1_filled") else 0) \
                               - (int(b.get("tp2_qty", 0)) if b.get("tp2_filled") else 0)
+
+        # ---- DIP_SWING overnight hold: approved terms, whole-position exit, 3-session cap
+        if b.get("swing_hold"):
+            decision = swing_exit_decision(b, price, clock)
+            if decision and remaining > 0 and not (decision["stop"] and b.get("sl_triggered")):
+                actions.append(place_sell(broker, t, remaining, price, decision["reason"], DRY_RUN))
+                if decision["stop"]:
+                    b["sl_triggered"] = True
+                if decision["close"]:
+                    b["closed"] = True
+            brackets[t] = b
+            continue
 
         # runner trail after TP2
         if b.get("tp2_filled") and remaining > 0 and b.get("runner_trail"):
