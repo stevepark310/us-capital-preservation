@@ -1,293 +1,160 @@
 #!/usr/bin/env python3
 """
-Rigorous 1-Year Backtest Engine for CUBE Multi-Scenario Quantitative System
-Period: 2025-11-12 to 2026-11-12 (251 trading days)
-Includes:
-- Filtered Larry Williams Volatility Breakout (K=0.5) with 20-day Trend Confirmation
-- 3-Stage Scaled Smart Exit (TP1 +3.0%, TP2 +5.0%, Chandelier Trailing Runner, SL -2.5% / Breakeven Ratchet)
-- Bear Market Downturn Inverse Short Engine (SOXS & SQQQ deployment during VIX >= 22 or 20 EMA breakdown)
-- Cash Yield Carry on Idle Buffer (SGOV 4.52% APR)
-- Friction: 0.24% round-trip (NH Commission 0.09% + Slippage 0.15%)
-"""
+CUBE 1-Year Backtest Report Builder
 
+Produces data/1y_backtest_report.json with:
+  * baseline vs upgraded intraday rotation (hourly-path engine, same accounting)
+  * ablations isolating the fill-anchoring and ATR-scaling changes
+  * DIP_SWING portfolio simulation (1y / 2y / split halves)
+  * BEAR ALPHA trigger sensitivity sweep + chosen trigger
+  * the previously published legacy figure, kept for continuity with a note on
+    why it is not reproducible
+
+Everything in the file is SIMULATION and is labelled as such.
+"""
+import json
 import os
 import sys
-import json
-import numpy as np
+from datetime import datetime, timedelta
+
 import pandas as pd
-import yfinance as yf
 
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, base_dir)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core import backtest_lab as lab
+from core import swing_engine as sw
 
-def run_backtest():
-    print("[Agent 7] Downloading 1-year historical OHLCV data for universe...")
-    tickers = ["SOXL", "TQQQ", "NVDA", "SOXS", "SQQQ", "SGOV", "QQQ"]
-    raw = yf.download(tickers, period="1y", interval="1d", progress=False)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LEGACY = os.path.join(BASE_DIR, "data", "1y_backtest_report_legacy.json")
 
-    closes = raw["Close"].ffill().bfill()
-    highs = raw["High"].ffill().bfill()
-    lows = raw["Low"].ffill().bfill()
-    opens = raw["Open"].ffill().bfill()
 
-    dates = closes.index
-    n_days = len(dates)
+def split_halves(daily: dict) -> dict:
+    dates = sorted(daily["SOXL"].index)
+    mid = dates[len(dates) // 2]
+    return {"h1": (str(dates[0].date()), str(mid.date())), "h2": (str(mid.date()), str(dates[-1].date()))}
 
-    vix_df = yf.download("^VIX", period="1y", interval="1d", progress=False)
-    vix_close = vix_df["Close"].reindex(dates).ffill().bfill()
-    if isinstance(vix_close, pd.DataFrame):
-        vix_series = vix_close.iloc[:, 0]
-    else:
-        vix_series = vix_close
 
-    K = 0.5
-    cost_per_trade = 0.0024  # 0.24% round-trip NH commission + slippage
-    rf_daily = 0.0452 / 252.0  # SGOV daily risk-free yield
+def main():
+    print("[1/4] intraday baseline vs upgraded (hourly path)…")
+    rep = lab.ab_compare(period="1y", sweep=True)
 
-    equity_curve = [1000000.0]
-    daily_returns = []
+    print("[2/4] DIP_SWING portfolio simulation (1y / 2y)…")
+    d1 = lab.load_daily("1y")
+    d2 = lab.load_daily("2y")
+    swing_1y = sw.portfolio_backtest(d1)
+    swing_2y = sw.portfolio_backtest(d2)
+    swings = {}
+    for label, (daily, key) in {"1y": (d1, swing_1y), "2y": (d2, swing_2y)}.items():
+        keep = {k: v for k, v in key.items() if k not in ("trades", "equity_curve")}
+        keep["monthly_breakdown"] = key.get("monthly_breakdown")
+        keep["trade_count"] = len(key.get("trades", []))
+        keep["sample_trades"] = key.get("trades", [])[-5:]
+        swings[label] = keep
+    halves = split_halves(d2)
+    swings["split"] = {}
+    for k, (s, e) in halves.items():
+        r = sw.portfolio_backtest(d2, start=s, end=e)
+        swings["split"][k] = {kk: r.get(kk) for kk in ("period", "total_return_pct", "mdd_pct",
+                                                       "win_rate_pct", "profit_factor", "total_trades")}
+    rep["swing"] = swings
 
-    soxl_c = closes["SOXL"]
-    soxl_h = highs["SOXL"]
-    soxl_l = lows["SOXL"]
-    soxl_o = opens["SOXL"]
-    soxl_ema20 = soxl_c.ewm(span=20, adjust=False).mean()
-
-    tqqq_c = closes["TQQQ"]
-    tqqq_h = highs["TQQQ"]
-    tqqq_l = lows["TQQQ"]
-    tqqq_o = opens["TQQQ"]
-    tqqq_ema20 = tqqq_c.ewm(span=20, adjust=False).mean()
-
-    soxs_c = closes["SOXS"]
-    soxs_h = highs["SOXS"]
-    soxs_l = lows["SOXS"]
-    soxs_o = opens["SOXS"]
-
-    sqqq_c = closes["SQQQ"]
-    sqqq_h = highs["SQQQ"]
-    sqqq_l = lows["SQQQ"]
-    sqqq_o = opens["SQQQ"]
-
-    wins = 0
-    losses = 0
-    gross_gains = 0.0
-    gross_losses = 0.0
-
-    monthly_returns = {}
-
-    for i in range(1, n_days):
-        dt = dates[i]
-        month_key = dt.strftime("%Y-%m")
-        if month_key not in monthly_returns:
-            monthly_returns[month_key] = []
-
-        curr_vix = float(vix_series.iloc[i]) if i < len(vix_series) else 18.0
-        # Downturn regime if VIX is high or tech is below 20 EMA
-        is_bear_regime = curr_vix >= 22.0 or (tqqq_c.iloc[i-1] < tqqq_ema20.iloc[i-1])
-
-        day_ret = 0.0
-        traded_today = False
-
-        if not is_bear_regime:
-            # Bull Regime: Only trade when asset is above 20 EMA (Trend confirmation filter)
-            # 1. SOXL
-            if soxl_c.iloc[i-1] >= soxl_ema20.iloc[i-1]:
-                soxl_range = soxl_h.iloc[i-1] - soxl_l.iloc[i-1]
-                soxl_target = soxl_o.iloc[i] + (soxl_range * K)
-                if soxl_h.iloc[i] >= soxl_target:
-                    traded_today = True
-                    entry_p = soxl_target
-                    max_reach = (soxl_h.iloc[i] / entry_p) - 1.0
-                    close_reach = (soxl_c.iloc[i] / entry_p) - 1.0
-
-                    # 3-Stage Scaled Smart Exit
-                    # TP1: +3.0%, TP2: +5.0%, Hard SL: -2.5%
-                    if max_reach >= 0.050:
-                        trade_pnl = (0.33 * 0.030) + (0.33 * 0.050) + (0.34 * min(close_reach, 0.08)) - cost_per_trade
-                    elif max_reach >= 0.030:
-                        trade_pnl = (0.33 * 0.030) + (0.67 * max(0.005, close_reach * 0.5)) - cost_per_trade
-                    elif close_reach <= -0.025:
-                        trade_pnl = -0.025 - cost_per_trade
-                    else:
-                        trade_pnl = max(-0.025, close_reach) - cost_per_trade
-
-                    if trade_pnl > 0:
-                        wins += 1
-                        gross_gains += trade_pnl
-                    else:
-                        losses += 1
-                        gross_losses += abs(trade_pnl)
-
-                    day_ret += trade_pnl * 0.45
-
-            # 2. TQQQ
-            if tqqq_c.iloc[i-1] >= tqqq_ema20.iloc[i-1]:
-                tqqq_range = tqqq_h.iloc[i-1] - tqqq_l.iloc[i-1]
-                tqqq_target = tqqq_o.iloc[i] + (tqqq_range * K)
-                if tqqq_h.iloc[i] >= tqqq_target:
-                    traded_today = True
-                    entry_p = tqqq_target
-                    max_reach = (tqqq_h.iloc[i] / entry_p) - 1.0
-                    close_reach = (tqqq_c.iloc[i] / entry_p) - 1.0
-
-                    if max_reach >= 0.040:
-                        trade_pnl = (0.33 * 0.025) + (0.33 * 0.040) + (0.34 * min(close_reach, 0.06)) - cost_per_trade
-                    elif max_reach >= 0.025:
-                        trade_pnl = (0.33 * 0.025) + (0.67 * max(0.005, close_reach * 0.5)) - cost_per_trade
-                    elif close_reach <= -0.022:
-                        trade_pnl = -0.022 - cost_per_trade
-                    else:
-                        trade_pnl = max(-0.022, close_reach) - cost_per_trade
-
-                    if trade_pnl > 0:
-                        wins += 1
-                        gross_gains += trade_pnl
-                    else:
-                        losses += 1
-                        gross_losses += abs(trade_pnl)
-
-                    day_ret += trade_pnl * 0.35
-
-        else:
-            # Bear / Downturn Regime: Trigger SOXS & SQQQ
-            # 1. SOXS Inverse Breakout
-            soxs_range = soxs_h.iloc[i-1] - soxs_l.iloc[i-1]
-            soxs_target = soxs_o.iloc[i] + (soxs_range * K)
-            if soxs_h.iloc[i] >= soxs_target:
-                traded_today = True
-                entry_p = soxs_target
-                max_reach = (soxs_h.iloc[i] / entry_p) - 1.0
-                close_reach = (soxs_c.iloc[i] / entry_p) - 1.0
-
-                if max_reach >= 0.060:
-                    trade_pnl = (0.50 * 0.035) + (0.50 * 0.060) - cost_per_trade
-                elif max_reach >= 0.035:
-                    trade_pnl = (0.50 * 0.035) + (0.50 * max(0.002, close_reach * 0.5)) - cost_per_trade
-                elif close_reach <= -0.025:
-                    trade_pnl = -0.025 - cost_per_trade
-                else:
-                    trade_pnl = max(-0.025, close_reach) - cost_per_trade
-
-                if trade_pnl > 0:
-                    wins += 1
-                    gross_gains += trade_pnl
-                else:
-                    losses += 1
-                    gross_losses += abs(trade_pnl)
-
-                day_ret += trade_pnl * 0.40
-
-            # 2. SQQQ Inverse Breakout
-            sqqq_range = sqqq_h.iloc[i-1] - sqqq_l.iloc[i-1]
-            sqqq_target = sqqq_o.iloc[i] + (sqqq_range * K)
-            if sqqq_h.iloc[i] >= sqqq_target:
-                traded_today = True
-                entry_p = sqqq_target
-                max_reach = (sqqq_h.iloc[i] / entry_p) - 1.0
-                close_reach = (sqqq_c.iloc[i] / entry_p) - 1.0
-
-                if max_reach >= 0.050:
-                    trade_pnl = (0.50 * 0.028) + (0.50 * 0.050) - cost_per_trade
-                elif max_reach >= 0.028:
-                    trade_pnl = (0.50 * 0.028) + (0.50 * max(0.002, close_reach * 0.5)) - cost_per_trade
-                elif close_reach <= -0.020:
-                    trade_pnl = -0.020 - cost_per_trade
-                else:
-                    trade_pnl = max(-0.020, close_reach) - cost_per_trade
-
-                if trade_pnl > 0:
-                    wins += 1
-                    gross_gains += trade_pnl
-                else:
-                    losses += 1
-                    gross_losses += abs(trade_pnl)
-
-                day_ret += trade_pnl * 0.30
-
-        # Cash buffer SGOV daily yield
-        idle_weight = max(0.20, 1.0 - (0.80 if traded_today else 0.0))
-        day_ret += idle_weight * rf_daily
-
-        # Cap realistic daily portfolio return
-        day_ret = max(-0.022, min(0.040, day_ret))
-
-        new_equity = equity_curve[-1] * (1.0 + day_ret)
-        equity_curve.append(new_equity)
-        daily_returns.append(day_ret)
-        monthly_returns[month_key].append(day_ret)
-
-    equity_series = pd.Series(equity_curve, index=dates)
-    ret_series = pd.Series(daily_returns, index=dates[1:])
-
-    total_return_pct = round(((equity_curve[-1] / equity_curve[0]) - 1.0) * 100, 2)
-    cagr_pct = round((((equity_curve[-1] / equity_curve[0]) ** (252.0 / len(ret_series))) - 1.0) * 100, 2)
-
-    peaks = equity_series.cummax()
-    drawdowns = (equity_series - peaks) / peaks
-    mdd_pct = round(drawdowns.min() * 100, 2)
-
-    ann_vol_pct = round(ret_series.std() * np.sqrt(252) * 100, 2)
-    excess_ret = ret_series - (0.0452 / 252.0)
-    sharpe = round((excess_ret.mean() / max(1e-8, ret_series.std())) * np.sqrt(252), 2)
-
-    downside = ret_series[ret_series < 0]
-    sortino = round((excess_ret.mean() / max(1e-8, downside.std())) * np.sqrt(252), 2)
-    calmar = round(cagr_pct / max(1e-8, abs(mdd_pct)), 2)
-
-    total_trades = wins + losses
-    win_rate_pct = round((wins / max(1, total_trades)) * 100, 1)
-    profit_factor = round(gross_gains / max(1e-8, gross_losses), 2)
-
-    monthly_table = {}
-    for m, rets in monthly_returns.items():
-        comp_m = np.prod([1.0 + r for r in rets]) - 1.0
-        monthly_table[m] = round(comp_m * 100, 2)
-
-    soxl_bh = round(((soxl_c.iloc[-1] / soxl_c.iloc[0]) - 1.0) * 100, 2)
-    tqqq_bh = round(((tqqq_c.iloc[-1] / tqqq_c.iloc[0]) - 1.0) * 100, 2)
-    qqq_bh = round(((closes["QQQ"].iloc[-1] / closes["QQQ"].iloc[0]) - 1.0) * 100, 2)
-
-    report = {
-        "period": f"{dates[0].strftime('%Y-%m-%d')} ~ {dates[-1].strftime('%Y-%m-%d')} (최근 1년, 251거래일)",
-        "initial_capital_krw": 1000000,
-        "final_capital_krw": int(1000000 * (1 + total_return_pct / 100)),
-        "total_return_pct": total_return_pct,
-        "cagr_pct": cagr_pct,
-        "mdd_pct": mdd_pct,
-        "sharpe_ratio": sharpe,
-        "sortino_ratio": sortino,
-        "calmar_ratio": calmar,
-        "win_rate_pct": win_rate_pct,
-        "profit_factor": profit_factor,
-        "total_trades": total_trades,
-        "wins": wins,
-        "losses": losses,
-        "annualized_volatility_pct": ann_vol_pct,
-        "monthly_breakdown": monthly_table,
-        "benchmarks": {
-            "SOXL_buy_and_hold_pct": soxl_bh,
-            "TQQQ_buy_and_hold_pct": tqqq_bh,
-            "QQQ_buy_and_hold_pct": qqq_bh
-        },
-        "friction_deducted": "왕복 0.24% 전액 차감 (NH 수수료 0.09% + 슬리피지 0.15%)"
+    print("[3/4] legacy comparison…")
+    legacy = {}
+    if os.path.exists(LEGACY):
+        try:
+            with open(LEGACY, "r", encoding="utf-8") as f:
+                legacy = json.load(f)
+        except Exception:
+            legacy = {}
+    rep["legacy_published"] = {
+        "source": "scripts/run_1y_backtest.py (개선 전 스크립트, data/1y_backtest_report_legacy.json)",
+        "reported": {k: legacy.get(k) for k in ("total_return_pct", "cagr_pct", "mdd_pct", "win_rate_pct",
+                                                "profit_factor", "sharpe_ratio", "total_trades")},
+        "why_not_reproducible": [
+            "일별 수익률을 [-2.2%, +4.0%]로 강제 클리핑해 손실 꼬리를 잘라냈다.",
+            "당일 고가가 TP2에 닿기만 하면 TP1·TP2가 모두 정확한 가격에 체결됐다고 가정했다(완벽 체결 가정).",
+            "체결가 대비 슬리피지를 가격에 반영하지 않고, 거래 손익 × 고정 가중치를 단순 합산했다.",
+            "본 보고서는 60분봉 경로로 같은 전략을 다시 돌려 손절 우선·슬리피리 반영으로 재측정했다.",
+        ],
     }
 
-    out_path = os.path.join(base_dir, "data", "1y_backtest_report.json")
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2, ensure_ascii=False)
+    print("[4/4] writing report…")
+    rep["comparison_table"] = _comparison_table(rep)
+    lab.write_report(rep)
 
-    print("\n=================== [Agent 7] 1-YEAR BACKTEST OFFICIAL RESULTS ===================")
-    print(f"• Total Return: +{total_return_pct}% (CAGR +{cagr_pct}%)")
-    print(f"• Win Rate: {win_rate_pct}% ({wins} wins / {losses} losses, Total {total_trades} trades)")
-    print(f"• Profit Factor: {profit_factor} : 1")
-    print(f"• Max Drawdown (MDD): {mdd_pct}%")
-    print(f"• Sharpe Ratio: {sharpe} | Sortino: {sortino} | Calmar: {calmar}")
-    print(f"• Monthly Breakdown:")
-    for m, r in monthly_table.items():
-        print(f"  - {m}: {r:+.2f}%")
-    print("=================================================================================\n")
-    return report
+    with open(os.path.join(BASE_DIR, "data", "backtest_ab_summary.md"), "w", encoding="utf-8") as f:
+        f.write(_markdown(rep))
+
+    for label, r in (("baseline", rep["baseline"]), ("upgraded", rep["upgraded"]),
+                     ("dip_swing_1y", swings["1y"]), ("dip_swing_2y", swings["2y"])):
+        print(f"{label:13s} ret {r['total_return_pct']:+.2f}%  mdd {r['mdd_pct']:+.2f}%  "
+              f"wr {r['win_rate_pct']:.1f}%  pf {r['profit_factor']}  n {r['total_trades']}")
+    print("report:", lab.REPORT_PATH)
+
+
+def _comparison_table(rep: dict) -> list:
+    rows = []
+    for key, label in (("baseline", "개선 전 (장중 회전·고정 브래킷)"),
+                       ("upgraded", "개선 후 (장중 회전·ATR 브래킷)")):
+        r = rep.get(key, {})
+        rows.append({"label": label, "total_return_pct": r.get("total_return_pct"), "cagr_pct": r.get("cagr_pct"),
+                     "win_rate_pct": r.get("win_rate_pct"), "profit_factor": r.get("profit_factor"),
+                     "sharpe": r.get("sharpe_ratio"), "mdd_pct": r.get("mdd_pct"),
+                     "trades": r.get("total_trades")})
+    for k, label in (("1y", "DIP_SWING (1년)"), ("2y", "DIP_SWING (2년)")):
+        r = (rep.get("swing") or {}).get(k, {})
+        rows.append({"label": label, "total_return_pct": r.get("total_return_pct"),
+                     "cagr_pct": r.get("cagr_pct"), "win_rate_pct": r.get("win_rate_pct"),
+                     "profit_factor": r.get("profit_factor"), "sharpe": r.get("sharpe_ratio"),
+                     "mdd_pct": r.get("mdd_pct"), "trades": r.get("total_trades")})
+    return rows
+
+
+def _markdown(rep: dict) -> str:
+    lines = ["# CUBE 매수·매도 알고리즘 개선 전/후 백테스트 (시뮬레이션)", ""]
+    lines.append(f"- 생성: {rep.get('generated_at_kst')} KST")
+    lines.append(f"- 데이터: {(rep.get('data') or {}).get('source')}")
+    lines.append(f"- 마찰: {(rep.get('data') or {}).get('friction')}")
+    lines.append(f"- 체결 모델: {(rep.get('data') or {}).get('fill_model')}")
+    lines.append("")
+    lines.append("> 실전 원장(daily_trading_calendar.json / live_portfolio.json)과 분리된 **시뮬레이션** 수치입니다.")
+    lines.append("")
+    lines.append("| 전략 | 총수익률 | CAGR | 승률 | PF | Sharpe | MDD | 거래수 |")
+    lines.append("|---|---|---|---|---|---|---|---|")
+    for r in rep.get("comparison_table", []):
+        lines.append(f"| {r['label']} | {r.get('total_return_pct')}% | {r.get('cagr_pct')}% | "
+                     f"{r.get('win_rate_pct')}% | {r.get('profit_factor')} | {r.get('sharpe')} | "
+                     f"{r.get('mdd_pct')}% | {r.get('trades')} |")
+    lines.append("")
+    ab = rep.get("ablations", {})
+    lines.append("## 단일 변경 요인 분리(ablation)")
+    for k, label in (("fill_anchor_removed", "체결가 재산정 제거"),
+                     ("atr_scaling_removed", "ATR 스케일링 제거")):
+        a = ab.get(k, {})
+        lines.append(f"- {label}: {a.get('total_return_pct')}% (PF {a.get('profit_factor')}, MDD {a.get('mdd_pct')}%)")
+    lines.append("")
+    choice = rep.get("bear_engine_choice")
+    if choice:
+        d = choice.get("detail", {})
+        lines.append("## BEAR ALPHA(숏) 엔진 트리거 최적화")
+        lines.append(f"- 선택: VIX ≥ {choice.get('vix_trigger')} + 확인 {choice.get('confirmations_required')}개 "
+                     f"(총수익 {d.get('total_return_pct')}%, MDD {d.get('mdd_pct')}%, 숏 {d.get('bear_trades')}회, "
+                     f"숏 승률 {d.get('bear_win_rate_pct')}%, 숏 기여 {d.get('bear_pnl_contrib_pct')}%)")
+        lines.append("")
+        lines.append("| VIX 트리거 | 확인 | 총수익 | MDD | 숏 거래 | 숏 승률 | 숏 기여 |")
+        lines.append("|---|---|---|---|---|---|---|")
+        for r in rep.get("bear_engine_sweep", []):
+            lines.append(f"| {r['vix_trigger']} | {r['confirmations_required']} | {r['total_return_pct']}% | "
+                         f"{r['mdd_pct']}% | {r['bear_trades']} | {r['bear_win_rate_pct']}% | {r['bear_pnl_contrib_pct']}% |")
+    lines.append("")
+    lp = rep.get("legacy_published", {})
+    if lp.get("reported"):
+        lines.append("## 기존에 발표된 수치와의 차이")
+        lines.append(f"- 기존 발표: {lp['reported'].get('total_return_pct')}% / PF {lp['reported'].get('profit_factor')} / "
+                     f"MDD {lp['reported'].get('mdd_pct')}%")
+        for why in lp.get("why_not_reproducible", []):
+            lines.append(f"  - {why}")
+    return "\n".join(lines) + "\n"
+
 
 if __name__ == "__main__":
-    run_backtest()
+    main()

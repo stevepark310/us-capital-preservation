@@ -1,11 +1,30 @@
 """
-Agent 7: Short-Term High-Frequency Backtester Engineer
-Backtests the 10 short-term scenarios using 3-year historical daily and intraday data
-accounting for realistic NH commission (0.09%) and slippage (0.15% round-trip).
+Agent 7: Backtest Verification Engineer (reads measured results, not invented ones)
+
+The previous version returned a literal list of results ("+142.8%, PF 2.14 ...").
+This version reads data/1y_backtest_report.json produced by core/backtest_lab
+(hourly-path engine, 0.24% friction, stop-first sequencing) and reports exactly
+what the simulation measured — including the fact that the intraday rotation is
+currently a losing strategy and the dip-swing variant is the one with an edge.
 """
-from typing import Dict, Any, List
-from datetime import datetime
+import json
+import os
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Any
+
 from agents.base import BaseAgent
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPORT = os.path.join(BASE_DIR, "data", "1y_backtest_report.json")
+
+
+def _load() -> Dict[str, Any]:
+    try:
+        with open(REPORT, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
 
 class BacktesterAgent(BaseAgent):
     def __init__(self):
@@ -13,145 +32,69 @@ class BacktesterAgent(BaseAgent):
             agent_id=7,
             name="Agent 7: 단기 시나리오 백테스트 검증 엔지니어",
             code="SHORT_TERM_BACKTESTER_ENGINEER",
-            role="거래 비용(수수료 0.09% + 슬리피지 0.15%)을 반영한 단기 10대 시나리오 성과 시뮬레이션",
-            description="3개년 일봉/장중 데이터로 10개 단기 전략의 왕복 마찰 비용(0.24%) 차감 후 순수익, 승률, 손익비(Profit Factor), MDD를 검증합니다."
+            role="시간봉 경로 기반 개선 전/후 성과 검증",
+            description="core/backtest_lab의 시간봉(60m) 백테스트 결과를 읽어 개선 전·후, DIP_SWING, 하락장 숏 엔진 민감도를 실측 수치로 보고합니다. 왕복 0.24% 마찰 반영.",
         )
 
     def run(self, market_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         self.status = "RUNNING"
-        self.last_run = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.last_run = (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S")
+        rep = _load()
+        age_h = None
+        if rep.get("generated_at_kst"):
+            try:
+                t = datetime.strptime(rep["generated_at_kst"], "%Y-%m-%d %H:%M:%S")
+                age_h = round(((datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=9)) - t).total_seconds() / 3600, 1)
+            except Exception:
+                age_h = None
 
-        backtest_results: List[Dict[str, Any]] = [
-            {
-                "id": "SCENARIO_01",
-                "name": "래리 윌리엄스 일중 변동성 돌파 (SOXL/TQQQ)",
-                "academic_source": "Larry Williams (1998)",
-                "total_return": "+142.8%",
-                "cagr": "+34.5%",
-                "mdd": "-9.8%",
-                "sharpe": 2.28,
-                "win_rate": "68.4%",
-                "profit_factor": 2.14,
-                "status": "PROFITABLE (수익 채택)"
-            },
-            {
-                "id": "SCENARIO_02",
-                "name": "장초반 30분 모멘텀 돌파 (ORB) (TQQQ/NVDA)",
-                "academic_source": "Toby Crabel (1990)",
-                "total_return": "+128.4%",
-                "cagr": "+31.8%",
-                "mdd": "-11.2%",
-                "sharpe": 2.05,
-                "win_rate": "65.2%",
-                "profit_factor": 1.95,
-                "status": "PROFITABLE (수익 채택)"
-            },
-            {
-                "id": "SCENARIO_03",
-                "name": "일중 볼린저 밴드 과매도 평균회귀 (SOXL/TSLA)",
-                "academic_source": "John Bollinger (2001)",
-                "total_return": "+88.5%",
-                "cagr": "+23.5%",
-                "mdd": "-8.4%",
-                "sharpe": 1.88,
-                "win_rate": "72.1%",
-                "profit_factor": 1.82,
-                "status": "PROFITABLE (수익 채택)"
-            },
-            {
-                "id": "SCENARIO_04",
-                "name": "프리마켓 갭 페이드 / 갭 필링 (SOXL/TQQQ)",
-                "academic_source": "Cooper (1999)",
-                "total_return": "-14.2%",
-                "cagr": "-5.0%",
-                "mdd": "-21.5%",
-                "sharpe": 0.42,
-                "win_rate": "47.5%",
-                "profit_factor": 0.88,
-                "status": "FILTERED (비수익 필터링: 추세장 갭런 발생 시 손실 확대)"
-            },
-            {
-                "id": "SCENARIO_05",
-                "name": "실적 서프라이즈 모멘텀 드리프트 (PEAD) (NVDA)",
-                "academic_source": "Bernard & Thomas (1989)",
-                "total_return": "+112.0%",
-                "cagr": "+28.4%",
-                "mdd": "-10.5%",
-                "sharpe": 1.96,
-                "win_rate": "67.0%",
-                "profit_factor": 1.89,
-                "status": "PROFITABLE (수익 채택)"
-            },
-            {
-                "id": "SCENARIO_06",
-                "name": "VWAP 일중 추세 추종 (NVDA/TQQQ)",
-                "academic_source": "Berkowitz et al. (1988)",
-                "total_return": "+74.2%",
-                "cagr": "+20.3%",
-                "mdd": "-11.8%",
-                "sharpe": 1.74,
-                "win_rate": "62.8%",
-                "profit_factor": 1.76,
-                "status": "PROFITABLE (수익 채택)"
-            },
-            {
-                "id": "SCENARIO_07",
-                "name": "단기 레버리지 리스크 패리티 (SOXL/TQQQ/SGOV)",
-                "academic_source": "Lopez de Prado (2016)",
-                "total_return": "+94.5%",
-                "cagr": "+24.8%",
-                "mdd": "-6.8%",
-                "sharpe": 2.35,
-                "win_rate": "69.5%",
-                "profit_factor": 2.20,
-                "status": "PROFITABLE (수익 채택)"
-            },
-            {
-                "id": "SCENARIO_08",
-                "name": "나스닥 선물 베이시스 차익 거래 (TQQQ)",
-                "academic_source": "MacKinlay (1988)",
-                "total_return": "+18.2%",
-                "cagr": "+5.8%",
-                "mdd": "-14.2%",
-                "sharpe": 0.82,
-                "win_rate": "51.0%",
-                "profit_factor": 1.08,
-                "status": "FILTERED (비수익 필터링: 개인 API 레이턴시로 엣지 부족)"
-            },
-            {
-                "id": "SCENARIO_09",
-                "name": "옵션 감마 스퀴즈 스캘핑 (TSLA)",
-                "academic_source": "Ni et al. (2005)",
-                "total_return": "+32.0%",
-                "cagr": "+9.8%",
-                "mdd": "-28.4%",
-                "sharpe": 0.75,
-                "win_rate": "42.0%",
-                "profit_factor": 1.15,
-                "status": "FILTERED (비수익 필터링: 높은 변동성으로 인한 MDD 초과)"
-            },
-            {
-                "id": "SCENARIO_10",
-                "name": "무위험 캐리 & 패닉 딥바잉 (SGOV/SOXL)",
-                "academic_source": "Buffett / Frazzini (2014)",
-                "total_return": "+86.2%",
-                "cagr": "+23.0%",
-                "mdd": "-4.2%",
-                "sharpe": 2.45,
-                "win_rate": "84.2%",
-                "profit_factor": 3.10,
-                "status": "PROFITABLE (수익 채택)"
-            }
+        base = rep.get("baseline", {})
+        up = rep.get("upgraded", {})
+        swing = (rep.get("swing") or {}).get("1y", {})
+        sweep = rep.get("bear_engine_sweep") or []
+        choice = rep.get("bear_engine_choice") or {}
+
+        def brief(r):
+            if not r:
+                return {}
+            return {k: r.get(k) for k in ("total_return_pct", "cagr_pct", "mdd_pct", "win_rate_pct",
+                                          "profit_factor", "sharpe_ratio", "total_trades", "avg_win_pct", "avg_loss_pct")}
+
+        results = [
+            {"id": "INTRADAY_BASELINE", "name": "현행 장중 회전 (고정 2.0/3.5/1.5%)", "metrics": brief(base),
+             "status": "REJECTED (마찰 후 음의 기대값)" if (base.get("total_return_pct") or 0) <= 0 else "PROFITABLE"},
+            {"id": "INTRADAY_UPGRADED", "name": "개선 장중 회전 (ATR 브래킷·체결가 재산정·러너 트레일)", "metrics": brief(up),
+             "status": "IMPROVED_BUT_NEGATIVE" if (up.get("total_return_pct") or 0) <= 0 else "PROFITABLE"},
+            {"id": "DIP_SWING", "name": "과매도 패닉 매수·2~3세션 보유 (DIP_SWING)", "metrics": brief(swing),
+             "status": "VALIDATED_PROFITABLE" if (swing.get("profit_factor") or 0) > 1.3 else "NOT_VALIDATED"},
         ]
+        for s in results:
+            if s["metrics"].get("win_rate_pct") is None:
+                s["status"] = "NO_DATA"
+
+        best = max([r for r in results if r["metrics"].get("profit_factor")], key=lambda r: r["metrics"]["profit_factor"], default=None)
 
         self.output_data = {
-            "backtest_results": backtest_results,
-            "short_term_directive": "마찰 비용(0.24%) 차감 후 샤프 1.7 이상, 승률 60% 이상인 6대 단기 알파 전략만 생존 확정",
-            "key_takeaway": "변동성 돌파(SOXL/TQQQ)와 무위험 캐리 딥바잉(SGOV/SOXL)이 가장 높은 샤프 지수(2.28~2.45)와 최저 MDD(-4.2%~-9.8%)를 증명했습니다."
+            "phase": (context.get("clock") or {}).get("phase"),
+            "report_path": "data/1y_backtest_report.json",
+            "report_generated_at_kst": rep.get("generated_at_kst"),
+            "report_age_hours": age_h,
+            "is_simulation": True,
+            "friction": "왕복 0.24% (NH 0.09% + 슬리피지 0.15%)",
+            "fill_model": (rep.get("data") or {}).get("fill_model"),
+            "backtest_results": results,
+            "ablations": rep.get("ablations"),
+            "delta": rep.get("delta"),
+            "bear_engine_sweep": sweep,
+            "bear_engine_choice": choice,
+            "benchmarks": rep.get("benchmarks"),
+            "key_takeaway": (
+                f"현행 장중 회전 {base.get('total_return_pct')}% (PF {base.get('profit_factor')}) → 개선 {up.get('total_return_pct')}% "
+                f"(PF {up.get('profit_factor')}), DIP_SWING {swing.get('total_return_pct')}% (PF {swing.get('profit_factor')}, MDD {swing.get('mdd_pct')}%). "
+                + (f"최적 전략: {best['name']}." if best else "")
+                + (f" 숏 엔진 최적 트리거 VIX {choice.get('vix_trigger')}." if choice else "")
+            ),
         }
-        self.confidence_score = 0.98
+        self.confidence_score = 0.95 if base else 0.5
         self.status = "COMPLETED"
         return self.output_data
-
-# Alias for orchestrator compatibility
-BacktestEngineerAgent = BacktesterAgent

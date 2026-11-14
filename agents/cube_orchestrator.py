@@ -1,13 +1,25 @@
 """
-CUBE Multi-Agent Trading Orchestrator
-Coordinates the 10 specialized agents to execute the daily research, backtest,
-synthesis, and trading pipeline, exporting a consolidated report for CUBE dashboard.
-"""
+CUBE 10-Agent Orchestrator — 24/7 edition
 
+One entry point builds the desk context from live data and runs all ten agents
+in EVERY session phase (regular, pre-market, after-hours, weekend, holiday):
+
+    clock/session  →  what the desk is doing right now
+    snapshot       →  measured prices, futures, FX, crypto
+    history        →  daily OHLCV for indicator math
+    news           →  real headlines (weekend included)
+    ledger         →  the one true account state
+    backtest       →  measured strategy results
+
+Each agent's full report is written into data/cube_report.json (the old file
+carried empty `report: {}` objects and an 11-11 timestamp on 11-14), together
+with the phase, the data provenance and the next session open.
+"""
 import json
 import os
-from datetime import datetime
-from typing import Dict, Any
+import time
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Any, List
 
 from agents.agent1_news_sentiment import NewsSentimentAgent
 from agents.agent2_tech_momentum import TechnicalMomentumAgent
@@ -15,139 +27,186 @@ from agents.agent3_fundamentals import FundamentalsAgent
 from agents.agent4_macro_rates import MacroRatesAgent
 from agents.agent5_superinvestor import SuperinvestorAgent
 from agents.agent6_quant_scenarios import QuantScenarioModelerAgent
-from agents.agent7_backtester import BacktestEngineerAgent
+from agents.agent7_backtester import BacktesterAgent
 from agents.agent8_alpha_evaluator import AlphaEvaluatorAgent
 from agents.agent9_ensemble_synthesizer import EnsembleSynthesizerAgent
 from agents.agent10_daily_trader import DailyTraderAgent
+
+from core import market_clock, market_snapshot, news_engine, technical, ledger as ledger_mod
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPORT_PATH = os.path.join(BASE_DIR, "data", "cube_report.json")
+DOCS_REPORT_PATH = os.path.join(BASE_DIR, "docs", "cube_report.json")
+NEWS_TTL_MIN = float(os.getenv("CUBE_NEWS_TTL_MIN", "20"))
 
 
 class CubeOrchestrator:
     def __init__(self):
         self.agents = [
-            NewsSentimentAgent(),
-            TechnicalMomentumAgent(),
-            FundamentalsAgent(),
-            MacroRatesAgent(),
-            SuperinvestorAgent(),
-            QuantScenarioModelerAgent(),
-            BacktestEngineerAgent(),
-            AlphaEvaluatorAgent(),
-            EnsembleSynthesizerAgent(),
-            DailyTraderAgent()
+            NewsSentimentAgent(), TechnicalMomentumAgent(), FundamentalsAgent(), MacroRatesAgent(),
+            SuperinvestorAgent(), QuantScenarioModelerAgent(), BacktesterAgent(),
+            AlphaEvaluatorAgent(), EnsembleSynthesizerAgent(), DailyTraderAgent(),
         ]
-        self.pipeline_timestamp = ""
         self.full_report: Dict[str, Any] = {}
 
-    def run_daily_pipeline(self, market_data: Dict[str, Any] = None, broker_type: str = "nh") -> Dict[str, Any]:
-        self.pipeline_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        market_data = market_data or {}
+    # ------------------------------------------------------------------ context
+    def build_context(self, force_refresh: bool = False) -> Dict[str, Any]:
+        clock = market_clock.resolve()
+        snap = market_snapshot.build_snapshot(force_history=force_refresh)
 
-        print("\n" + "=" * 70)
-        print(f"🚀 CUBE 10-Agent Quantitative Daily Trading Pipeline")
-        print(f"Timestamp: {self.pipeline_timestamp} | Target Broker: {broker_type.upper()}")
-        print("=" * 70)
+        hist = market_snapshot.fetch_history(force=force_refresh)
+        techs = {}
+        for sym in ["SOXL", "TQQQ", "NVDA", "TSLA", "SGOV", "SOXS", "SQQQ", "SPY", "QQQ", "^VIX"]:
+            if sym in hist:
+                techs[sym] = technical.analyze(sym, hist[sym], snap.get("quotes", {}).get(sym))
 
-        act_no = os.getenv("NH_ACT_NO", "20205134849")
-        cash_krw = 0
-        cash_usd = 0.0
-        total_equity = 0.0
-
-        if broker_type == "nh":
+        # news cache with TTL (weekends still refresh: crypto/FX + wires keep moving)
+        payload = news_engine.load_cached()
+        stale = True
+        if payload and payload.get("fetched_at_utc"):
             try:
-                from execution.nh_trader import NHBroker
-                broker = NHBroker(dry_run=False, is_mock=False, act_no=act_no)
-                state = broker.get_portfolio_state()
-                cash_krw = state.get("cash_krw", 0)
-                cash_usd = state.get("cash_usd", 0.0)
-                total_equity = state.get("equity", 0.0)
-            except Exception as e:
-                print(f"[Warning] Failed to fetch live balance: {e}")
+                age_min = (datetime.utcnow() - datetime.fromisoformat(payload["fetched_at_utc"])).total_seconds() / 60
+                stale = age_min > NEWS_TTL_MIN
+            except Exception:
+                stale = True
+        if stale or force_refresh:
+            payload = news_engine.fetch_all(quiet=True)
+        senti = news_engine.aggregate(payload, snap)
 
-        if cash_krw == 0:
-            cash_krw = 207395
-            cash_usd = 148.14
-            total_equity = 148.14
+        led = ledger_mod.summary(snapshot=snap)
 
-        context: Dict[str, Any] = {
-            "vix": 19.46,
-            "spy_change_1d": 0.005,
-            "us_10y_yield": 4.42,
-            "broker_type": broker_type,
-            "portfolio_value": total_equity if total_equity > 10.0 else 10000.0,
-            "cash_krw": cash_krw,
-            "cash_usd": cash_usd,
-            "act_no": act_no
+        bt = {}
+        bt_path = os.path.join(BASE_DIR, "data", "1y_backtest_report.json")
+        if os.path.exists(bt_path):
+            try:
+                with open(bt_path, "r", encoding="utf-8") as f:
+                    bt = json.load(f)
+            except Exception:
+                bt = {}
+
+        return {
+            "clock": clock, "phase": clock["phase"], "snapshot": snap, "history": hist,
+            "technical": techs, "news_payload": payload, "sentiment": senti,
+            "ledger": led, "backtest_report": bt,
         }
 
-        agent_summaries = []
+    # ------------------------------------------------------------------ pipeline
+    def run_daily_pipeline(self, market_data: Dict[str, Any] = None, broker_type: str = "nh",
+                           context: Dict[str, Any] = None, quiet: bool = False) -> Dict[str, Any]:
+        t0 = time.time()
+        ctx = context or self.build_context()
+        clock = ctx["clock"]
+        snap = ctx["snapshot"]
+        market_data = market_data or {"snapshot": snap, "history": ctx["history"]}
 
-        # Sequential execution through the 10 specialized agent roles
+        # derivative values the agents need
+        ctx["vix"] = (snap.get("macro", {}).get("vix") or {}).get("last") or 20.0
+        ctx["dxy"] = (snap.get("macro", {}).get("dxy") or {}).get("last") or 100.0
+        ctx["us_10y_yield"] = snap.get("macro", {}).get("us_10y_yield")
+
+        summaries: List[Dict[str, Any]] = []
+        if not quiet:
+            print("=" * 72)
+            print(f"🚀 CUBE 10-Agent pipeline | {clock['now_kst']} KST | phase {clock['phase']} | next open {clock['next_open_kst']}")
+            print("=" * 72)
+
         for agent in self.agents:
-            print(f"▶ [{agent.name}] 가동 중...")
-            agent_result = agent.run(market_data, context)
-
-            # Feed intermediate results forward
-            if agent.agent_id == 1:
-                context["news_sentiment"] = agent_result
-            elif agent.agent_id == 6:
-                context["scenarios"] = agent_result.get("scenarios", [])
-            elif agent.agent_id == 7:
-                context["backtest_results"] = agent_result.get("backtest_results", [])
-            elif agent.agent_id == 8:
-                context["profitable_scenarios"] = agent_result.get("profitable_scenarios", [])
-            elif agent.agent_id == 9:
-                context["target_portfolio_weights"] = agent_result.get("target_portfolio_weights", {})
-                context["blended_scenario_weights"] = agent_result.get("blended_scenario_weights", {})
+            try:
+                result = agent.run(market_data, ctx)
+            except Exception as e:
+                agent.status = "FAILED"
+                result = {"error": str(e), "key_takeaway": f"실행 실패: {e}"}
+                agent.output_data = result
+            # forward results down the chain
+            aid = agent.agent_id
+            if aid == 1:
+                ctx["news_report"] = result
+            elif aid == 2:
+                ctx["technical_report"] = result
+            elif aid == 3:
+                ctx["catalyst_report"] = result
+            elif aid == 4:
+                ctx["macro"] = result
+            elif aid == 5:
+                ctx["options"] = result.get("chains", {}) if isinstance(result, dict) else {}
+                ctx["smart_money_report"] = result
+            elif aid == 6:
+                ctx["scenarios"] = result.get("scenarios", [])
+            elif aid == 7:
+                ctx["backtest"] = result
+            elif aid == 8:
+                ctx["alpha"] = result
+            elif aid == 9:
+                ctx["ensemble"] = result
+                ctx["target_portfolio_weights"] = result.get("target_portfolio_weights", {})
 
             summary = agent.get_summary()
-            agent_summaries.append(summary)
-            print(f"  ✓ 완료 (신뢰도: {agent.confidence_score*100:.0f}%) - {agent_result.get('key_takeaway', '')[:65]}...")
+            summary["report"] = result if isinstance(result, dict) else {}
+            summaries.append(summary)
+            if not quiet:
+                print(f"  ✓ Agent {aid}: {str(result.get('key_takeaway', ''))[:110]}")
 
+        failed = [s["agent_id"] for s in summaries if s["status"] == "FAILED"]
+        led = ctx.get("ledger", {})
         self.full_report = {
-            "title": "CUBE 10-Agent Quantitative Daily Trading System",
-            "generated_at": self.pipeline_timestamp,
-            "system_status": "OPERATIONAL",
+            "title": "CUBE 10-Agent Quantitative Trading System (24/7)",
+            "generated_at": (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S"),
+            "phase": clock["phase"],
+            "phase_label": clock["label_ko"],
+            "next_open_kst": clock["next_open_kst"],
+            "hours_to_next_open": clock["hours_to_next_open"],
+            "system_status": "OPERATIONAL" if not failed else "DEGRADED",
+            "agents_ok": len(summaries) - len(failed),
+            "agents_failed": failed,
             "total_agents": len(self.agents),
-            "account_status": {
-                "act_no": act_no,
-                "act_no_formatted": f"{act_no[:3]}-{act_no[3:5]}-{act_no[5:]}" if len(act_no) >= 10 else act_no,
-                "broker": "NH투자증권 (나무)",
-                "krw_deposit": cash_krw,
-                "usd_deposit": cash_usd,
-                "total_equity_usd": total_equity,
-                "last_inquiry_time": self.pipeline_timestamp,
-                "funding_status": "원화 입금 확인 완료 (Ready for Tonight)"
+            "data_provenance": {
+                "market": "Yahoo Finance (yfinance) — daily + 5m intraday",
+                "news": f"{ctx['news_payload'].get('feeds_ok')}/{ctx['news_payload'].get('feeds_total')} feeds, "
+                        f"{ctx['news_payload'].get('item_count')} items, health {ctx['news_payload'].get('source_health')}",
+                "ledger": "data/daily_trading_calendar.json + data/live_portfolio.json (single FX source)",
+                "backtest": "data/1y_backtest_report.json (hourly-path simulation)",
+                "hardcoded_market_values": False,
             },
-            "agents": agent_summaries,
+            "account_status": {
+                "act_no": led.get("account_no", "202-05-134849"),
+                "act_no_formatted": "202-05-134849",
+                "broker": "NH투자증권 (나무)",
+                "equity_usd": led.get("equity_usd"),
+                "equity_krw": led.get("equity_krw"),
+                "cash_usd": led.get("cash_usd"),
+                "cash_krw": led.get("cash_krw"),
+                "cash_pct": led.get("cash_pct"),
+                "fx_rate": led.get("fx_rate"),
+                "realized_pnl_usd": led.get("realized_pnl_usd"),
+                "unrealized_pnl_usd": led.get("unrealized_pnl_usd"),
+                "last_inquiry_time": led.get("as_of"),
+            },
+            "agents": summaries,
             "executive_summary": {
-                "macro_regime": context.get("macro_regime", "BULL_CALM (강세 저변동성)"),
-                "fear_greed_score": 58,
-                "top_profitable_scenarios_count": len(context.get("profitable_scenarios", [])),
-                "target_weights": context.get("target_portfolio_weights", {}),
-                "daily_realized_pnl": "+$48.60 (+$0.49%)",
-                "reinvestment_status": "100% 실현 이익 자동 복리 재투자 파이프라인 가동 중"
-            }
+                "macro_regime": (ctx.get("macro") or {}).get("macro_regime"),
+                "sentiment_avg": (ctx.get("news_report") or {}).get("average_sentiment_score"),
+                "market_implied_anchor": (ctx.get("news_report") or {}).get("market_implied_anchor", {}).get("score"),
+                "approved_strategies": [a["id"] for a in (ctx.get("alpha") or {}).get("profitable_scenarios", [])],
+                "execution_mode": (ctx.get("alpha") or {}).get("recommended_execution_mode"),
+                "target_weights": ctx.get("target_portfolio_weights", {}),
+                "next_open": clock["next_open_kst"],
+                "simulation_disclaimer": "백테스트 수치는 시뮬레이션이며 실전 원장과 분리되어 있습니다.",
+            },
+            "pipeline_seconds": round(time.time() - t0, 1),
         }
 
-        # Save to data/cube_report.json and docs/cube_report.json
         self._export_report()
-
-        print("\n" + "=" * 70)
-        print("✅ CUBE 10-Agent 파이프라인 가동 및 보고서 생성이 완료되었습니다.")
-        print(f"   포트폴리오 비중: {context.get('target_portfolio_weights', {})}")
-        print("=" * 70 + "\n")
-
+        if not quiet:
+            print(f"✅ pipeline done in {self.full_report['pipeline_seconds']}s | agents ok {self.full_report['agents_ok']}/10")
         return self.full_report
 
     def _export_report(self):
-        os.makedirs("data", exist_ok=True)
-        os.makedirs("docs", exist_ok=True)
+        payload = json.dumps(self.full_report, ensure_ascii=False, indent=2, default=str)
+        for p in (REPORT_PATH, DOCS_REPORT_PATH):
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(payload)
 
-        report_json = json.dumps(self.full_report, ensure_ascii=False, indent=2)
 
-        for path in ["data/cube_report.json", "docs/cube_report.json"]:
-            try:
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(report_json)
-            except Exception as e:
-                print(f"Failed to write {path}: {e}")
+if __name__ == "__main__":
+    CubeOrchestrator().run_daily_pipeline()

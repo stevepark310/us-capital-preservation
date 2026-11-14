@@ -1,142 +1,115 @@
 #!/usr/bin/env python3
 """
-Live Portfolio & API Status Synchronizer
-Generates docs/live_portfolio.json & data/live_portfolio.json for real-time client-side dashboard API calls.
-Syncs real-time account equity, realized P&L, unrealized P&L, cash buffer, active holdings, and recent trades.
-"""
+Live Portfolio Synchronizer
 
+Rebuilt so the published dashboard cannot disagree with the ledger:
+  * every KRW value is converted with ONE fx rate (core.ledger.resolve_fx)
+  * the cash buffer KRW figure is taken from the settled ledger, not from a
+    hard-coded 1343.4 that produced 852,750원 against the ledger's 847,420원
+  * positions are marked to the live snapshot price (Yahoo), and the file states
+    which session the price belongs to
+"""
+import json
 import os
 import sys
-import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, base_dir)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
 
-def sync_portfolio():
-    cal_path = os.path.join(base_dir, "data", "daily_trading_calendar.json")
-    cal = {}
-    if os.path.exists(cal_path):
-        with open(cal_path, "r", encoding="utf-8") as f:
-            cal = json.load(f)
+from core import market_snapshot, ledger as ledger_mod
 
-    # Current official real-trading data
-    account_no = "202-05-134849"
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S KST")
+CASH_NOTE = "정산 기록 기준 현금(원장 monthly_summary). 환율은 원장 잔고 역산 단일 환율 사용."
 
-    # Realized from ledger
-    monthly_sum = cal.get("monthly_summary", {})
-    realized_usd = monthly_sum.get("total_profit_usd", 10.28)
-    realized_krw = monthly_sum.get("total_profit_krw", 13724)
-    win_rate = monthly_sum.get("win_rate_pct", 71.4)
-    wins = monthly_sum.get("wins", 5)
-    total_trades = monthly_sum.get("total_trades", 7)
 
-    # Official Positions (11-14 06:00 KST: 장마감 정산)
-    fx_rate = 1335.0
-    # Live mark-to-market prices; falls back to the last confirmed levels if the feed fails.
-    _px = {"NVDA": 162.82, "SGOV": 100.56}
+def sync_portfolio() -> dict:
+    snap = market_snapshot.build_snapshot(quiet=True)
+    clock = (snap.get("clock") or {})
+    led = ledger_mod.summary(snapshot=snap)
+    quotes = snap.get("quotes", {})
+    fx_rate = led["fx_rate"]
+    now_str = (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S KST")
+
+    positions = []
+    for p in led.get("positions", []):
+        ticker = p.get("ticker")
+        q = quotes.get(ticker) or {}
+        px = q.get("intraday_price") or q.get("last") or p.get("market_price") or p.get("avg_price")
+        avg = float(p.get("avg_price") or 0)
+        qty = int(p.get("qty") or 0)
+        unreal = round((float(px) - avg) * qty, 2) if avg and px else 0.0
+        positions.append({
+            "ticker": ticker,
+            "name": p.get("name"),
+            "qty": qty,
+            "avg_price": round(avg, 2),
+            "market_price": round(float(px), 2) if px else None,
+            "price_as_of": q.get("last_bar_date") if q else None,
+            "eval_usd": round(float(px) * qty, 2) if px else 0.0,
+            "unrealized_usd": unreal,
+            "unrealized_krw": int(round(unreal * fx_rate)),
+            "return_pct": round((float(px) / avg - 1) * 100, 2) if avg and px else None,
+            "status": p.get("status"),
+            "risk_status": p.get("risk_status"),
+            "bracket": p.get("bracket"),
+        })
+
+    total_pos_eval = round(sum(p["eval_usd"] for p in positions), 2)
+    equity_usd = led.get("equity_usd") or 0.0
+    unreal_usd = round(sum(p["unrealized_usd"] for p in positions), 2)
+
+    payload = {
+        "api_status": "CONNECTED",
+        "broker": "NH투자증권 나무 (Open API)",
+        "account_no": led.get("account_no"),
+        "last_synced": now_str,
+        "session_phase": clock.get("phase"),
+        "price_basis": ("정규장 실시간" if clock.get("phase") == "REGULAR" else
+                        "마지막 종가 기준 (휴장·시간외)"),
+        "fx_rate": fx_rate,
+        "fx_source": led.get("fx_source"),
+        "initial_funding_krw": led.get("initial_funding_krw"),
+        "initial_funding_usd": led.get("initial_funding_usd"),
+        "current_total_equity_usd": equity_usd,
+        "current_total_equity_krw": led.get("equity_krw"),
+        "cash_buffer_usd": led.get("cash_usd"),
+        "cash_buffer_krw": led.get("cash_krw"),
+        "cash_buffer_pct": led.get("cash_pct"),
+        "cash_buffer_note": CASH_NOTE,
+        "realized_pnl_usd": led.get("realized_pnl_usd"),
+        "realized_pnl_krw": led.get("realized_pnl_krw"),
+        "unrealized_pnl_usd": led.get("unrealized_pnl_usd"),
+        "unrealized_pnl_krw": led.get("unrealized_pnl_usd") and int(round(led["unrealized_pnl_usd"] * fx_rate)),
+        "unrealized_recomputed_usd": unreal_usd,
+        "unrealized_source": "원장 정산 평가손익 기준 (market_price는 실시간 시세 재평가)",
+        "net_total_pnl_usd": led.get("net_pnl_usd"),
+        "net_total_pnl_krw": int(round((led.get("net_pnl_usd") or 0) * fx_rate)),
+        "win_rate_pct": led.get("win_rate_pct"),
+        "trades_summary": f"{led.get('trades')}전 {led.get('wins')}승 {led.get('losses')}패 (승률 {led.get('win_rate_pct')}%)",
+        "positions_market_value_usd": total_pos_eval,
+        "positions": positions,
+        "recent_trades": led.get("recent_trades", []),
+        "inverse_hedging_ready": True,
+        "inverse_tickers": ["SOXS", "SQQQ"],
+        "ledger_consistency": {"checked_at": None},
+    }
     try:
-        import yfinance as yf
-        _close = yf.download(list(_px.keys()), period="1d", interval="1m", progress=False)["Close"].dropna()
-        _last = _close.iloc[-1]
-        for _k in _px:
-            if _k in _last and float(_last[_k]) > 0:
-                _px[_k] = round(float(_last[_k]), 2)
+        check = ledger_mod.validate(snapshot=snap, fix=True)
+        payload["ledger_consistency"] = {"checked_at": check["checked_at_kst"], "status": check["status"],
+                                         "issue_count": check["issue_count"]}
     except Exception:
         pass
 
-    positions = [
-        {
-            "ticker": "NVDA",
-            "name": "NVIDIA Corporation",
-            "qty": 1,
-            "avg_price": 173.30,
-            "market_price": _px["NVDA"],
-            "after_hours_price": _px["NVDA"],
-            "eval_usd": _px["NVDA"],
-            "unrealized_usd": round(_px["NVDA"] - 173.30, 2),
-            "unrealized_krw": int(round(_px["NVDA"] - 173.30, 2) * fx_rate),
-            "return_pct": round((_px["NVDA"] / 173.30 - 1) * 100, 2),
-            "status": "1주 보유 (평단 $173 본전 회수 매도 대기, $150 종가 마지노선 홀딩 중)",
-            "risk_status": "WATCHING_CATALYST",
-            "bracket": "11/17 실적 카탈리스트 / 종가 $150 손절 마지노선 (평단 $173 매도 대기)"
-        },
-        {
-            "ticker": "SGOV",
-            "name": "iShares 0-3 Month Treasury Bond ETF",
-            "qty": 1,
-            "avg_price": 100.53,
-            "market_price": _px["SGOV"],
-            "eval_usd": _px["SGOV"],
-            "unrealized_usd": round(_px["SGOV"] - 100.53, 2),
-            "unrealized_krw": int(round(_px["SGOV"] - 100.53, 2) * fx_rate),
-            "return_pct": round((_px["SGOV"] / 100.53 - 1) * 100, 2),
-            "status": "초단기 국채 캐리 파킹 (연 4.52% 일복리)",
-            "risk_status": "RISK_FREE_CARRY",
-            "bracket": "원금 보존 파킹"
-        }
-    ]
+    for p in (os.path.join(BASE_DIR, "data", "live_portfolio.json"),
+              os.path.join(BASE_DIR, "docs", "live_portfolio.json")):
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
 
-    total_positions_eval_usd = sum(p["eval_usd"] for p in positions)
-    cash_buffer_usd = 634.77
-    total_eval_usd = round(total_positions_eval_usd + cash_buffer_usd, 2)
-    total_eval_krw = int(total_eval_usd * fx_rate)
+    print(f"✅ live_portfolio synced {now_str} | equity ${equity_usd:,.2f} ({led.get('equity_krw'):,}원) | "
+          f"cash ${led.get('cash_usd'):,.2f} ({led.get('cash_krw'):,}원) | fx {fx_rate} | {payload['ledger_consistency'].get('status')}")
+    return payload
 
-    total_unrealized_usd = round(sum(p["unrealized_usd"] for p in positions), 2)
-    total_unrealized_krw = int(total_unrealized_usd * fx_rate)
-
-    net_total_pnl_usd = round(realized_usd + total_unrealized_usd, 2)
-    net_total_pnl_krw = int(net_total_pnl_usd * fx_rate)
-    net_return_pct = round((net_total_pnl_usd / 900.18) * 100, 2)
-
-    recent_trades = [
-        {"time": "11-14 05:02 KST", "ticker": "SOXL", "type": "SELL (TP2 2차 완결 익절)", "qty": 1, "price": 57.92, "pnl_usd": "+$2.82", "pnl_pct": "+5.12%", "order_no": "274093", "result": "체결완료"},
-        {"time": "11-14 04:02 KST", "ticker": "SOXL", "type": "SELL (TP1 1차 익절)", "qty": 1, "price": 57.43, "pnl_usd": "+$2.33", "pnl_pct": "+4.23%", "order_no": "268333", "result": "체결완료"},
-        {"time": "11-14 01:27 KST", "ticker": "SOXL", "type": "BUY (과매도 반등 스캘핑)", "qty": 2, "price": 55.10, "pnl_usd": "-", "pnl_pct": "-", "order_no": "240539", "result": "체결"},
-        {"time": "11-13 23:37 KST", "ticker": "TQQQ", "type": "SELL (SL 본전보호)", "qty": 2, "price": 59.01, "pnl_usd": "-$1.48", "pnl_pct": "-1.24%", "order_no": "160638", "result": "체결완료"},
-        {"time": "11-13 23:37 KST", "ticker": "SOXL", "type": "SELL (SL 본전보호)", "qty": 2, "price": 62.04, "pnl_usd": "-$0.32", "pnl_pct": "-0.26%", "order_no": "160622", "result": "체결완료"},
-        {"time": "11-12 04:12 KST", "ticker": "TQQQ", "type": "SELL (TP1)", "qty": 1, "price": 61.01, "pnl_usd": "+$1.26", "pnl_pct": "+2.11%", "order_no": "279167", "result": "체결완료"},
-        {"time": "11-12 00:42 KST", "ticker": "SOXL", "type": "SELL (TP2)", "qty": 1, "price": 64.99, "pnl_usd": "+$2.79", "pnl_pct": "+4.49%", "order_no": "222744", "result": "체결완료"},
-        {"time": "11-12 00:36 KST", "ticker": "SOXL", "type": "SELL (TP1)", "qty": 1, "price": 65.08, "pnl_usd": "+$2.88", "pnl_pct": "+4.63%", "order_no": "219833", "result": "체결완료"}
-    ]
-
-    live_payload = {
-        "api_status": "CONNECTED",
-        "broker": "NH투자증권 나무 (Open API)",
-        "account_no": account_no,
-        "last_synced": now_str,
-        "initial_funding_krw": 1209215,
-        "initial_funding_usd": 900.18,
-        "current_total_equity_usd": total_eval_usd,
-        "current_total_equity_krw": total_eval_krw,
-        "cash_buffer_usd": cash_buffer_usd,
-        "cash_buffer_krw": int(cash_buffer_usd * 1343.4),
-        "realized_pnl_usd": realized_usd,
-        "realized_pnl_krw": realized_krw,
-        "win_rate_pct": win_rate,
-        "trades_summary": f"{total_trades}전 {wins}승 {total_trades - wins}패 (승률 {win_rate:.0f}%)",
-        "unrealized_pnl_usd": total_unrealized_usd,
-        "unrealized_pnl_krw": total_unrealized_krw,
-        "net_daily_pnl_usd": net_total_pnl_usd,
-        "net_daily_pnl_krw": net_total_pnl_krw,
-        "net_return_pct": net_return_pct,
-        "positions": positions,
-        "recent_trades": recent_trades,
-        "inverse_hedging_ready": True,
-        "inverse_tickers": ["SOXS", "SQQQ"]
-    }
-
-    # Save to data/ and docs/
-    p1 = os.path.join(base_dir, "data", "live_portfolio.json")
-    p2 = os.path.join(base_dir, "docs", "live_portfolio.json")
-    with open(p1, "w", encoding="utf-8") as f:
-        json.dump(live_payload, f, indent=2, ensure_ascii=False)
-    with open(p2, "w", encoding="utf-8") as f:
-        json.dump(live_payload, f, indent=2, ensure_ascii=False)
-
-    print(f"✅ Successfully synced live portfolio JSON at {now_str}")
-    print(f"Equity: ${total_eval_usd:.2f} ({total_eval_krw:,}원), Realized: +${realized_usd}, Unrealized: +${total_unrealized_usd}, Net: +${net_total_pnl_usd} (+{net_return_pct}%)")
 
 if __name__ == "__main__":
     sync_portfolio()

@@ -1,13 +1,34 @@
 """
-Agent 1: News, Wall Street Insights & Social Sentiment Specialist
-매수/보유 종목(SOXL, TQQQ, NVDA, TSLA, SGOV) 1시간 주기 시황·뉴스·증권사 리포트·커뮤니티 센티먼트 전수 분석 및
-매수·매도 브래킷 동적 보정(Dynamic Exit Multiplier) 엔진
+Agent 1: Real-time News, Wall Street Action & Sentiment Specialist
+
+Before: a hard-coded insight table (TSMC +29.2% 월 매출, 씨티 PT $175, VIX 18.42 ...)
+replayed every hour regardless of the date, and NVDA scores that contradicted the
+following line of the same report.
+
+Now: every score is derived from headlines actually fetched at run time
+(core/news_engine), blended with a market-implied anchor computed from live
+prices (futures / VIX / SOXS-SOXL spread / BTC). Each headline keeps its source,
+timestamp and link. Weekends are handled explicitly: crypto and FX trade, so the
+engine has real weekend signal and reports it as such.
 """
-from typing import Dict, Any, List
-from datetime import datetime
 import json
 import os
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Any, List
+
 from agents.base import BaseAgent
+from core import news_engine, market_snapshot, technical
+from core.exit_planner import AdaptiveExitPlanner
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+NAMES = {
+    "SOXL": "디렉시온 반도체 3배 레버리지 (SOXL)",
+    "TQQQ": "프로셰어즈 나스닥100 3배 레버리지 (TQQQ)",
+    "NVDA": "엔비디아 (NVIDIA)",
+    "TSLA": "테슬라 (Tesla)",
+    "SGOV": "아이셰어즈 0-3개월 초단기 국채 (SGOV)",
+}
+
 
 class NewsSentimentAgent(BaseAgent):
     def __init__(self):
@@ -15,203 +36,165 @@ class NewsSentimentAgent(BaseAgent):
             agent_id=1,
             name="Agent 1: 뉴스 & 증권사 인사이트 센티먼트 분석가",
             code="NEWS_SENTIMENT_SPECIALIST",
-            role="보유 종목 1시간 주기 시황·월가 리포트·소셜 분석 및 매수/매도 브래킷 동적 보정",
-            description="SOXL·TQQQ·NVDA·TSLA의 실시간 금융 속보, 월가 IB(골드만/모건스탠리 등) 투자의견, 레딧/X 여론을 1시간마다 전수 분석하여 매수 비중과 익절/손절선을 실시간 재조정합니다."
+            role="RSS·뉴스 API 실시간 수집, 종목별 센티먼트 점수화, 매수·매도 브래킷 동적 보정",
+            description="Yahoo/CNBC/MarketWatch/Nasdaq/CoinDesk/Google News RSS와 yfinance 뉴스 API를 1시간마다 수집해 종목 관련도·감성·최신성으로 점수화하고, 시장 내재 리스크 점수와 블렌딩해 종목별 익절·손절 폭을 산출합니다.",
         )
-
-    def analyze_ticker_sentiment(self, ticker: str, market_data: Dict[str, Any]) -> Dict[str, Any]:
-        """각 종목별 실시간 뉴스, 월가 IB 인사이트, 소셜 감성 및 매도 브래킷 보정값 산출"""
-        now_str = datetime.now().strftime("%H:%M")
-        
-        # 현실적인 실시간 시황 및 증권사/커뮤니티 인사이트 데이터베이스
-        insights_db = {
-            "SOXL": {
-                "name": "디렉시온 반도체 3배 레버리지 (SOXL)",
-                "sentiment_score": 82.5,
-                "sentiment_grade": "STRONG_BULLISH (강력 호재)",
-                "breaking_news": [
-                    "TSMC 10월 매출 전년비 +29.2% 서프라이즈 발표 → 글로벌 AI 가속기 웨이퍼 주문 풀가동 확인",
-                    "미 상무부, 첨단 패키징 장비 대중 수출 제한 관련 기존 유예 정책 재확인으로 단기 불확실성 해소"
-                ],
-                "ib_insights": [
-                    {"firm": "Goldman Sachs", "view": "Overweight 유지", "comment": "AI CAPEX 사이클은 2026년까지 지속. 필라델피아 반도체 지수 목표치 +18% 상향"},
-                    {"firm": "Morgan Stanley", "view": "Top Pick", "comment": "HBM 및 데이터센터 GPU 수요 강세로 반도체 밸류체인 전반의 레버리지 효과 극대화 전망"}
-                ],
-                "community_sentiment": {
-                    "source": "Reddit r/wallstreetbets & X (Twitter)",
-                    "buzz_rank": "전체 2위 (점유율 18.4%)",
-                    "call_put_ratio": "2.84 : 1 (콜옵션 압도적 우위)",
-                    "summary": "개장 전 프리마켓 반도체 갭상승 베팅 집중 및 주간 콜옵션 매수세 폭발"
-                },
-                "dynamic_exit_adjustment": {
-                    "action": "RUNNER_EXPAND (익절 목표 상향 & 러너 비중 확대)",
-                    "tp1": "+2.2% (기존 +2.0% 대비 +0.2%p 상향)",
-                    "tp2": "+4.0% (기존 +3.5% 대비 +0.5%p 상향)",
-                    "runner_weight": "40% (기존 34% 대비 +6%p 확대)",
-                    "sl": "-1.5% (원칙 칼손절 유지)",
-                    "rationale": "강력한 실적 서프라이즈와 월가 투자의견 상향 훈풍으로 상방 변동성 극대화 추종"
-                }
-            },
-            "TQQQ": {
-                "name": "프로셰어즈 나스닥 3배 레버리지 (TQQQ)",
-                "sentiment_score": 76.0,
-                "sentiment_grade": "MODERATE_BULLISH (양호한 모멘텀)",
-                "breaking_news": [
-                    "미국 주간 고용지표 안정세 유지로 연착륙(Soft Landing) 시나리오 강화",
-                    "나스닥 100 선물 야간 +1.98% 급등세 지속으로 기술주 갭상승 출발 확정적"
-                ],
-                "ib_insights": [
-                    {"firm": "J.P. Morgan", "view": "Overweight", "comment": "빅테크 실적 우려 완화 및 금리 인하 경로 지지로 나스닥 상방 룸 확장"},
-                    {"firm": "Bank of America", "view": "Buy", "comment": "유동성 환경 완화와 기술주 실적 가시성 결합으로 랠리 지속 가능성 우세"}
-                ],
-                "community_sentiment": {
-                    "source": "StockTwits & Reddit",
-                    "buzz_rank": "전체 4위 (점유율 12.1%)",
-                    "call_put_ratio": "2.10 : 1",
-                    "summary": "빅테크 대형주 위주의 견고한 매수세 및 숏스퀴즈 기대감 형성"
-                },
-                "dynamic_exit_adjustment": {
-                    "action": "STANDARD_STAGE (표준 3단계 익절 유지)",
-                    "tp1": "+2.0%",
-                    "tp2": "+3.5%",
-                    "runner_weight": "34%",
-                    "sl": "-1.5%",
-                    "rationale": "견조한 지수 추세 추종 및 표준 리스크-리워드 손익비 준수"
-                }
-            },
-            "NVDA": {
-                "name": "엔비디아 (NVIDIA)",
-                "sentiment_score": 58.5,
-                "sentiment_grade": "HIGH_VOLATILITY (지배구조 개편 & 의회 청문회 리스크 vs 저가 매수세)",
-                "breaking_news": [
-                    "젠슨 황 CEO 사임 및 이사회 사퇴 확정, CFO 콜레트 크레스 임시 CEO 취임 및 하비 존스 초대 의장 선임",
-                    "젠슨 황, 미 상원 금융위 청문회 증언 합의 및 의회 내 대중 반도체 수출 통제 강화 기조 대두",
-                    "전일 장중 $148.80 급락 후 저가 매수세 유입으로 $166.19(-4.34%) 마감, 금일 프리마켓 $168~$169선 강보합권 횡보"
-                ],
-                "ib_insights": [
-                    {"firm": "D.A. Davidson", "view": "Buy (목표가 $300→$200 하향)", "comment": "CEO 사임 충격으로 수개월간 전환기 진통 불가피하나 시장이 상당 부분 선반영. 밸류에이션 매력 유효"},
-                    {"firm": "Oppenheimer", "view": "Perform", "comment": "11/17 실적 견조하겠으나 지배구조 공백과 의회 조사로 당분간 펀더멘털보다 헤드라인 리스크가 주가 짓누를 것"}
-                ],
-                "community_sentiment": {
-                    "source": "Reddit r/stocks, r/wallstreetbets & X (Twitter)",
-                    "buzz_rank": "전체 1위 (점유율 34.2%)",
-                    "call_put_ratio": "1.42 : 1 (변동성 양방향 베팅 팽팽)",
-                    "summary": "리테일 딥바잉 유입 vs 의회 청문회 및 수출 규제 우려로 단기 박스권 횡보 전망 우세"
-                },
-                "dynamic_exit_adjustment": {
-                    "action": "CONDITIONAL_HOLD (조건부 홀딩 및 평단 반등 시 조기 청산 옵션)",
-                    "tp1": "+0.5% ($174.15 평단 본전/약익절 탈출 타점)",
-                    "tp2": "+4.5% ($181.10 실적 서프라이즈 랠리 타점)",
-                    "runner_weight": "0% (불확실성 국면에서 전량 익절/회수 우선)",
-                    "sl": "-13.4% ($150.00 종가 마지노선 엄수)",
-                    "rationale": "헤드라인 오버행 지속 시 본전 부근 조기 현금화로 단기 데일리 매매 회전, $150 지지 시 11/17 실적 카탈리스트 대기"
-                }
-            },
-            "TSLA": {
-                "name": "테슬라 (Tesla)",
-                "sentiment_score": 68.5,
-                "sentiment_grade": "NEUTRAL_MOMENTUM (중립적 변동성)",
-                "breaking_news": [
-                    "FSD v13 전격 롤아웃 시작 및 규제 승인 절차 기대감 고조",
-                    "유럽 전기차 보조금 축소로 인한 일중 혼조세 상존"
-                ],
-                "ib_insights": [
-                    {"firm": "Barclays", "view": "Equal-Weight", "comment": "FSD 모멘텀은 긍정적이나 차량 마진 회복 속도 검증 필요"},
-                    {"firm": "Piper Sandler", "view": "Overweight", "comment": "에너지 저장장치(Megapack) 고성장세가 실적 하방을 지지"}
-                ],
-                "community_sentiment": {
-                    "source": "X (Twitter) & WSB",
-                    "buzz_rank": "전체 3위 (점유율 15.2%)",
-                    "call_put_ratio": "1.65 : 1",
-                    "summary": "변동성 매매 위주의 활발한 거래, 급등락에 따른 단기 박스권 뷰 공존"
-                },
-                "dynamic_exit_adjustment": {
-                    "action": "TIGHT_DEFENSE (타이트한 익절/손절)",
-                    "tp1": "+1.8%",
-                    "tp2": "+3.0%",
-                    "runner_weight": "25%",
-                    "sl": "-1.2% (손절선 강화)",
-                    "rationale": "양방향 휩소 변동성에 대비하여 마찰비용 조기 회수 및 손절선 단축"
-                }
-            },
-            "SGOV": {
-                "name": "아이셰어즈 0-3개월 초단기 국채 (SGOV)",
-                "sentiment_score": 95.0,
-                "sentiment_grade": "ROCK_SOLID (무위험 최고 안전)",
-                "breaking_news": [
-                    "미국 연준(Fed) 기준금리 4.50~4.75% 밴드 안정적 유지",
-                    "초단기 T-Bill 금리 연 4.52% 형성으로 매일 무위험 배당 복리 확정"
-                ],
-                "ib_insights": [
-                    {"firm": "BlackRock", "view": "Cash Equivalent", "comment": "변동성 장세에서 가장 완벽한 현금 버퍼 및 무위험 일복리 파킹 자산"}
-                ],
-                "community_sentiment": {
-                    "source": "Bogleheads & Fixed Income Forum",
-                    "buzz_rank": "안전자산 1위",
-                    "summary": "주식 거래 실현 익절금의 100% 자동 예치 및 무위험 복리 재투자 최적 자산"
-                },
-                "dynamic_exit_adjustment": {
-                    "action": "AUTO_COMPOUND (익절금 100% 자동 매수)",
-                    "tp1": "해당 없음 (이자 수취)",
-                    "tp2": "해당 없음",
-                    "runner_weight": "100%",
-                    "sl": "손실 위험 0.0%",
-                    "rationale": "매일 밤 실현된 모든 매도 익절금을 전액 매수하여 일복리 증식"
-                }
-            }
-        }
-        
-        return insights_db.get(ticker, {
-            "name": ticker,
-            "sentiment_score": 50.0,
-            "sentiment_grade": "NEUTRAL",
-            "breaking_news": ["특이 악재 및 호재 없음"],
-            "ib_insights": [],
-            "dynamic_exit_adjustment": {"action": "STANDARD_STAGE", "tp1": "+2.0%", "tp2": "+3.5%", "sl": "-1.5%"}
-        })
+        self.planner = AdaptiveExitPlanner()
 
     def run(self, market_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         self.status = "RUNNING"
-        self.last_run = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        tickers = ["SOXL", "TQQQ", "NVDA", "TSLA", "SGOV"]
-        detailed_reports = {}
-        for t in tickers:
-            detailed_reports[t] = self.analyze_ticker_sentiment(t, market_data)
+        self.last_run = (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S")
+        snap = context.get("snapshot") or market_data.get("snapshot") or market_snapshot.load_snapshot()
+        clock = context.get("clock") or snap.get("clock") or {}
+        phase = clock.get("phase", snap.get("phase", "UNKNOWN"))
 
-        # 종합 시장 센티먼트 지수 계산 (가중 평균)
-        avg_score = round(sum(detailed_reports[t]["sentiment_score"] for t in ["SOXL", "TQQQ", "NVDA", "TSLA"]) / 4.0, 1)
+        payload = context.get("news_payload") or news_engine.fetch_all(quiet=True)
+        agg = context.get("sentiment") or news_engine.aggregate(payload, snap)
+        senti = agg["tickers"]
+        anchor = agg["anchor"]
+        items = payload.get("items", [])
+        techs = context.get("technical", {})
+
+        ticker_reports: Dict[str, Any] = {}
+        for ticker in ["SOXL", "TQQQ", "NVDA", "TSLA", "SGOV"]:
+            s = senti.get(ticker, {})
+            score = s.get("sentiment_score", 50.0)
+            t = techs.get(ticker, {})
+            atr_pct = t.get("atr_pct") or 4.0
+            plan = self.planner.plan(
+                symbol=ticker, planned_price=t.get("close", 100.0), fill_price=t.get("close", 100.0),
+                qty=3, atr_pct=atr_pct, sentiment_score=score, regime_ok=anchor["score"] >= 40,
+            )
+            if score >= 75:
+                action = "RUNNER_EXPAND (목표 상향·러너 확대)"
+            elif score >= 60:
+                action = "STANDARD_STAGED (표준 3단계)"
+            elif score >= 35:
+                action = "DEFENSIVE (목표 축소·손절 타이트)"
+            else:
+                action = "EARLY_DEFENSIVE (조기 익절·손절 축소)"
+
+            headlines = s.get("top_headlines", [])[:3]
+            ib = []
+            for note in s.get("analyst_notes", [])[:3]:
+                ib.append({"firm": note.get("firm", "Wall Street"),
+                           "view": self._action_word(note.get("headline", "")),
+                           "comment": note.get("headline", "")})
+            # real options positioning stands in for the SNS feeds we do not have
+            opt = (context.get("options") or {}).get("QQQ", {})
+            pc = opt.get("put_call_oi")
+            ticker_reports[ticker] = {
+                "name": NAMES.get(ticker, ticker),
+                "sentiment_score": score,
+                "sentiment_grade": news_engine.grade_for(score),
+                "breaking_news": [f"[{h['source']}] {h['title']}" for h in headlines] or ["최근 24시간 내 해당 종목 직접 헤드라인 없음"],
+                "ib_insights": ib,
+                "community_sentiment": {
+                    "source": "SNS(레딧·X) 미연동 → 기관 옵션 포지셔닝으로 대체",
+                    "call_put_ratio": f"QQQ Put/Call OI {pc:.2f}" if pc else "옵션 데이터 수집 전",
+                    "summary": "소셜 버즈는 수집하지 않습니다(연동 없음). 대신 실제 옵션 미결제약정과 뉴스 플로우로 대체합니다.",
+                },
+                "news_flow": {
+                    "headline_count": s.get("headline_count", 0),
+                    "weighted_sentiment": s.get("weighted_sentiment", 0.0),
+                    "news_only_score": s.get("news_score", 50.0),
+                    "market_implied_score": anchor["score"],
+                },
+                "dynamic_exit_adjustment": {
+                    "action": action,
+                    "tp1": f"+{plan.tp1_pct}% (${plan.tp1_price}) · ATR {atr_pct}% 기준",
+                    "tp2": f"+{plan.tp2_pct}% (${plan.tp2_price})",
+                    "runner_weight": f"{int(plan.runner_tip_share*100) if hasattr(plan,'runner_tip_share') else int(plan.runner_qty/max(1,plan.qty)*100)}% (샹들리에+EMA 트레일)",
+                    "sl": f"-{plan.sl_pct}% (${plan.hard_sl_price}) · 본전스탑 ${plan.breakeven_price}",
+                    "rationale": self._rationale(ticker, s, anchor),
+                },
+            }
+
+        # macro / weekend flow
+        def by_topic(topic: str, limit: int = 4) -> List[Dict[str, Any]]:
+            rows = [it for it in items if topic in it.get("topics", [])]
+            return [{"title": it["title"], "source": it["source"], "published": it["published"],
+                     "link": it["link"], "sentiment": it["sentiment"]} for it in rows[:limit]]
+
+        macro_flow = {t: by_topic(t) for t in ("FED_RATES", "TARIFF_TRADE", "OIL_ENERGY", "CRYPTO", "AI_CAPEX")}
+        fresh_24h = sum(1 for it in items if (it.get("age_hours") or 99) <= 24)
+        weekend = self._weekend_block(snap, clock)
+
+        avg = round(sum(ticker_reports[t]["sentiment_score"] for t in ["SOXL", "TQQQ", "NVDA", "TSLA"]) / 4.0, 1)
+        mood = ("RISK_OFF (매크로 악화)" if avg < 40 else
+                "NEUTRAL_MIXED" if avg < 55 else
+                "RISK_ON (반도체·기술주 우호)" if avg < 75 else "STRONG_RISK_ON")
 
         self.output_data = {
             "scan_timestamp": self.last_run,
-            "hourly_cadence": "EVERY_1_HOUR (1시간 주기 실시간 스캔)",
-            "average_sentiment_score": avg_score,
-            "overall_market_mood": "STRONG RISK-ON (빅테크 & 반도체 호재 주도)",
-            "monitored_tickers": tickers,
-            "ticker_reports": detailed_reports,
-            "directive_response": (
-                "동훈님의 '매수 종목 시황·뉴스·증권사 인사이트 기반 매도 포지션 반영' 지시에 따라, "
-                "1시간마다 5대 유니버스의 블룸버그/로이터 뉴스, 월가 IB 리포트, 레딧/X 감성을 스캔하고 "
-                "Agent 10(실전 트레이더) 및 Agent 6(시나리오 모델러)의 익절·손절 브래킷 주문에 실시간 가중치로 직결 반영합니다."
-            )
+            "phase": phase,
+            "phase_label": clock.get("label_ko", ""),
+            "hourly_cadence": "EVERY_1_HOUR",
+            "data_sources": {
+                "news_feeds_ok": f"{payload.get('feeds_ok')}/{payload.get('feeds_total')}",
+                "news_items": payload.get("item_count", 0),
+                "items_last_24h": fresh_24h,
+                "source_health": payload.get("source_health"),
+                "market_data": "Yahoo Finance 일봉·분봉 (core/market_snapshot)",
+                "hardcoded_values": False,
+            },
+            "average_sentiment_score": avg,
+            "overall_market_mood": mood,
+            "market_implied_anchor": anchor,
+            "monitored_tickers": list(ticker_reports.keys()),
+            "ticker_reports": ticker_reports,
+            "macro_news_flow": macro_flow,
+            "weekend_block": weekend,
+            "top_headlines": [{"title": it["title"], "source": it["source"], "published": it["published"],
+                               "link": it["link"], "tickers": it.get("tickers", []), "sentiment": it["sentiment"]}
+                              for it in items[:12]],
+            "key_takeaway": (
+                f"뉴스 {payload.get('item_count', 0)}건(24시간 내 {fresh_24h}건) 수집. "
+                f"시장 내재 리스크 점수 {anchor['score']}/100 ({anchor['label']}), "
+                f"종목 평균 센티먼트 {avg}/100 → {mood}. "
+                f"NVDA {ticker_reports['NVDA']['sentiment_score']}점, SOXL {ticker_reports['SOXL']['sentiment_score']}점."
+            ),
         }
-        
-        # 파일 저장
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        p1 = os.path.join(base_dir, "data", "news_sentiment_report.json")
-        p2 = os.path.join(base_dir, "docs", "news_sentiment_report.json")
-        os.makedirs(os.path.dirname(p1), exist_ok=True)
-        os.makedirs(os.path.dirname(p2), exist_ok=True)
-        with open(p1, "w", encoding="utf-8") as f:
-            json.dump(self.output_data, f, ensure_ascii=False, indent=2)
-        with open(p2, "w", encoding="utf-8") as f:
-            json.dump(self.output_data, f, ensure_ascii=False, indent=2)
 
-        self.confidence_score = 0.94
+        for p in (os.path.join(BASE_DIR, "data", "news_sentiment_report.json"),
+                  os.path.join(BASE_DIR, "docs", "news_sentiment_report.json")):
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(self.output_data, f, ensure_ascii=False, indent=2)
+
+        self.confidence_score = 0.8 if payload.get("source_health") == "OK" else 0.6
         self.status = "COMPLETED"
         return self.output_data
 
-if __name__ == "__main__":
-    agent = NewsSentimentAgent()
-    res = agent.run({}, {})
-    print(f"✅ Agent 1 News Sentiment Scan completed. Average Score: {res['average_sentiment_score']}")
+    # ------------------------------------------------------------------ helpers
+    @staticmethod
+    def _action_word(headline: str) -> str:
+        low = headline.lower()
+        for kw, label in (("upgrade", "상향"), ("downgrade", "하향"), ("raises", "목표가 상향"),
+                          ("cuts", "목표가 하향"), ("top pick", "Top Pick"), ("initiates", "신규 커버리지"),
+                          ("overweight", "비중확대"), ("underweight", "비중축소")):
+            if kw in low:
+                return label
+        return "리서치"
+
+    @staticmethod
+    def _rationale(ticker: str, s: Dict[str, Any], anchor: Dict[str, Any]) -> str:
+        flow = (s.get("top_headlines") or [{}])[0].get("title", "")
+        return (f"뉴스 점수 {s.get('news_score', 50)} + 시장 내재 {anchor['score']} (NQ {anchor['components'].get('nasdaq_fut_pct')}%, "
+                f"VIX {anchor['components'].get('vix')}) → 종합 {s.get('sentiment_score', 50)}. 최근 헤드라인: {flow[:70]}")
+
+    @staticmethod
+    def _weekend_block(snap: Dict[str, Any], clock: Dict[str, Any]) -> Dict[str, Any]:
+        q = snap.get("quotes", {})
+        btc = q.get("BTC-USD", {})
+        eth = q.get("ETH-USD", {})
+        return {
+            "is_weekend": clock.get("is_weekend", False),
+            "crypto_24_7": {"btc": btc.get("last"), "btc_change_pct": btc.get("change_pct"),
+                            "eth": eth.get("last"), "eth_change_pct": eth.get("change_pct"),
+                            "note": "주말에도 실제 거래되는 유일한 위험자산 프록시"},
+            "fx_open": {"usd_krw": (snap.get("fx") or {}).get("usd_krw"),
+                        "usd_jpy": (snap.get("fx") or {}).get("usd_jpy")},
+            "next_open": clock.get("next_open_kst"),
+            "hours_to_open": clock.get("hours_to_next_open"),
+            "source_note": "주말에는 지수·주식 선물이 휴장이므로 마지막 금요일 종가와 크립토/외환만 신규 데이터입니다.",
+        }

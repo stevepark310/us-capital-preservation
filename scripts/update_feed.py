@@ -1,902 +1,439 @@
 #!/usr/bin/env python3
 """
-CUBE Multi-Agent Work Feed Engine
-Generates and maintains the hourly internal timeline feed for the 10 specialized trading agents.
-Simulates and records real-time agent updates, including Pre-Market (18:00~23:30 KST),
-Global Macro & FX (Hang Seng, Nikkei, DAX, DXY, USD/KRW), and regular market observations.
+CUBE Work Feed Generator — dynamic, 24/7
+
+Before: a 900-line literal list of posts. Ten agents "reported" the same 11-11
+numbers every hour, with timestamps like "22:38" stamped onto whatever day it
+was, and directives mixed into fresh updates.
+
+Now: the orchestrator runs all ten agents against live data, and this script
+turns each agent's real report into one feed bubble. Directives are kept
+separately, pinned, with the date they were actually given.
 """
-
-import os
 import json
-import shutil
-from datetime import datetime, timedelta
+import os
+import sys
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Any, List
 
-def get_base_data_path():
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base_dir, "data", "agent_feed.json"), os.path.join(base_dir, "docs", "agent_feed.json")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
 
-def generate_feed_entries():
-    now = datetime.now()
-    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
-    
-    agent_configs = {
-        1: {
-            "name": "Agent 1: 뉴스 & 커뮤니티 센티먼트 분석가",
-            "role": "NEWS_SENTIMENT_SPECIALIST",
-            "icon": "📰",
-            "avatar_bg": "from-cyan-500 to-blue-600",
-            "badge_color": "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
-        },
-        2: {
-            "name": "Agent 2: 기술적 일중 변동성 & 모멘텀 분석가",
-            "role": "TECH_MOMENTUM_SPECIALIST",
-            "icon": "📈",
-            "avatar_bg": "from-blue-600 to-indigo-600",
-            "badge_color": "bg-blue-500/10 text-blue-400 border-blue-500/20"
-        },
-        3: {
-            "name": "Agent 3: 단기 실적 촉매(Catalyst) & 어닝 서프라이즈 분석가",
-            "role": "FUNDAMENTALS_CATALYST_SPECIALIST",
-            "icon": "🏢",
-            "avatar_bg": "from-emerald-500 to-teal-600",
-            "badge_color": "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-        },
-        4: {
-            "name": "Agent 4: 글로벌 매크로 & 외환(FX)·VIX 레짐 분석가",
-            "role": "GLOBAL_MACRO_FX_SPECIALIST",
-            "icon": "🌐",
-            "avatar_bg": "from-purple-600 to-violet-700",
-            "badge_color": "bg-purple-500/10 text-purple-400 border-purple-500/20"
-        },
-        5: {
-            "name": "Agent 5: 스마트머니 & 기관 옵션 감마 분석가",
-            "role": "SMART_MONEY_GAMMA_SPECIALIST",
-            "icon": "🐋",
-            "avatar_bg": "from-amber-500 to-orange-600",
-            "badge_color": "bg-amber-500/10 text-amber-400 border-amber-500/20"
-        },
-        6: {
-            "name": "Agent 6: 단기 퀀트 시나리오 모델링 연구원",
-            "role": "QUANT_SCENARIO_MODELER",
-            "icon": "📐",
-            "avatar_bg": "from-indigo-500 to-fuchsia-600",
-            "badge_color": "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
-        },
-        7: {
-            "name": "Agent 7: 단기 시나리오 백테스트 검증 엔지니어",
-            "role": "SHORT_TERM_BACKTESTER_ENGINEER",
-            "icon": "🧪",
-            "avatar_bg": "from-rose-500 to-red-600",
-            "badge_color": "bg-rose-500/10 text-rose-400 border-rose-500/20"
-        },
-        8: {
-            "name": "Agent 8: 단기 수익 시나리오 알파 분석가",
-            "role": "SHORT_TERM_ALPHA_EVALUATOR",
-            "icon": "🎯",
-            "avatar_bg": "from-teal-500 to-emerald-600",
-            "badge_color": "bg-teal-500/10 text-teal-400 border-teal-500/20"
-        },
-        9: {
-            "name": "Agent 9: 단기 최적 시나리오 융합가",
-            "role": "SHORT_TERM_ENSEMBLE_SYNTHESIZER",
-            "icon": "🧬",
-            "avatar_bg": "from-violet-500 to-purple-600",
-            "badge_color": "bg-violet-500/10 text-violet-400 border-violet-500/20"
-        },
-        10: {
-            "name": "Agent 10: 일일 실전 트레이더 & 브래킷 집행관",
-            "role": "SHORT_TERM_EXECUTION_TRADER",
-            "icon": "⚡",
-            "avatar_bg": "from-yellow-400 to-amber-600",
-            "badge_color": "bg-amber-500/10 text-amber-400 border-amber-500/20"
-        }
+from agents.cube_orchestrator import CubeOrchestrator
+from core import market_clock, market_snapshot, ledger as ledger_mod
+
+DATA = os.path.join(BASE_DIR, "data")
+DOCS = os.path.join(BASE_DIR, "docs")
+FEED_PATH = os.path.join(DATA, "agent_feed.json")
+DOCS_FEED_PATH = os.path.join(DOCS, "agent_feed.json")
+DIRECTIVES = os.path.join(DATA, "directives_archive.json")
+
+AGENT_STYLE = {
+    1: {"icon": "📰", "avatar_bg": "from-cyan-500 to-blue-600", "badge_color": "bg-cyan-500/10 text-cyan-400 border-cyan-500/20", "category": "SENTIMENT"},
+    2: {"icon": "📈", "avatar_bg": "from-blue-600 to-indigo-600", "badge_color": "bg-blue-500/10 text-blue-400 border-blue-500/20", "category": "TECHNICAL"},
+    3: {"icon": "🏢", "avatar_bg": "from-emerald-500 to-teal-600", "badge_color": "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", "category": "CATALYST"},
+    4: {"icon": "🌐", "avatar_bg": "from-purple-600 to-violet-700", "badge_color": "bg-purple-500/10 text-purple-400 border-purple-500/20", "category": "MACRO"},
+    5: {"icon": "🐋", "avatar_bg": "from-amber-500 to-orange-600", "badge_color": "bg-amber-500/10 text-amber-400 border-amber-500/20", "category": "GAMMA"},
+    6: {"icon": "📐", "avatar_bg": "from-indigo-500 to-fuchsia-600", "badge_color": "bg-indigo-500/10 text-indigo-400 border-indigo-500/20", "category": "QUANT"},
+    7: {"icon": "🧪", "avatar_bg": "from-rose-500 to-red-600", "badge_color": "bg-rose-500/10 text-rose-400 border-rose-500/20", "category": "BACKTEST"},
+    8: {"icon": "🎯", "avatar_bg": "from-teal-500 to-emerald-600", "badge_color": "bg-teal-500/10 text-teal-400 border-teal-500/20", "category": "ALPHA"},
+    9: {"icon": "🧬", "avatar_bg": "from-violet-500 to-purple-600", "badge_color": "bg-violet-500/10 text-violet-400 border-violet-500/20", "category": "ENSEMBLE"},
+    10: {"icon": "⚡", "avatar_bg": "from-yellow-400 to-amber-600", "badge_color": "bg-amber-500/10 text-amber-400 border-amber-500/20", "category": "EXECUTION"},
+}
+NAMES = {
+    1: "Agent 1: 뉴스 & 증권사 인사이트 센티먼트 분석가",
+    2: "Agent 2: 기술적 일중 변동성 & 모멘텀 분석가",
+    3: "Agent 3: 단기 실적 촉매(Catalyst) & 어닝 서프라이즈 분석가",
+    4: "Agent 4: 글로벌 매크로 & 외환(FX)·VIX 레짐 분석가",
+    5: "Agent 5: 스마트머니 & 기관 옵션 감마 분석가",
+    6: "Agent 6: 단기 퀀트 시나리오 모델링 연구원",
+    7: "Agent 7: 단기 시나리오 백테스트 검증 엔지니어",
+    8: "Agent 8: 단기 수익 시나리오 알파 분석가",
+    9: "Agent 9: 단기 최적 시나리오 융합가",
+    10: "Agent 10: 일일 실전 트레이더 & 브래킷 집행관",
+}
+ROLES = {1: "NEWS_SENTIMENT_SPECIALIST", 2: "TECH_MOMENTUM_SPECIALIST", 3: "FUNDAMENTALS_CATALYST_SPECIALIST",
+         4: "GLOBAL_MACRO_FX_SPECIALIST", 5: "SMART_MONEY_GAMMA_SPECIALIST", 6: "QUANT_SCENARIO_MODELER",
+         7: "SHORT_TERM_BACKTESTER_ENGINEER", 8: "SHORT_TERM_ALPHA_EVALUATOR", 9: "SHORT_TERM_ENSEMBLE_SYNTHESIZER",
+         10: "SHORT_TERM_EXECUTION_TRADER"}
+
+
+def _now_kst() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=9)
+
+
+def _fmt(x, digits=2, suffix=""):
+    try:
+        return f"{float(x):,.{digits}f}{suffix}"
+    except Exception:
+        return "—"
+
+
+def _post(agent_id: int, clock: Dict[str, Any], badge: str, title: str, content: str,
+          metrics: List[Dict[str, Any]], action: str, pinned: bool = False, ts: datetime = None) -> Dict[str, Any]:
+    st = AGENT_STYLE[agent_id]
+    ts = ts or _now_kst()
+    return {
+        "id": f"post-{agent_id:02d}-{ts.strftime('%Y%m%d%H')}",
+        "agent_id": agent_id,
+        "agent_name": NAMES[agent_id],
+        "agent_role": ROLES[agent_id],
+        "icon": st["icon"], "avatar_bg": st["avatar_bg"], "badge_color": st["badge_color"],
+        "timestamp": ts.strftime("%Y-%m-%d %H:%M"),
+        "time_ago": "방금 전",
+        "category": st["category"],
+        "badge": badge,
+        "title": title,
+        "content": content,
+        "metrics": metrics,
+        "action_required": action,
+        "reactions": {},
+        "pinned": pinned,
+        "phase": clock.get("phase"),
     }
 
-    posts = [
-        # Agent 9 & 10: Bear Market Alpha Engine & 10-Agent Downturn Strategy Review (23:42 KST)
-        {
-            "id": "post-2342-agent-all-bear-market-alpha-engine",
-            "agent_id": 9,
-            "agent_name": "CUBE 10인 에이전트 전략 기획실 (Agent 1~10 합동)",
-            "agent_role": "BEAR_MARKET_ALPHA_ARCHITECTS",
-            "icon": "📉",
-            "avatar_bg": "from-rose-600 to-red-800",
-            "badge_color": "bg-red-500/10 text-red-400 border-red-500/20",
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 23:42",
-            "time_ago": "방금 전",
-            "category": "BEAR_MARKET_ALPHA",
-            "badge": "📉 하락장 전용 수익 창출 알고리즘(CUBE BEAR ALPHA ENGINE) 10인 에이전트 전원 검토 완결",
-            "title": "[23:42 긴급 전략회의] 박동훈 TL 지시: 하락장 전용 숏 알파 및 인버스 수익 창출 알고리즘(CUBE BEAR ALPHA) 10인 에이전트 전원 검토 완료 보고",
-            "content": (
-                "박동훈 TL의 긴급 지침('하락장에서도 수익을 낼 수 있는 알고리즘을 각 에이전트 직원들에게 검토하도록 지시해줘')에 따라, CUBE 10인 에이전트 전원이 긴급 전략회의를 소집하여 시장 급락 및 장기 약세장에서도 양방향 확정 수익을 창출하는 **'CUBE BEAR ALPHA ENGINE'**을 전격 수립하고 3개년 백테스트 검증을 완결했습니다.\n\n"
-                "**1. 에이전트별 하락장 수익 창출 알고리즘 분담 체계:**\n"
-                "• **Agent 4 & 1 (거시 매크로 & 센티먼트)**: **3대 매크로 숏 레짐 트리거** 구축. ① VIX >= 22.0 (공포 레벨 진입), ② DXY >= 104.5 (달러 급등 유동성 이탈), ③ 센티먼트 < 40.0 (패닉 투매 가속) 중 2개 이상 발화 시 'BEAR_SHORT_ACTIVE' 모드로 즉각 전환.\n"
-                "• **Agent 2 (기술적 분석가)**: **데드크로스 숏 브레이크아웃 & 베어 플래그 오더블록** 설계. 20일 EMA 하향 이탈 + 5분/15분봉 거래량 2.0배 음봉 출현 시 3배 인버스(SOXS, SQQQ) 돌파 매수, 기술적 반등(Dead-Cat Bounce) 저항선 리젝션 시 2차 분할 숏 타점 포착.\n"
-                "• **Agent 3 & 5 (펀더멘털 & 슈퍼인베스터)**: **가이던스 쇼크 디레이팅 & 마이클 버리식 비대칭 테일 리스크 헤지**. 빅테크 실적 하향 및 고P/E 수축 국면에서 롱 포지션 비중 0% 축소, 인버스 숏 60% + 무위험 현금 40% 최적 배분.\n"
-                "• **Agent 6 (정량 시나리오 연구원)**: **하방 충격 민감도 스트레스 매트릭스** 산출. 나스닥 -1%~-3% 급락 시 SQQQ(+3%~+9%) 및 SOXS(+4.5%~+13.5%)의 기대 수익 곡선 시뮬레이션 및 익절 타겟 정밀화.\n"
-                "• **Agent 7 (백테스터 엔지니어)**: **하락장 인버스 전략 3개년 실측 백테스트 완결** (2022년 금리인상 대약세장 + 2024년 8월 엔캐리 청산 쇼크 구간 전수 시뮬레이션, 왕복 마찰비용 0.24% 차감):\n"
-                "  - **승률 (Win Rate)**: **71.4%** (35승 14패)\n"
-                "  - **손익비 (Profit Factor)**: **2.21 : 1** (평균 익절 +4.8% vs 손절 -1.5%)\n"
-                "  - **최대 낙폭 (MDD)**: **-5.8%** (지수 -33% 폭락기 완벽 방어)\n"
-                "  - **연환산 수익률 (CAGR)**: **+68.4%** (하락장을 현금 창출 기회로 전환)\n"
-                "• **Agent 8 (알파 평가관)**: **손익비 최적화 필터 적용**. 하락장 특성상 변동성이 극대화되므로 익절 목표(TP1 +3.0%, TP2 +5.5%) 대비 칼손절선(-1.5%)을 타이트하게 통제하여 Reward-to-Risk 2.0:1 이상 엄수.\n"
-                "• **Agent 9 & 10 (앙상블 총괄 & 실전 트레이더)**: **롱/숏 하이브리드 자동 스위처 & NH 오픈API 즉각 발주 파이프라인 연동**. 현재 확보된 $630.78의 현금 버퍼를 기반으로 VIX 22 돌파 시 SOXS/SQQQ 즉시 분할 매수 발주 체계 상시 가동."
-            ),
-            "metrics": [
-                {"label": "하락장 백테스트 승률", "value": "71.4% (3개년 실측)", "highlight": True},
-                {"label": "하락장 손익비", "value": "2.21 : 1 (우수)", "highlight": True},
-                {"label": "약세장 연환산 수익률", "value": "+68.4% (MDD -5.8%)", "highlight": True}
-            ],
-            "action_required": "VIX 22.0 돌파 및 20일선 이탈 시 NH 오픈API SOXS/SQQQ 자동 분할 매수 즉각 집행 대기 완료",
-            "reactions": {"thumbs_up": 10, "rocket": 8},
-            "pinned": True
-        },
-        # Agent 2 & 7: Undervalued Surge Predictor & 1-Year Backtest Official Report (19:15 KST)
-        {
-            "id": "post-1915-agent2-agent7-undervalued-surge-model",
-            "agent_id": 2,
-            "agent_name": "Agent 2 & 7: 기술적 모멘텀 & 퀀트 백테스터 융합팀",
-            "agent_role": "UNDERVALUED_SURGE_PREDICTOR",
-            "icon": "🚀",
-            "avatar_bg": "from-blue-600 to-rose-600",
-            "badge_color": "bg-rose-500/10 text-rose-400 border-rose-500/20",
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 19:15",
-            "time_ago": "방금 전",
-            "category": "QUANT_MODELING",
-            "badge": "🚀 미국 저평가 급등주 사전 발굴 모델(UV-SURGE-ALPHA) 구축 & 1년 백테스트 완결",
-            "title": "[19:15 긴급 업무보고] 박동훈 TL 지시: 미국 저평가 급등주 사전 발굴 모델(UV-SURGE-ALPHA) 전격 구축 및 최근 1개년(49개 종목) 백테스트 정확도 검증 완료",
-            "content": (
-                "박동훈 TL의 긴급 지시('미국 주식 저평가 급등주 사전 발굴 모델 구축 및 지난 1년간 백테스트 정확도 측정 보고')에 따라, Agent 2(기술적 모멘텀)와 Agent 7(백테스터)이 협업하여 최신 퀀트 알고리즘 기반 **저평가 급등 예측 모델(UV-SURGE-ALPHA)**을 신규 구축하고 최근 1개년(2025.11~2026.11, 251거래일) 전수 백테스트를 완결했습니다.\n\n"
-                "**1. UV-SURGE-ALPHA 핵심 알고리즘 아키텍처:**\n"
-                "• **Engine A (딥밸류 거래량 쇼크형)**: 20일 누적 낙폭과대(-10% 이하) 또는 RSI<=35 극단 과매도 상태에서 당일 거래량이 20일 평균 대비 2.0배 이상 폭증(RVOL>=2.0)하며 +3% 이상 양봉 반전 캔들 출현 시 매집 타점 포착.\n"
-                "• **Engine B (변동성 켈트너-볼린저 스퀴즈형)**: 20일 볼린저 밴드가 켈트너 채널 내부로 수렴(TTM Squeeze)하여 에너지를 응축한 뒤, RVOL 1.8배 이상과 함께 밴드 상단을 돌파하는 수직 분출 타점 포착.\n\n"
-                "**2. 최근 1개년(49개 고변동성/저평가 스몰·미드캡) 백테스트 실측 성과 (왕복 마찰비용 0.24% 전액 차감):**\n"
-                "• **총 시그널 수**: **62건**\n"
-                "• **5일 내 +10% 이상 급등 적중 (Hit Ratio)**: **15건 (24.2%)**\n"
-                "• **5일 내 +15% 이상 폭등 적중 (Strong Surge)**: **9건 (14.5%)**\n"
-                "• **최종 매매 승률 (Win Rate)**: **30.6%** (19승 43패 / TP1 +10% 도달 시 50% 익절 및 손절선 본전 상향, SL -5% 칼손절)\n"
-                "• **손익비 (Profit Factor)**: **0.69 : 1** (전체 합산) → **[핵심 발견] Engine A(딥밸류 쇼크) 단독 적용 시 승률 42.1%, 손익비 1.39:1, 평균 수익률 +1.18%로 압도적 우위 검증!**\n"
-                "• **대표 급등 적중 사례**:\n"
-                "  - APP: 5일 내 최고 **+34.4%** 급등 (실현익 +14.8% 전량 익절)\n"
-                "  - OKLO: 5일 내 최고 **+29.5%** 급등 (실현익 +14.8% 전량 익절)\n"
-                "  - QBTS: 5일 내 최고 **+24.0%** 급등 (실현익 +14.8% 전량 익절)\n"
-                "  - NTLA: 5일 내 최고 **+23.4%** 급등 (실현익 +14.8% 전량 익절)\n"
-                "  - WOLF: 5일 내 최고 **+22.0%** 급등 (실현익 +14.8% 전량 익절)\n\n"
-                "**3. 금일(2026-11-13 프리장) 실시간 모델 발굴 TOP 3 유효 후보군:**\n"
-                "• **ENVX ($1.80)**: 20일 낙폭 -32.6%, RSI 32.7 과매도, RVOL 2.2배 거래량 폭증 (종합 75점)\n"
-                "• **IBRX ($6.07)**: 20일 낙폭 -39.3%, RSI 32.7 과매도, RVOL 1.5배 바닥 매집 (종합 75점)\n"
-                "• **SOUN ($3.60)**: 20일 낙폭 -26.4%, RSI 23.2 극단 과매도, RVOL 1.3배 반등 (종합 65점)\n\n"
-                "**4. 소규모 실전 투자 운용 가이드라인:**\n"
-                "메인 포트폴리오(SOXL/TQQQ/NVDA)의 잃지 않는 원칙을 보존하기 위해, 가용 예수금($388)의 **5~8%($50~$70, 1~2개 종목)**만 소규모 버퍼로 배정하여 **TP1 +10%(50% 분할 익절 후 손절선 본전 상향), TP2 +20%, SL -5%**의 비대칭 브래킷으로만 운용하는 것을 권고합니다."
-            ),
-            "metrics": [
-                {"label": "1년 총 시그널", "value": "62건 (49개 종목)", "highlight": True},
-                {"label": "10%+ 급등 적중률", "value": "24.2% (15건)", "highlight": True},
-                {"label": "딥밸류 쇼크 손익비", "value": "1.39 : 1 (승률 42.1%)", "highlight": True}
-            ],
-            "action_required": "가용 예수금 $388 중 $50~$70 소액 버퍼로 Engine A(딥밸류 쇼크) 후보군 분할 진입 큐 연동 준비 완료",
-            "reactions": {"fire": 18, "rocket": 20, "thumbs_up": 16},
-            "pinned": True
-        },
-        # Agent 7: 1-Year Full Realistic Backtest Official Report (11:20 KST)
-        {
-            "id": "post-1120-agent7-1y-backtest",
-            "agent_id": 7,
-            "agent_name": agent_configs[7]["name"],
-            "agent_role": agent_configs[7]["role"],
-            "icon": agent_configs[7]["icon"],
-            "avatar_bg": agent_configs[7]["avatar_bg"],
-            "badge_color": agent_configs[7]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 11:20",
-            "time_ago": "방금 전",
-            "category": "BACKTEST",
-            "badge": "🧪 최근 1개년(251거래일) 실전 시나리오 백테스트 완결",
-            "title": "[11:20 긴급 업무보고] 현재 구축된 10대 단기 돌파 & 3단계 스마트 청산 & SOXS 숏 헤지 시스템의 최근 1개년(2025.11~2026.11) 정밀 백테스트 성과 검증 완료",
-            "content": (
-                "박동훈 TL의 긴급 지침에 따라 현재 계좌(`202-05-134849`)에 가동 중인 **CUBE 단기 돌파 + 3단계 스마트 익절/손절 + 하락장 SOXS/SQQQ 인버스 숏 포지션 엔진**의 최근 1개년(2025-11-12 ~ 2026-11-11, 251거래일) 실전 백테스트를 전수 수행했습니다.\n\n"
-                "**1. 핵심 종합 성과 지표 (왕복 마찰비용 0.24% 전액 차감):**\n"
-                "• **누적 총 수익률**: **+35.99%** (연환산 CAGR **+36.32%**)\n"
-                "• **전략 승률**: **54.8%** (115승 95패 / 총 210회 실전 매매 집행)\n"
-                "• **손익비 (Profit Factor)**: **1.53 : 1** (수익 거래 평균익이 손실 거래 평균손실의 1.53배)\n"
-                "• **최대 낙폭 (Max Drawdown)**: **-7.85%** (단순 롱 홀딩의 MDD -40%~-60% 대비 극히 우수한 방어력)\n"
-                "• **위험조정 수익률**: **Sharpe 2.02** | **Sortino 3.29** | **Calmar 4.63**\n\n"
-                "**2. 벤치마크(Buy & Hold) 대비 성과 비교:**\n"
-                "• **CUBE 단기 앙상블**: **+35.99% (MDD -7.85%, 샤프 2.02)**\n"
-                "• **SOXL 단순 보유**: +28.34% (MDD -58.20% 폭락 구간 노출)\n"
-                "• **QQQ 단순 보유**: +9.15% (MDD -11.40%)\n"
-                "• **TQQQ 단순 보유**: +2.17% (변동성 잠식 음의 복리 효과로 장기 횡보)\n\n"
-                "**3. 월별 손익 추이 (12개월 중 9개월 플러스 수익, 월간 승률 75.0%):**\n"
-                "• 2025년 11월: +1.42% | 12월: +1.00%\n"
-                "• 2026년 1월: -0.94% | 2월: +2.19% | 3월: +4.23% | 4월: -2.57%\n"
-                "• 2026년 5월: +1.19% | 6월: **+9.29%** | 7월: **+5.75%** | 8월: -2.78%\n"
-                "• 2026년 9월: +1.31% | 10월: **+3.77%** | 11월(M-T-D): **+8.05%**\n\n"
-                "**4. 백테스트 결론 및 핵심 시사점:**\n"
-                "단순 레버리지 롱 포지션은 급락장(8월, 4월)에서 -20% 이상 계좌가 깨지지만, CUBE 시스템은 VIX 22 이상 국면에서 SOXS/SQQQ 숏 헤지로 방어하고 3단계 분할 익절(TP1 +3%, TP2 +5%)로 원금을 무위험 전환함으로써 **최대 낙폭을 -7.85%로 통제하며 연 +36%대의 안정적 복리 우상향**을 증명했습니다."
-            ),
-            "metrics": [
-                {"label": "1년 총수익", "value": "+35.99% (CAGR +36.32%)", "highlight": True},
-                {"label": "승률 / 손익비", "value": "54.8% / 1.53 : 1", "highlight": True},
-                {"label": "샤프 / MDD", "value": "2.02 / -7.85%", "highlight": True}
-            ],
-            "action_required": "실전 계좌(202-05-134849)에 백테스트 검증 완료된 K=0.5 및 3단계 청산 파라미터 100% 동일 적용 유지",
-            "reactions": {"fire": 15, "rocket": 15, "thumbs_up": 15},
-            "pinned": True
-        },
-        # Pinned Directive 4: Bear Market SOXS/SQQQ Inverse Short & Real-time Dashboard API Sync
-        {
-            "id": "post-pin-004",
+
+# ------------------------------------------------------------------ per-agent posts
+def post_agent1(r: Dict[str, Any], clock) -> Dict[str, Any]:
+    tr = r.get("ticker_reports", {})
+    lines = []
+    for tk in ["SOXL", "TQQQ", "NVDA", "TSLA", "SGOV"]:
+        t = tr.get(tk, {})
+        br = t.get("dynamic_exit_adjustment", {})
+        head = (t.get("breaking_news") or ["—"])[0]
+        lines.append(f"• {tk} {t.get('sentiment_score')}점 ({t.get('sentiment_grade','').split(' (')[0]}) — {head[:95]}")
+        lines.append(f"    → {br.get('action','').split(' (')[0]} · TP1 {br.get('tp1')} / SL {br.get('sl')}")
+    macro = r.get("macro_news_flow", {})
+    macro_lines = []
+    for topic, label in (("FED_RATES", "금리"), ("TARIFF_TRADE", "관세·수출통제"), ("CRYPTO", "크립토"), ("AI_CAPEX", "AI CAPEX")):
+        rows = macro.get(topic) or []
+        if rows:
+            macro_lines.append(f"• [{label}] {rows[0]['title'][:90]} ({rows[0].get('source')})")
+    wk = r.get("weekend_block", {})
+    content = (
+        f"실시간 뉴스 {r.get('data_sources', {}).get('news_items')}건(24시간 내 {r.get('data_sources', {}).get('items_last_24h')}건)을 "
+        f"수집해 종목별로 점수화했습니다. 시장 내재 리스크 점수 {r.get('market_implied_anchor', {}).get('score')}/100 "
+        f"({r.get('market_implied_anchor', {}).get('label')})와 블렌딩한 종합 센티먼트는 {r.get('average_sentiment_score')}점, "
+        f"판정 {r.get('overall_market_mood')}.\n\n" + "\n".join(lines) + "\n\n"
+        "[매크로 헤드라인]\n" + ("\n".join(macro_lines) if macro_lines else "• 특이 매크로 헤드라인 없음") + "\n\n"
+        f"[주말 데이터] BTC {_fmt(wk.get('crypto_24_7', {}).get('btc'))} ({_fmt(wk.get('crypto_24_7', {}).get('btc_change_pct'))}%), "
+        f"ETH {_fmt(wk.get('crypto_24_7', {}).get('eth'))} ({_fmt(wk.get('crypto_24_7', {}).get('eth_change_pct'))}%), "
+        f"원/달러 {_fmt(wk.get('fx_open', {}).get('usd_krw'))}원. 주식·선물은 휴장이라 마지막 종가 기준입니다."
+    )
+    return _post(1, clock, "📰 실시간 뉴스·센티먼트 (하드코딩 제거)", 
+                 f"[{clock['now_kst'][11:16]} 뉴스 스캔] 종목 평균 {r.get('average_sentiment_score')}점 · 시장 내재 {r.get('market_implied_anchor', {}).get('score')}점 → {r.get('overall_market_mood')}",
+                 content,
+                 [{"label": "뉴스 수집", "value": f"{r.get('data_sources', {}).get('news_items')}건", "highlight": True},
+                  {"label": "피드 정상", "value": r.get("data_sources", {}).get("news_feeds_ok")},
+                  {"label": "SOXL", "value": f"{tr.get('SOXL', {}).get('sentiment_score')}점"},
+                  {"label": "NVDA", "value": f"{tr.get('NVDA', {}).get('sentiment_score')}점"}],
+                 "브래킷 값은 core/exit_planner가 실측 ATR·센티먼트로 재계산합니다.")
+
+
+def post_agent2(r: Dict[str, Any], clock) -> Dict[str, Any]:
+    lv = r.get("levels", {})
+    rows = []
+    for sym in ["SOXL", "TQQQ", "NVDA", "SOXS", "SQQQ"]:
+        v = lv.get(sym)
+        if not v:
+            continue
+        rows.append(f"• {sym} ${_fmt(v.get('close'))} | ATR {v.get('atr_pct')}% | RSI2 {v.get('rsi2')} | %B {v.get('pct_b')} | "
+                    f"RVOL {v.get('rvol')} | 진입점수 {v.get('entry_score')} ({v.get('entry_signal')})")
+        rows.append(f"    돌파 ${v.get('breakout_trigger')} (+{v.get('breakout_pct')}%) / 이탈 ${v.get('breakdown_trigger')}")
+    gap = (lv.get("SOXL") or {}).get("gap_plan") or {}
+    dip = r.get("dip_swing_watchlist") or {}
+    dip_txt = ""
+    if dip.get("signals"):
+        dip_txt = "\n\n[DIP_SWING 신호]\n" + "\n".join(
+            f"• {s['symbol']} ${s['close']} — RSI2 {s['rsi2']}, %B {s['pct_b']}, 검증 TP ${s['validated_tp']} / SL ${s['validated_sl']}"
+            for s in dip["signals"])
+    elif dip.get("watch"):
+        dip_txt = "\n\n[DIP_SWING 관찰]\n" + "\n".join(
+            f"• {w['symbol']} RSI2 {w.get('rsi2')} · %B {w.get('pct_b')} · RVOL {w.get('rvol')} → 미충족"
+            for w in dip["watch"][:2])
+    content = ("실측 일봉으로 계산한 종목별 레벨입니다.\n\n" + "\n".join(rows) +
+               (f"\n\n[월요일 개장 갭 시나리오] 금요일 종가 ${_fmt(gap.get('friday_close'))}, "
+                f"선물 내재 갭 {_fmt(gap.get('futures_implied_gap_pct'))}% → 주경로 ${_fmt(gap.get('primary_open'))}, "
+                f"대안 ${_fmt(gap.get('alternate_open'))}. ATR 밴드 ${_fmt((gap.get('atr_band') or [None])[0])}~${_fmt((gap.get('atr_band') or [None, None])[1])}. "
+                f"{gap.get('plan','')}" if gap else "") + dip_txt +
+               f"\n\n스몰캡 급등주 모델은 11-13 지시로 실전 배제 상태입니다.")
+    return _post(2, clock, "📈 레벨·진입신호 (실측 OHLCV)",
+                 f"[{clock['now_kst'][11:16]} 기술적 스캔] {', '.join(r.get('actionable_symbols') or ['진입 신호 없음'])} · 최고 {r.get('best_setup', {}).get('symbol')}({r.get('best_setup', {}).get('score')}점)",
+                 content,
+                 [{"label": "SOXL ATR", "value": f"{lv.get('SOXL', {}).get('atr_pct')}%", "highlight": True},
+                  {"label": "SOXL 돌파", "value": f"${lv.get('SOXL', {}).get('breakout_trigger')}", "highlight": True},
+                  {"label": "진입 신호", "value": ", ".join(r.get("actionable_symbols") or ["없음"])},
+                  {"label": "DIP 신호", "value": f"{len(dip.get('signals') or [])}건"}],
+                 "개장 후 돌파 트리거 확인 시에만 진입합니다.")
+
+
+def post_agent3(r: Dict[str, Any], clock) -> Dict[str, Any]:
+    er = r.get("earnings_calendar", [])[:4]
+    ev = r.get("macro_calendar", [])[:3]
+    rows = [f"• {e['ticker']} D-{e['d_day']} · {e['report_kst']} · EPS 컨센 {_fmt(e.get('eps_estimate'), 2)}" for e in er]
+    evs = [f"• {e['event']} D-{e['d_day']} ({e['date_kst']}) — {e.get('note','')}" for e in ev]
+    content = ("Yahoo Finance 실적 캘린더를 KST로 변환한 D-day입니다. 미국 장 마감 후 발표는 다음 날 아침 KST로 표기합니다.\n\n"
+               + "\n".join(rows) + "\n\n[공식 매크로 일정]\n" + "\n".join(evs))
+    nvda = next((e for e in er if e["ticker"] == "NVDA"), None)
+    return _post(3, clock, "🏢 실적·매크로 캘린더 (KST 변환)",
+                 f"[{clock['now_kst'][11:16]} 촉매 점검] " + (f"NVDA 실적 D-{nvda['d_day']} ({nvda['report_kst']})" if nvda else "주요 실적 일정"),
+                 content,
+                 [{"label": "NVDA 실적", "value": f"D-{nvda['d_day']}" if nvda else "—", "highlight": True},
+                  {"label": "EPS 컨센", "value": _fmt(nvda.get("eps_estimate"), 2) if nvda else "—"},
+                  {"label": "매크로 일정", "value": f"{len(r.get('macro_calendar', []))}건"},
+                  {"label": "촉매 헤드라인", "value": f"{len(r.get('headline_catalysts', []))}건"}],
+                 (nvda["rule"] if nvda else "일정 기반 포지션 규칙 유지"))
+
+
+def post_agent4(r: Dict[str, Any], clock) -> Dict[str, Any]:
+    gi = r.get("global_indices", {})
+    cr = r.get("crypto", {})
+    content = (
+        f"VIX {_fmt(r.get('vix_level'))} ({_fmt(r.get('vix_change_pct'))}%), DXY {_fmt(r.get('dxy'))} ({_fmt(r.get('dxy_change_pct'))}%), "
+        f"미 10년 {_fmt(r.get('us_10y_yield'), 3)}% / 3개월 {_fmt(r.get('us_3m_yield'), 3)}% (기울기 {r.get('curve_slope_bp')}bp).\n\n"
+        f"• 항셍 {_fmt(gi.get('hang_seng', {}).get('level'))} ({_fmt(gi.get('hang_seng', {}).get('change_pct'))}%)\n"
+        f"• 닛케이 {_fmt(gi.get('nikkei_225', {}).get('level'))} ({_fmt(gi.get('nikkei_225', {}).get('change_pct'))}%)\n"
+        f"• DAX {_fmt(gi.get('dax_40', {}).get('level'))} ({_fmt(gi.get('dax_40', {}).get('change_pct'))}%)\n"
+        f"• 나스닥 선물 {_fmt(gi.get('nasdaq_fut', {}).get('level'))} ({_fmt(gi.get('nasdaq_fut', {}).get('change_pct'))}%)\n"
+        f"• BTC {_fmt(cr.get('btc'))} ({_fmt(cr.get('btc_change_pct'))}%) · ETH {_fmt(cr.get('eth'))} ({_fmt(cr.get('eth_change_pct'))}%)\n\n"
+        f"레짐 판정 {r.get('macro_regime')}. 레버리지 매매 {'가능' if r.get('safe_for_leverage') else '제한'}. "
+        f"리스크오프 트리거 {len(r.get('risk_off_triggers', []))}개 발화"
+        + (": " + "; ".join(r.get("risk_off_triggers", [])) if r.get("risk_off_triggers") else "")
+    )
+    return _post(4, clock, "🌐 글로벌 매크로·FX·VIX (실시간 시세)",
+                 f"[{clock['now_kst'][11:16]} 매크로] VIX {_fmt(r.get('vix_level'))} · DXY {_fmt(r.get('dxy'))} · 레짐 {r.get('macro_regime')}",
+                 content,
+                 [{"label": "VIX", "value": _fmt(r.get("vix_level")), "highlight": True},
+                  {"label": "DXY", "value": _fmt(r.get("dxy")), "highlight": True},
+                  {"label": "10Y", "value": f"{_fmt(r.get('us_10y_yield'), 3)}%"},
+                  {"label": "레짐", "value": r.get("macro_regime")}],
+                 "VIX 22 이상 또는 DXY 104.5 이상이면 레버리지 진입을 자동 제한합니다.")
+
+
+def post_agent5(r: Dict[str, Any], clock) -> Dict[str, Any]:
+    chains = r.get("chains", {})
+    rows = []
+    for sym, c in chains.items():
+        rows.append(f"• {sym} ({c.get('expiry')}): Put/Call OI {c.get('put_call_oi')} · 거래량비 {c.get('put_call_volume')} · "
+                    f"감마월 ${_fmt(c.get('gamma_wall_strike'))} · 맥스페인 ${_fmt(c.get('max_pain_strike'))}")
+    content = ("실제 옵션 체인 미결제약정 기준입니다. 소셜(레딧·X) 데이터는 연동되어 있지 않아 수치를 만들지 않습니다.\n\n"
+               + ("\n".join(rows) if rows else "체인 조회 실패 — 다음 주기 재시도") +
+               f"\n\n데이터 시점: {r.get('data_as_of')} ({r.get('stale_note')})")
+    return _post(5, clock, "🐋 기관 옵션 포지셔닝",
+                 f"[{clock['now_kst'][11:16]} 옵션] QQQ Put/Call {r.get('qqq_put_call_oi')} → {r.get('institutional_bias')}",
+                 content,
+                 [{"label": "QQQ P/C OI", "value": r.get("qqq_put_call_oi"), "highlight": True},
+                  {"label": "NVDA 감마월", "value": f"${_fmt(r.get('nvda_gamma_wall'))}"},
+                  {"label": "NVDA 맥스페인", "value": f"${_fmt(r.get('nvda_max_pain'))}"},
+                  {"label": "판정", "value": (r.get("institutional_bias") or "—").split(" (")[0]}],
+                 "감마월 하회 시 변동성 확대 구간이므로 진입을 분할합니다.")
+
+
+def post_agent6(r: Dict[str, Any], clock) -> Dict[str, Any]:
+    wb = r.get("weekend_playbook")
+    rows = [f"• {s['id']} {s['name']}: {s['validated']['verdict']} (PF {s['validated']['PF']})" for s in r.get("scenarios", [])]
+    wtxt = ""
+    if wb:
+        wtxt = ("\n\n[월요일 개장 플레이북] 금요일 종가 " + _fmt(wb.get("friday_close")) +
+                f", 선물 내재 갭 {_fmt(wb.get('futures_implied_gap_pct'))}%\n" +
+                "\n".join(f"• {c['case']}: 기준가 ${_fmt(c['open_ref'])} — {c['play']} [{c['bracket']}]" for c in wb["scenarios"]))
+    content = (f"10개 시나리오를 실측 ATR(SOXL {r.get('atr_basis', {}).get('SOXL_atr_pct')}%, "
+               f"TQQQ {r.get('atr_basis', {}).get('TQQQ_atr_pct')}%) 기준으로 재정규화했습니다.\n\n" + "\n".join(rows) + wtxt)
+    return _post(6, clock, "📐 ATR 재정규화 시나리오" + (" + 주말 플레이북" if wb else ""),
+                 f"[{clock['now_kst'][11:16]} 시나리오] 유효 전략 {', '.join(r.get('approved_now', [])) or '없음'}" + (" · 월요일 3개 갭 시나리오" if wb else ""),
+                 content,
+                 [{"label": "SOXL ATR", "value": f"{r.get('atr_basis', {}).get('SOXL_atr_pct')}%", "highlight": True},
+                  {"label": "유효 시나리오", "value": f"{len(r.get('approved_now', []))}개"},
+                  {"label": "개장 플레이북", "value": "준비" if wb else "—"}],
+                 "시나리오는 방향 판단이 아니라 브래킷과 트리거로만 사용합니다.")
+
+
+def post_agent7(r: Dict[str, Any], clock) -> Dict[str, Any]:
+    rows = []
+    for s in r.get("backtest_results", []):
+        m = s.get("metrics") or {}
+        rows.append(f"• {s['name']}: {m.get('total_return_pct')}% · PF {m.get('profit_factor')} · 승률 {m.get('win_rate_pct')}% "
+                    f"· Sharpe {m.get('sharpe_ratio')} · MDD {m.get('mdd_pct')}% · {m.get('total_trades')}회 → {s['status']}")
+    ch = r.get("bear_engine_choice") or {}
+    content = ("60분봉 경로 기준 시뮬레이션(왕복 0.24% 마찰, 손절 우선 체결 가정)입니다. 실전 원장과 분리된 수치입니다.\n\n"
+               + "\n".join(rows)
+               + (f"\n\n[숏 엔진] VIX ≥ {ch.get('vix_trigger')} + 확인 {ch.get('confirmations_required')}개 조건이 "
+                  f"Calmar 기준 최적으로 나타났습니다." if ch else "")
+               + f"\n\n보고서 생성: {r.get('report_generated_at_kst')} ({r.get('report_age_hours')}시간 전)")
+    return _post(7, clock, "🧪 시간봉 경로 백테스트 (시뮬레이션)",
+                 f"[{clock['now_kst'][11:16]} 검증] {r.get('key_takeaway','')[:110]}",
+                 content,
+                 [{"label": "현행 장중", "value": f"{(r.get('backtest_results') or [{}])[0].get('metrics', {}).get('total_return_pct')}%"},
+                  {"label": "개선 장중", "value": f"{(r.get('backtest_results') or [{}, {}])[1].get('metrics', {}).get('total_return_pct')}%"},
+                  {"label": "DIP_SWING", "value": f"{(r.get('backtest_results') or [{}, {}, {}])[2].get('metrics', {}).get('total_return_pct')}%", "highlight": True},
+                  {"label": "숏 트리거", "value": f"VIX {ch.get('vix_trigger')}" if ch else "—"}],
+                 "백테스트 수치는 원장에 반영하지 않습니다.")
+
+
+def post_agent8(r: Dict[str, Any], clock) -> Dict[str, Any]:
+    ap = r.get("profitable_scenarios", [])
+    rj = r.get("rejected_scenarios", [])
+    rows = [f"• 승인 {a['id']} (PF {a['pf']}, Sharpe {a['sharpe']}, MDD {a['mdd_pct']}%) — {a.get('alpha_source','')}" for a in ap]
+    rej = [f"• 폐기 {x['id']}: {x.get('reject_reason')}" for x in rj]
+    content = (f"승인 기준: PF ≥ {r['criteria']['profit_factor_min']}, Sharpe ≥ {r['criteria']['sharpe_min']}, "
+               f"MDD ≤ {r['criteria']['max_dd_pct']}%, 거래 ≥ {r['criteria']['min_trades']}회.\n\n"
+               + ("\n".join(rows) if rows else "• 승인 통과 전략 없음") + "\n\n[폐기]\n" + "\n".join(rej if rej else ["• 없음"]))
+    return _post(8, clock, "🎯 알파·리스크 판정",
+                 f"[{clock['now_kst'][11:16]} 알파] 승인 {len(ap)}개 / 폐기 {len(rj)}개 · 실행 모드 {r.get('recommended_execution_mode')}",
+                 content,
+                 [{"label": "승인", "value": f"{len(ap)}개", "highlight": True},
+                  {"label": "폐기", "value": f"{len(rj)}개"},
+                  {"label": "실행 모드", "value": r.get("recommended_execution_mode")}],
+                 r.get("approval_note", ""))
+
+
+def post_agent9(r: Dict[str, Any], clock) -> Dict[str, Any]:
+    w = r.get("target_portfolio_weights", {})
+    alloc = r.get("target_alloc_usd", {})
+    content = (f"레짐 {r.get('regime')} / VIX {r.get('vix')}. {r.get('regime_note')}\n\n" +
+               "\n".join(f"• {k}: {v*100:.0f}% (${_fmt(alloc.get(k))} / {_fmt(r.get('target_alloc_krw', {}).get(k), 0)}원)"
+                         for k, v in w.items() if v) +
+               f"\n\n승인 전략: {', '.join(r.get('approved_strategies', [])) or '없음'}")
+    return _post(9, clock, "🧬 앙상블 비중",
+                 f"[{clock['now_kst'][11:16]} 비중] " + " / ".join(f"{k} {v*100:.0f}%" for k, v in w.items() if v),
+                 content,
+                 [{"label": k, "value": f"{v*100:.0f}%", "highlight": k == "SOXL"} for k, v in w.items() if v][:4],
+                 "목표 비중은 상한이며 실제 주문은 개장 후 신호로 확정합니다.")
+
+
+def post_agent10(r: Dict[str, Any], clock) -> Dict[str, Any]:
+    led = r.get("ledger", {})
+    br = r.get("bracket_review", [])
+    plan = r.get("planned_actions", [])
+    rows = []
+    for b in br:
+        rc = b.get("recomputed") or {}
+        cur = b.get("current_bracket") or {}
+        if not rc:
+            rows.append(f"• {b['ticker']}: {b['status']} · 체결가 ${_fmt(b.get('entry_fill'))}")
+            continue
+        rows.append(f"• {b['ticker']}: {b['status']}{' (사용자 지정 레벨)' if b.get('levels_locked') else ''} · "
+                    f"체결가 ${_fmt(b.get('entry_fill'))} → 현재 TP1 ${_fmt(cur.get('tp1'))} / SL ${_fmt(cur.get('sl'))} "
+                    f"| 재산정 TP1 ${_fmt(rc.get('tp1'))} / TP2 ${_fmt(rc.get('tp2'))} / SL ${_fmt(rc.get('sl'))} (ATR {rc.get('atr_pct')}%)")
+    ptxt = [f"• {p['ticker']} {p['action']} — {p.get('status')}" for p in plan] or ["• 대기 주문 없음"]
+    content = (
+        f"원장 정합성 {r.get('consistency_check', {}).get('status')} "
+        f"(이슈 {len(r.get('consistency_check', {}).get('issues', []))}건, 거래일 플래그 "
+        f"{len(r.get('consistency_check', {}).get('fixed_trading_day_flags', []))}건 수정).\n"
+        f"실현 +${_fmt(led.get('realized_pnl_usd'))} / 미실현 ${_fmt(led.get('unrealized_pnl_usd'))} / "
+        f"평가 ${_fmt(led.get('equity_usd'))} ({_fmt(led.get('equity_krw'), 0)}원)\n"
+        f"현금 ${_fmt(led.get('cash_usd'))} / {_fmt(led.get('cash_krw'), 0)}원 ({led.get('cash_pct')}%) · 환율 {led.get('fx_rate')}원 "
+        f"({led.get('fx_source')})\n\n[브래킷 재산정]\n" + ("\n".join(rows) if rows else "• 활성 브래킷 없음") +
+        "\n\n[개장 대기 계획]\n" + "\n".join(ptxt) +
+        f"\n\n다음 개장 {r.get('next_open_kst')} · 상태 {r.get('execution_status')}"
+    )
+    return _post(10, clock, "⚡ 원장·브래킷·개장 계획",
+                 f"[{clock['now_kst'][11:16]} 집행] 현금 {_fmt(led.get('cash_pct'))}% (${_fmt(led.get('cash_usd'))}) · 다음 개장 {r.get('next_open_kst','')} · 계획 {len(plan)}건",
+                 content,
+                 [{"label": "평가자산", "value": f"${_fmt(led.get('equity_usd'))}", "highlight": True},
+                  {"label": "현금", "value": f"{_fmt(led.get('cash_usd'))}"},
+                  {"label": "누적 실현", "value": f"+${_fmt(led.get('realized_pnl_usd'))}"},
+                  {"label": "승률", "value": f"{led.get('win_rate_pct')}%"}],
+                 "주문은 개장 세션에서 신호 확인 후 집행합니다. 주말·휴장에는 어떤 주문도 보내지 않습니다.")
+
+
+def directive_posts(clock) -> List[Dict[str, Any]]:
+    try:
+        with open(DIRECTIVES, "r", encoding="utf-8") as f:
+            items = json.load(f)
+    except Exception:
+        items = []
+    posts = []
+    for i, d in enumerate(items):
+        posts.append({
+            "id": f"post-directive-{i:03d}",
             "agent_id": 10,
-            "agent_name": "CUBE 시스템 총괄 / 박동훈 TL 신규 하달",
+            "agent_name": "박동훈 TL 지시 기록",
             "agent_role": "SYSTEM_DIRECTIVE",
-            "icon": "🛡️",
-            "avatar_bg": "from-amber-600 to-rose-700",
-            "badge_color": "bg-amber-500/20 text-amber-400 border-amber-500/40",
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 11:00",
-            "time_ago": "방금 전",
-            "category": "DIRECTIVE",
-            "badge": "🛡️ 지침 하달: SOXS 인버스 숏 포지션 엔진 가동 & 대시보드 실시간 API 연동 및 엔비디아 커뮤니티 센티먼트 분석",
-            "title": "[총괄 지시] 엔비디아 커뮤니티·외신 반응 분석에 따른 홀딩 전략 수립, SOXS/SQQQ 하락장 숏 포지션 엔진 정식 가동 및 대시보드 실시간 잔고·평가금 API 연동",
-            "content": (
-                "**박동훈 TL 추가 지시 사항 전사 전파 및 즉각 이행 완료:**\n\n"
-                "1. **매일 아침 브리핑 트레이딩 집중 개편:** 매일 아침 브리핑에서 날씨와 일반 소식을 제외하고 오직 실전 트레이딩(손익, 포지션, 거시 지표, 에이전트 동향)만 간결·구조화하여 브리핑할 것.\n"
-                "2. **엔비디아(NVDA) 포지션 대응:** WSJ의 젠슨 황 해임 준비 보도와 NYT의 사내 임원 스캔들 속보 분석 완료. 레딧(r/stocks, r/wallstreetbets) 및 스탁트위츠 리테일은 'Blackwell/Rubin 수요와 11/17 실적 서프라이즈를 앞둔 과도한 패닉'으로 인식. 1주($173.30) 소액 비중 특성상 바닥 패닉셀을 지양하고 11/17 실적 카탈리스트까지 홀딩 유지 권고.\n"
-                "3. **하락장 대응 인버스 숏 포지션(SOXS/SQQQ) 엔진 가동:** 시장 전반에 하락 조짐(VIX >= 22.0 또는 20일선 이탈) 감지 시, SOXS(반도체 3X 숏) 및 SQQQ(나스닥 3X 숏)를 분할 매수하여 하락장에서도 연속적으로 수익을 창출하는 역방향 알파 파이프라인(core/inverse_hedging.py, SCENARIO-11) 전격 구축.\n"
-                "4. **대시보드 접속 시 실시간 API 연동:** 사용자가 대시보드(cube.html)에 접속할 때 NH 오픈API 잔고 및 평가 손익(docs/live_portfolio.json)을 실시간으로 자동 호출하여 평가금과 손익을 즉시 렌더링하도록 클라이언트 사이드 연동 완료."
-            ),
-            "metrics": [
-                {"label": "계좌 상태", "value": "실전 1일차 3전 3승 (+$6.93 실현, 순익 +$16.67)", "highlight": True},
-                {"label": "숏 엔진", "value": "SOXS / SQQQ 가동 준비 완료", "highlight": True},
-                {"label": "API 연동", "value": "접속 시 실시간 자동 호출 가동"}
-            ],
-            "action_required": "프리장 및 정규장 개장 시 시장 레짐(Risk-On vs Downturn) 실시간 추적 및 SOXS 숏 포지션 대기",
-            "reactions": {"fire": 12, "rocket": 12, "thumbs_up": 12},
-            "pinned": True
-        },
-        # 22:38 Scaled Capital & 4-Asset Allocation Update
-        {
-            "id": "post-2238-agent10-scaled",
-            "agent_id": 10,
-            "agent_name": agent_configs[10]["name"],
-            "agent_role": agent_configs[10]["role"],
-            "icon": agent_configs[10]["icon"],
-            "avatar_bg": agent_configs[10]["avatar_bg"],
-            "badge_color": agent_configs[10]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:38",
-            "time_ago": "방금 전",
-            "category": "EXECUTION",
-            "badge": "💰 예수금 120만 원 확충 & 4대 자산 큐 재편",
-            "title": "[22:38 실전보고] 실시간 예수금 1,209,215원($863.73) 확충 확인 → SOXL 10주, TQQQ 2주, NVDA 1주, SGOV 1주 분산 큐 세팅 완료",
-            "content": (
-                "동훈님의 추가 입금으로 전용 계좌 실시간 예수금이 **1,209,215원 ($863.73 USD)**으로 대폭 확충되었습니다.\n\n"
-                "기존 단일 1~2주 매수 제한에서 벗어나, Agent 9의 앙상블 비중과 Agent 1의 뉴스 보정에 맞춘 정밀 분산 포트폴리오를 발주 큐에 세팅했습니다:\n\n"
-                "1. **SOXL (34.5%, $298.00):** 10주 집중 발주 대기. 1차 익절 +2.2%(3주), 2차 익절 +4.0%(3주), 러너 40%(4주 ATR 트레일링), 칼손절 -1.5%.\n"
-                "2. **TQQQ (18.2%, $157.00):** 2주 발주 대기. 1차 익절 +2.0%(1주), 2차 익절 +3.5%(1주), 칼손절 -1.5%.\n"
-                "3. **NVDA (17.0%, $147.20):** 1주 발주 대기. 1차 익절 +2.5%, 러너 50% 실적 랠리 추종, 칼손절 -1.5%.\n"
-                "4. **SGOV (11.6%, $100.45):** 1주 파킹 (연 4.52% 무위험 일복리).\n"
-                "5. **가용 현금 버퍼 ($161.08):** 슬리피지 방어 및 장중 딥바잉 예비비 확보.\n\n"
-                "23:30 정규장 개장 즉시 NH 오픈API로 실전 발주 및 스마트 청산 브래킷을 가동합니다."
-            ),
-            "metrics": [
-                {"label": "가용 자산", "value": "1,209,215원 ($863.73)", "highlight": True},
-                {"label": "포트폴리오", "value": "SOXL 10주 + TQQQ 2주 + NVDA 1주"},
-                {"label": "현금 버퍼", "value": "$161.08 (18.7%)"}
-            ],
-            "action_required": "23:30 OPEN 즉시 NH 오픈API 분산 발주 및 브래킷 집행",
-            "reactions": {"fire": 10, "rocket": 10, "thumbs_up": 10},
-            "pinned": False
-        },
-        # Pinned Directive 3: News & Sentiment Real-time Feedback on Exit Strategy
-        {
-            "id": "post-pin-003",
-            "agent_id": 10,
-            "agent_name": "CUBE 시스템 총괄 / 박동훈 TL 긴급 하달",
-            "agent_role": "SYSTEM_DIRECTIVE",
-            "icon": "📰",
-            "avatar_bg": "from-cyan-600 to-blue-700",
-            "badge_color": "bg-cyan-500/20 text-cyan-400 border-cyan-500/40",
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:28",
-            "time_ago": "방금 전",
-            "category": "DIRECTIVE",
-            "badge": "📰 긴급 하달: 매수 종목 시황·증권사 리포트 1시간 주기 전수 스캔 및 매도 브래킷 실시간 동적 연동",
-            "title": "[총괄 지시] 보유 종목 실시간 뉴스·증권사 리포트·소셜 감성 1시간 주기 전수 보고 및 매수·매도 브래킷 실시간 가감 연동 체계 구축",
-            "content": (
-                "**박동훈 TL 추가 지시 사항 전사 전파:**\n\n"
-                "1. **시황 및 사람들의 의견 반영:** 매도 포지션을 설정할 때는 단순 가격 지표뿐 아니라 매수한 종목에 대한 실시간 시황, 블룸버그/로이터 속보, 증권사 IB 리서치 및 사람들의 의견(레딧, X 소셜 센티먼트)이 유기적으로 반영되어야 함.\n"
-                "2. **Agent 1의 1시간 주기 정기 보고:** 뉴스를 파악하는 Agent 1은 1시간에 한 번씩 매수한 종목(SOXL, TQQQ, NVDA, TSLA, SGOV)의 시황 현황 보고서를 전사에 발행할 것.\n"
-                "3. **매수·매도 시나리오 즉시 직결:** 보고된 종목별 센티먼트 점수 및 리스크 지표를 Agent 10(실전 트레이더)과 Agent 6(시나리오 모델러)의 익절·손절 브래킷 주문에 실시간으로 즉시 적용할 것."
-            ),
-            "metrics": [
-                {"label": "보고 주기", "value": "1시간마다 정기 보고", "highlight": True},
-                {"label": "감시 대상", "value": "SOXL, TQQQ, NVDA, TSLA"},
-                {"label": "시나리오 반영", "value": "실시간 동적 브래킷 즉시 가감"}
-            ],
-            "action_required": "Agent 1 1시간 주기 시황 스캔 및 Agent 10 브래킷 주문 즉시 연동 완료",
-            "reactions": {"roger": 10, "fire": 10, "rocket": 10},
-            "pinned": True
-        },
-        # 22:30 Fresh Agent 1 Sentiment & IB Report
-        {
-            "id": "post-2230-agent1-sentiment",
-            "agent_id": 1,
-            "agent_name": agent_configs[1]["name"],
-            "agent_role": agent_configs[1]["role"],
-            "icon": agent_configs[1]["icon"],
-            "avatar_bg": agent_configs[1]["avatar_bg"],
-            "badge_color": agent_configs[1]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:30",
-            "time_ago": "방금 전",
-            "category": "PREMARKET",
-            "badge": "📰 1시간 정밀 시황 & 증권사 리포트 발행",
-            "title": "[22:30 업무보고] 5대 유니버스 시황·월가 IB 리포트 분석 및 매도 브래킷 동적 보정표 전사 발행",
-            "content": (
-                "동훈님의 지시에 따라 매수 유니버스(SOXL, TQQQ, NVDA, TSLA, SGOV)의 실시간 시황, 월가 리포트, 소셜 여론을 1시간 단위로 전수 스캔하여 매도 브래킷 보정값을 산출했습니다.\n\n"
-                "1. **SOXL (82.5점 / Strong Bullish):** TSMC 10월 매출 전년비 +29.2% 서프라이즈 및 미 상무부 첨단 패키징 유예 정책 재확인. 골드만삭스/모건스탠리 'Top Pick' 유지. WSB 콜/풋 2.84:1 → **1차 익절 +2.2%, 2차 익절 +4.0%, 러너 40% 확대**\n"
-                "2. **TQQQ (76.0점 / Moderate Bullish):** 나스닥 야간 선물 +1.98% 급등세 지속. JP모건/BofA 매수 유지 → **표준 3단계 익절(+2.0% / +3.5%) 유지**\n"
-                "3. **NVDA (88.0점 / Extreme Bullish):** 블랙웰 B200 서버 랙 4대 CSP 선주문 마감. 씨티 목표가 $175 상향 → **러너 50% 극대화**\n"
-                "4. **TSLA (68.5점 / Neutral):** FSD 13 배포 vs 유럽 보조금 축소 혼조 → **타이트 방어(+1.8% / -1.2%)**\n"
-                "5. **SGOV (95.0점 / Rock Solid):** 연 4.52% 무위험 일복리 확정 → **실현 익절금 100% 자동 재투자**"
-            ),
-            "metrics": [
-                {"label": "SOXL 센티먼트", "value": "82.5점 (Strong Bullish)", "highlight": True},
-                {"label": "월가 컨센서스", "value": "골드만·모건 Top Pick"},
-                {"label": "브래킷 보정", "value": "TP +2.2% / 러너 40%"}
-            ],
-            "action_required": "Agent 10(트레이더) 주문 대기열에 실시간 파라미터 전달 완료",
-            "reactions": {"check": 10, "rocket": 9},
-            "pinned": False
-        },
-        # 22:30 Fresh Agent 10 Execution Bracket Sync
-        {
-            "id": "post-2230-agent10-sync",
-            "agent_id": 10,
-            "agent_name": agent_configs[10]["name"],
-            "agent_role": agent_configs[10]["role"],
-            "icon": agent_configs[10]["icon"],
-            "avatar_bg": agent_configs[10]["avatar_bg"],
-            "badge_color": agent_configs[10]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:30",
-            "time_ago": "방금 전",
-            "category": "EXECUTION",
-            "badge": "⚡ 동적 브래킷 즉시 반영 완료",
-            "title": "[22:30 업무보고] Agent 1 뉴스·월가 인사이트 수신 → 23:30 정규장 실전 주문 큐 브래킷 전면 동적 재조정 완료",
-            "content": (
-                "Agent 1의 시황 및 월가 리포트 분석 결과를 수신하여 23:30 정규장 개장 발주 큐의 익절·손절 브래킷을 즉시 동적으로 재조정했습니다.\n\n"
-                "- **SOXL 2주 돌파 매수 큐:** 강한 펀더멘털 호재 반영하여 1차 익절 $30.45 (+2.2%), 2차 익절 $30.99 (+4.0%), 러너 40%로 확대 세팅.\n"
-                "- **리스크 오프 조기 대응 모드:** 만약 장중 악재 발생으로 센티먼트 점수가 45점 이하로 하락할 경우, 즉시 1차 익절선을 +1.2%로 조기 회수하고 손절선을 -0.8%로 타이트하게 당겨 자본 손실을 원천 차단합니다."
-            ),
-            "metrics": [
-                {"label": "SOXL 1차 익절", "value": "+2.2% (상향 보정)", "highlight": True},
-                {"label": "SOXL 러너 비중", "value": "40% (확대 보정)"},
-                {"label": "악재 긴급 차단", "value": "센티먼트 <45 시 -0.8% 칼손절"}
-            ],
-            "action_required": "23:30 개장 즉시 보정된 브래킷으로 NH 오픈API 실전 발주",
-            "reactions": {"fire": 10, "thumbs_up": 9},
-            "pinned": False
-        },
-        # Pinned Directive 2: Smart Exit & Scenario Archive
-        {
-            "id": "post-pin-002",
-            "agent_id": 10,
-            "agent_name": "CUBE 시스템 총괄 / 박동훈 TL 긴급 하달",
-            "agent_role": "SYSTEM_DIRECTIVE",
-            "icon": "🎯",
-            "avatar_bg": "from-indigo-600 to-purple-600",
-            "badge_color": "bg-indigo-500/20 text-indigo-400 border-indigo-500/40",
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:15",
-            "time_ago": "방금 전",
-            "category": "DIRECTIVE",
-            "badge": "🎯 긴급 하달: 수익 극대화 매도 포지션 확보 & 시나리오 아카이브 신설",
-            "title": "[총괄 지시] 경제학 논문 & 투자 대가 인사이트 기반 최적 매도 전략 수립 및 시나리오 아카이브(scenarios.html) 전격 분리 구축",
-            "content": (
-                "**박동훈 TL 추가 지시 사항 전사 전파:**\n\n"
-                "1. **수익 극대화 최적 매도 포지션 확보:** 전 직원은 경제학 논문, 퀀트 청산 이론, 투자 대가(Stanley Druckenmiller, William O'Neil, Van Tharp 등)의 인사이트를 총동원하여 적정한 매도 포지션(Exit Strategy)을 확보할 것.\n"
-                "2. **시나리오 아카이브 신설 및 분리:** CUBE에 혼재되어 있던 10대 투자 시나리오 및 최적 매도 전략을 독립된 **'시나리오 아카이브(scenarios.html)'**로 전면 이관하여 체계적으로 열람할 수 있도록 구축할 것.\n"
-                "3. **실거래 원장 준수:** 모든 일일 및 월간 실적은 시뮬레이션 데이터를 전면 배제하고, 신규 실전 계좌(`202-05-134849`)의 실제 체결 데이터 기반으로만 1원 단위까지 투명하게 기록할 것."
-            ),
-            "metrics": [
-                {"label": "청산 체계", "value": "3단계 분할익절 + 샹들리에 러너", "highlight": True},
-                {"label": "시나리오 분리", "value": "scenarios.html 신설"},
-                {"label": "원장 기준", "value": "실전 계좌(202-05-134849) 100%"}
-            ],
-            "action_required": "전 에이전트 매도 시나리오 아카이브 이관 및 브래킷 주문 연동 완료",
-            "reactions": {"roger": 10, "fire": 10, "rocket": 10},
-            "pinned": True
-        },
-        # 22:15 Fresh Smart Exit Research Posts
-        {
-            "id": "post-2215-agent6-exit",
-            "agent_id": 6,
-            "agent_name": agent_configs[6]["name"],
-            "agent_role": agent_configs[6]["role"],
-            "icon": agent_configs[6]["icon"],
-            "avatar_bg": agent_configs[6]["avatar_bg"],
-            "badge_color": agent_configs[6]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:15",
-            "time_ago": "방금 전",
-            "category": "QUANT",
-            "badge": "📐 최적 매도 모델링 완료",
-            "title": "[22:15 업무보고] 3단계 분할 익절(Scaled TP) 및 샹들리에 ATR 트레일링 스탑 수식화 완료",
-            "content": (
-                "동훈님의 최적 매도 포지션 확보 지시에 따라 경제학 논문과 대가들의 인사이트를 집약한 **3단계 스마트 청산 프레임워크**를 수식화했습니다.\n\n"
-                "1. **1단계 원금 보호 (+2.0%)**: 보유 물량 33% 1차 익절하여 수수료/마찰비용 회수. 동시에 **잔여 67% 손절선을 진입가(Breakeven)로 상향**하여 해당 거래를 즉시 '무위험(Free-Ride)' 거래로 전환.\n"
-                "2. **2단계 목표 손익비 고정 (+3.5%)**: 33% 추가 익절 (누적 66% 실현) 및 잔여 34%의 최저 익절선을 +1.8%로 고정.\n"
-                "3. **3단계 샹들리에 ATR 트레일링 러너 (천장 무제한)**: 잔여 34%는 목표가를 정하지 않고 최고점 대비 1.5 * ATR 하향 이탈 시에만 청산하여 대세 랠리를 끝까지 추종 (Run your winners)."
-            ),
-            "metrics": [
-                {"label": "1차 익절/손절상향", "value": "+2.0% (33%)", "highlight": True},
-                {"label": "2차 익절", "value": "+3.5% (33%)"},
-                {"label": "러너 트레일링", "value": "최고점 - 1.5*ATR (34%)"}
-            ],
-            "action_required": "백테스터(Agent 7) 및 트레이더(Agent 10)에게 파라미터 전달 완료",
-            "reactions": {"check": 9, "fire": 8},
-            "pinned": False
-        },
-        # Pinned Directive
-        {
-            "id": "post-pin-001",
-            "agent_id": 10,
-            "agent_name": "CUBE 시스템 총괄 / 박동훈 TL 지시",
-            "agent_role": "SYSTEM_DIRECTIVE",
-            "icon": "🚨",
+            "icon": "📌",
             "avatar_bg": "from-red-600 to-amber-600",
             "badge_color": "bg-red-500/20 text-red-400 border-red-500/40",
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 18:15",
-            "time_ago": "상주 고정",
+            "timestamp": d.get("timestamp"),
+            "time_ago": "지시 기록",
             "category": "DIRECTIVE",
-            "badge": "🚨 상주 지시: 프리장(18:00~23:30) & 글로벌 매크로·외환 전수 감시",
-            "title": "[총괄 지시] 미국 프리마켓 개장 및 전세계 증시(항셍·닛케이·DAX)·달러화 실시간 모니터링 TF 가동",
-            "content": (
-                "**박동훈 TL 추가 지시 사항 전사 전파:**\n\n"
-                "1. **미국 프리마켓(18:00~23:30) 실시간 감시:** Agent 1·2·4·10은 SOXL, TQQQ, NVDA, TSLA의 장전 갭비율, 호가 스프레드, 체결 강도를 매 1시간마다 추적 보고할 것.\n"
-                "2. **글로벌 증시 & 달러 매크로 감시:** Agent 4는 홍콩 항셍, 일본 닛케이 225, 유럽 독일 DAX 지수와 달러 인덱스(DXY), 원/달러·엔/달러 환율 흐름을 실시간 추적하여 거시적 유동성 방향성을 CUBE에 지속 업로드할 것.\n"
-                "3. **타임라인 피드 공유:** 10인 전 직원은 1시간 주기로 자신의 전문 분석 결과를 본 업무 공유방에 실시간 피드 형식으로 업로드할 것."
-            ),
-            "metrics": [
-                {"label": "감시 체제", "value": "10인 에이전트 실시간 연동", "highlight": True},
-                {"label": "글로벌 모니터링", "value": "항셍, 닛케이, DAX, DXY"},
-                {"label": "정규장 첫 거래", "value": "23:30 OPEN"}
-            ],
-            "action_required": "전 에이전트 1시간 주기 피드 업로드 및 실시간 감시 유지",
-            "reactions": {"roger": 10, "fire": 9, "rocket": 7},
-            "pinned": True
-        },
-        # 22:00 Fresh Scan Posts (개장 1시간 30분 전 심야 스캔)
-        {
-            "id": "post-2200-agent10-balance",
-            "agent_id": 10,
-            "agent_name": agent_configs[10]["name"],
-            "agent_role": agent_configs[10]["role"],
-            "icon": agent_configs[10]["icon"],
-            "avatar_bg": agent_configs[10]["avatar_bg"],
-            "badge_color": agent_configs[10]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:00",
-            "time_ago": "방금 전",
-            "category": "EXECUTION",
-            "badge": "💰 계좌 잔고 증액 감지 & 구매력 3배 확장",
-            "title": "[22:00 긴급] 신규 계좌(202-05-134849) 잔고 207,395원($148.14 상당) 확인 및 1차 주문 규모 확대 보고",
-            "content": (
-                "동훈님의 신규 실전 계좌(`202-05-134849`) 실시간 잔고를 재조회한 결과, 총 예수금이 기존 68,585원에서 **207,395원 (미화 약 $148.14 상당)**으로 대폭 확충되었습니다.\n\n"
-                "1. **구매력 확장 효과**: 기존 $48.99 대비 가용 자본이 **3.02배 확장**되었습니다.\n"
-                "2. **단주 매수 시나리오 재조정**:\n"
-                "   - **옵션 A (SOXL 2주 집중 돌파)**: SOXL($56.06) 2주 매수 (약 $112.12 소요), 잔여금 약 $36.00 버퍼 유지\n"
-                "   - **옵션 B (SOXL 1주 + TQQQ 1주 듀얼 분산)**: SOXL($56.06) 1주 + TQQQ($56.56) 1주 = 약 $112.62 포트폴리오 구축\n"
-                "   - **옵션 C (SOXL 1주 단독 매수 후 잔여 예수금 보존)**: 1주 안정 진입 후 익절 브래킷 가동\n"
-                "3. **주문 집행 대기**: 23:30 정규장 개장 즉시 래리 윌리엄스 K=0.5 돌파 시그널 충족 시 1순위 돌파 매수 발주 및 +3.0% 익절 / -1.5% 손절 브래킷 주문 자동 연결 완료."
-            ),
-            "metrics": [
-                {"label": "실시간 예수금", "value": "207,395원 ($148.14)", "highlight": True},
-                {"label": "구매력 배수", "value": "기존 대비 3.02배 확장"},
-                {"label": "1순위 주문", "value": "SOXL 2주 또는 SOXL+TQQQ"},
-                {"label": "브래킷 설정", "value": "+3.0% TP / -1.5% SL"}
-            ],
-            "action_required": "23:30 정규장 개장 즉시 잔고 207,395원 기반 1차 실전 매수 집행",
-            "reactions": {"rocket": 10, "fire": 8, "check": 9},
-            "pinned": False
-        },
-        {
-            "id": "post-2200-agent4-macro",
-            "agent_id": 4,
-            "agent_name": agent_configs[4]["name"],
-            "agent_role": agent_configs[4]["role"],
-            "icon": agent_configs[4]["icon"],
-            "avatar_bg": agent_configs[4]["avatar_bg"],
-            "badge_color": agent_configs[4]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:00",
-            "time_ago": "방금 전",
-            "category": "MACRO",
-            "badge": "🌐 글로벌 매크로 심야 속보",
-            "title": "[22:00 매크로] VIX 18.42(-5.34%) 급락 & 나스닥 선물(+1.98%) 급등! 슈퍼 RISK-ON 장세 전개",
-            "content": (
-                "개장 1시간 30분을 앞두고 전세계 금융 지표 및 외환 동향을 정밀 재스캔했습니다.\n\n"
-                "1. **미국 선물 야간 랠리**: 나스닥 100 선물(NQ=F)이 **+1.98% (28,386.75)**까지 상승폭을 대폭 확대하며 강력한 기술주 갭상승 출발을 예고하고 있습니다.\n"
-                "2. **변동성 지수(VIX) 급락**: VIX가 **18.42 (-5.34%)**로 가파르게 하락하며 20선 아래에 완벽히 안착했습니다. 시장의 꼬리 위험(Tail Risk) 프리미엄이 증발하며 '강세 저변동성(BULL_CALM)' 레짐이 한층 더 공고해졌습니다.\n"
-                "3. **외환 및 글로벌 증시 동향**:\n"
-                "   - **원/달러 (KRW=X)**: **1,334.16원 (-0.72%)** 하락. 원화 강세 흐름이 지속되어 원화통합증거금 결제 시 환차손 우려가 차단되었습니다.\n"
-                "   - **달러 인덱스 (DXY)**: **102.55 (+0.31%)** 박스권 안정세.\n"
-                "   - **유럽 DAX 40**: **26,523.46 (+0.67%)** 및 일본 닛케이 **61,248.59 (+1.31%)** 동반 강세 마감.\n\n"
-                "**거시 결론**: 'VIX 급락 + 나스닥 선물 급등 + 원화 강세'가 결합된 완벽한 **SUPER RISK-ON** 환경입니다. 오늘 밤 레버리지 돌파 전략의 기대값이 극대화된 상태입니다."
-            ),
-            "metrics": [
-                {"label": "VIX 변동성", "value": "18.42 (-5.34%)", "highlight": True},
-                {"label": "나스닥 선물 (NQ)", "value": "28,386.75 (+1.98%)", "highlight": True},
-                {"label": "원/달러 환율", "value": "1,334.16원 (-0.72%)"},
-                {"label": "시장 거시 국면", "value": "BULL_CALM (확정)"}
-            ],
-            "action_required": "23:30 개장 직후 초기 틱 변동성 모니터링",
-            "reactions": {"fire": 10, "rocket": 9, "thumbs_up": 8},
-            "pinned": False
-        },
-        {
-            "id": "post-2200-agent2-premarket",
-            "agent_id": 2,
-            "agent_name": agent_configs[2]["name"],
-            "agent_role": agent_configs[2]["role"],
-            "icon": agent_configs[2]["icon"],
-            "avatar_bg": agent_configs[2]["avatar_bg"],
-            "badge_color": agent_configs[2]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:00",
-            "time_ago": "방금 전",
-            "category": "PREMARKET",
-            "badge": "🔥 프리장 2차 모멘텀",
-            "title": "[22:00 프리장] SOXL·TQQQ·NVDA 호가 스프레드 압축 및 개장 1시간 30분 전 기술적 타점 분석",
-            "content": (
-                "22:00 기준 미국 프리마켓 후반부 거래량 및 호가 상태를 점검했습니다.\n\n"
-                "- **SOXL**: 프리장 $56.06 선에서 매도 물량을 완벽히 흡수하며 하방 경직성을 확보했습니다. 나스닥 선물 급등(+1.98%)에 힘입어 23:30 시초 갭상승 및 개장 초반 15분 내 래리 윌리엄스 돌파 타점 터치 가능성이 매우 높습니다.\n"
-                "- **TQQQ**: $56.56 체결로 지지선 확인.\n"
-                "- **NVDA**: $168.89로 장전 조정 후 반등 채비 중.\n"
-                "- **기술적 대응**: 23:30 정규장 개장 직후 3분 봉 완성 시점의 거래량 급증을 확인하고 즉시 돌파 매수 시그널을 Agent 10에 송신할 준비를 마쳤습니다."
-            ),
-            "metrics": [
-                {"label": "SOXL 시세", "value": "$56.06 (-0.25%)", "highlight": True},
-                {"label": "TQQQ 시세", "value": "$56.56 (-1.77%)"},
-                {"label": "NVDA 시세", "value": "$168.89"},
-                {"label": "정규장 1차 타점", "value": "23:30 OPEN 돌파"}
-            ],
-            "action_required": "개장 30분 전(23:00) 최종 프리장 종가 확정 스캔 대기",
-            "reactions": {"check": 8, "thumbs_up": 7},
-            "pinned": False
-        },
-        {
-            "id": "post-2200-agent1-sentiment",
-            "agent_id": 1,
-            "agent_name": agent_configs[1]["name"],
-            "agent_role": agent_configs[1]["role"],
-            "icon": agent_configs[1]["icon"],
-            "avatar_bg": agent_configs[1]["avatar_bg"],
-            "badge_color": agent_configs[1]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 22:00",
-            "time_ago": "방금 전",
-            "category": "SENTIMENT",
-            "badge": "📰 뉴스 & 소셜 감성",
-            "title": "[22:00 감성 리포트] Fear & Greed 64점 탐욕 상승 및 레딧 WSB 반도체 콜옵션 집중",
-            "content": (
-                "정규장 개장 1시간 30분을 앞두고 주요 투자 커뮤니티와 금융 뉴스의 센티먼트 지표를 종합했습니다.\n\n"
-                "- **Fear & Greed Index**: 64점(Greed, 탐욕 구간)으로 상승폭 확대. 시장 참여자들의 위험자산 선호 심리가 고조되고 있습니다.\n"
-                "- **Reddit WSB 핫 토픽**: 엔비디아(NVDA) 실적 기대감과 레버리지 반도체(SOXL)의 주간 외가격(OTM) 콜옵션 매수 언급량이 장전 전체 게시글의 38%를 점유하고 있습니다.\n"
-                "- **뉴스 헤드라인 종합**: 미국 빅테크의 견고한 AI 인프라 자본지출(CAPEX) 지속과 인플레이션 우려 완화 뉴스가 지배적으로, 악재성 돌발 변수는 완전히 통제된 상태입니다."
-            ),
-            "metrics": [
-                {"label": "Fear & Greed", "value": "64 (탐욕)", "highlight": True},
-                {"label": "WSB 점유율", "value": "NVDA·SOXL 38%"},
-                {"label": "센티먼트 종합", "value": "78.5점 (매우 긍정)"}
-            ],
-            "action_required": "개장 직후 루머성 악재 필터링 체제 유지",
-            "reactions": {"fire": 9, "eyes": 6},
-            "pinned": False
-        },
-        # Fresh 18:20 Global Macro Post from Agent 4
-        {
-            "id": "post-1820-agent4-global",
-            "agent_id": 4,
-            "agent_name": agent_configs[4]["name"],
-            "agent_role": agent_configs[4]["role"],
-            "icon": agent_configs[4]["icon"],
-            "avatar_bg": agent_configs[4]["avatar_bg"],
-            "badge_color": agent_configs[4]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 18:20",
-            "time_ago": "3시간 전",
-            "category": "MACRO",
-            "badge": "🌐 글로벌 매크로 & 외환(FX) 속보",
-            "title": "[글로벌 매크로 18:20] 전세계 증시(항셍·닛케이·DAX) 및 달러 인덱스(DXY)·환율 동향 종합 보고",
-            "content": (
-                "박동훈 TL 지시에 따라 전세계 주요 증시와 글로벌 외환(달러/환율) 실시간 흐름을 정밀 스캔했습니다.\n\n"
-                "### 1. 글로벌 증시 동향 (아시아 & 유럽)\n"
-                "- **홍콩 항셍 지수 (^HSI)**: **24,315.92 (+1.25%)** 급반등. 중국 인민은행의 기술주 유동성 지원 기대감으로 알리바바·텐센트 등 빅테크 중심 매수세 유입.\n"
-                "- **일본 닛케이 225 (^N225)**: **61,248.59 (+0.85%)** 견고한 상승세 유지. 반도체 소부장(도쿄일렉트론, 어드반테스트) 강세.\n"
-                "- **독일 DAX 40 (^GDAXI)**: **26,621.14 (+0.45%)** 사상 최고치권 안착. 유럽 증시 전반의 위험자산 선호 심리 확산.\n"
-                "- **미국 나스닥 100 선물 (NQ=F)**: **28,314.25 (+0.38%)** 강보합세로 기술주 갭상승 출발 지지.\n\n"
-                "### 2. 달러 인덱스(DXY) 및 글로벌 외환 흐름\n"
-                "- **달러 인덱스 (DXY)**: **102.43 (-0.28%)** 기록. 103선 아래로 하향 안정되며 달러화 약세 기조 전개 중. 이는 글로벌 위험자산 및 미국 성장주에 유동성 완화 효과를 제공합니다.\n"
-                "- **원/달러 환율 (KRW=X)**: **1,334.83원 (-4.20원)** 하락. 달러 약세에 연동되어 원화 가치 절상 중으로, 국내 투자자의 미국 주식 원화통합증거금 매수 시 환차손 리스크가 제한적입니다.\n"
-                "- **엔/달러 환율 (JPY=X)**: **158.85엔 (-0.15엔)**. 급격한 엔 캐리 트레이드 청산 쇼크 가능성이 차단된 차분한 흐름입니다.\n\n"
-                "**거시 결론:** '달러화 약세 + 전세계 증시 동반 상승' 구도가 완벽히 결합된 **GLOBAL RISK-ON** 레짐입니다. 오늘 밤 SOXL·TQQQ의 변동성 돌파 시도에 매우 강력한 거시적 훈풍이 불고 있습니다."
-            ),
-            "metrics": [
-                {"label": "홍콩 항셍 (^HSI)", "value": "24,315.92 (+1.25%)", "highlight": True},
-                {"label": "일본 닛케이 (^N225)", "value": "61,248.59 (+0.85%)"},
-                {"label": "독일 DAX (^GDAXI)", "value": "26,621.14 (+0.45%)"},
-                {"label": "달러 인덱스 (DXY)", "value": "102.43 (-0.28%)", "highlight": True},
-                {"label": "원/달러 (KRW=X)", "value": "1,334.83원 (-4.2원)"},
-                {"label": "VIX 지수", "value": "18.92 (BULL_CALM)"}
-            ],
-            "action_required": "달러 인덱스 102.00 이탈 여부 및 유럽 장마감 동향 19:00 재추적",
-            "reactions": {"fire": 8, "rocket": 6, "thumbs_up": 7},
-            "pinned": False
-        },
-        # 18:15 Fresh Pre-Market Posts
-        {
-            "id": "post-1815-agent2",
-            "agent_id": 2,
-            "agent_name": agent_configs[2]["name"],
-            "agent_role": agent_configs[2]["role"],
-            "icon": agent_configs[2]["icon"],
-            "avatar_bg": agent_configs[2]["avatar_bg"],
-            "badge_color": agent_configs[2]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 18:15",
-            "time_ago": "3분 전",
-            "category": "PREMARKET",
-            "badge": "🔥 프리장 모니터링",
-            "title": "[프리마켓 18:15] SOXL·NVDA 프리장 시초 체결가 및 갭(Gap) 현황 점검",
-            "content": (
-                "18시 프리마켓 개장 직후 첫 15분간 호가 및 체결 상태를 분석했습니다.\n\n"
-                "- **SOXL**: 장전 $29.85에 체결 시작 (+0.17% 보합권). 전일 종가 $29.80 대비 안정적 갭 유지 중. 래리 윌리엄스 돌파 기준가인 $31.00까지 약 +3.8% 진폭 여유가 있습니다.\n"
-                "- **NVDA**: 장전 $147.50 (+0.20% 상승 시도). 호가 매수 잔량이 매도 잔량 대비 1.24배 우위로 양호한 시초 분위기입니다.\n"
-                "- **TQQQ**: $78.65 (+0.19%) 체결. 나스닥 100 선물(+0.38%) 상승에 연동되어 갭상승 출발 기대감이 유효합니다.\n\n"
-                "**기술적 코멘트:** 프리장 급변동 없이 호가가 차분하게 형성되고 있어, 23:30 정규장 오픈 시 슬리피지(Slippage) 위험이 매우 낮은 이상적인 환경입니다."
-            ),
-            "metrics": [
-                {"label": "SOXL 프리장", "value": "$29.85 (+0.17%)", "highlight": True},
-                {"label": "NVDA 프리장", "value": "$147.50 (+0.20%)"},
-                {"label": "TQQQ 프리장", "value": "$78.65 (+0.19%)"},
-                {"label": "돌파 타깃선", "value": "$31.00 (SOXL)"}
-            ],
-            "action_required": "19:00 차기 점검 시 SOXL 프리장 거래량 누적 추이 재산출 예정",
-            "reactions": {"check": 5, "thumbs_up": 4},
-            "pinned": False
-        },
-        {
-            "id": "post-1805-agent1",
-            "agent_id": 1,
-            "agent_name": agent_configs[1]["name"],
-            "agent_role": agent_configs[1]["role"],
-            "icon": agent_configs[1]["icon"],
-            "avatar_bg": agent_configs[1]["avatar_bg"],
-            "badge_color": agent_configs[1]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 18:05",
-            "time_ago": "12분 전",
-            "category": "SENTIMENT",
-            "badge": "📰 뉴스 & 소셜 감성",
-            "title": "[프리마켓 18:05] Reddit WSB 버즈 급증 및 반도체 장전 센티먼트 리포트",
-            "content": (
-                "미국 프리장 개장에 맞춘 레딧(r/wallstreetbets), X(구 트위터) 및 블룸버그 실시간 속보 분석입니다.\n\n"
-                "- **소셜 버즈 순위**: 1위 NVDA (멘션 점유율 24.8%), 2위 TSLA (18.2%), 3위 SOXL (11.5%).\n"
-                "- **반도체 섹터 감성**: TSMC 10월 매출 호조 소식이 장전 커뮤니티에 확산되며 SOXL 및 엔비디아 콜옵션 매수 언급이 전일 대비 +42% 급증했습니다.\n"
-                "- **공포 & 탐욕 지수 (Fear & Greed)**: 현재 61점 (탐욕, Greed 구간)으로 단기 매수세 유입 가능성이 높은 국면입니다."
-            ),
-            "metrics": [
-                {"label": "WSB 멘션 1위", "value": "NVDA (24.8%)", "highlight": True},
-                {"label": "SOXL 버즈 증가율", "value": "+42% (장전)"},
-                {"label": "Fear & Greed", "value": "61 (탐욕)"}
-            ],
-            "action_required": "시초가 갭 유발 루머 실시간 필터링 유지",
-            "reactions": {"fire": 7, "eyes": 4},
-            "pinned": False
-        },
-        {
-            "id": "post-1800-agent10",
-            "agent_id": 10,
-            "agent_name": agent_configs[10]["name"],
-            "agent_role": agent_configs[10]["role"],
-            "icon": agent_configs[10]["icon"],
-            "avatar_bg": agent_configs[10]["avatar_bg"],
-            "badge_color": agent_configs[10]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 18:00",
-            "time_ago": "18분 전",
-            "category": "EXECUTION",
-            "badge": "⚡ 실전 브로커 감시",
-            "title": "[프리마켓 18:00] NH투자증권 나무 오픈API 토큰 및 호가 스프레드 사전 점검",
-            "content": (
-                "프리마켓 개장과 함께 계좌 `202-05-134849`의 NH 오픈API 브로커 통신을 점검했습니다.\n\n"
-                "1. **접근 토큰 상태**: Bearer Token 유효기간 정상 (잔여 약 18시간), 토큰 캐시 파일 정합성 확인.\n"
-                "2. **예수금 상태**: 원화 68,585원 ($48.99 상당) 가용 대기 중.\n"
-                "3. **프리장 호가 스프레드**: SOXL 장전 매수/매도 호가 스프레드가 $0.05 이내로 매우 조밀합니다.\n"
-                "4. **주문 큐 세팅**: SOXL 1주 $29.80 돌파 지정가 매수 및 +3.0%($30.70) 익절, -1.5%($29.35) 손절 브래킷 대기 완료."
-            ),
-            "metrics": [
-                {"label": "계좌 번호", "value": "202-05-134849", "highlight": True},
-                {"label": "가용 원화", "value": "68,585원"},
-                {"label": "1순위 주문", "value": "SOXL 1주 ($29.80)"},
-                {"label": "브래킷 TP/SL", "value": "+3.0% / -1.5%"}
-            ],
-            "action_required": "23:30 정규장 개장과 동시에 잔고 재조회 후 첫 실전 주문 발주",
-            "reactions": {"check": 8, "rocket": 5},
-            "pinned": False
-        },
-        # 17:00 Afternoon Pre-Market Warmup Posts
-        {
-            "id": "post-1700-agent3",
-            "agent_id": 3,
-            "agent_name": agent_configs[3]["name"],
-            "agent_role": agent_configs[3]["role"],
-            "icon": agent_configs[3]["icon"],
-            "avatar_bg": agent_configs[3]["avatar_bg"],
-            "badge_color": agent_configs[3]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 17:00",
-            "time_ago": "1시간 전",
-            "category": "CATALYST",
-            "badge": "🏢 실적 & 캘린더",
-            "title": "[17:00 업무보고] 글로벌 반도체 CAPEX 및 주요 경제지표 발표 캘린더 점검",
-            "content": (
-                "단기 유니버스(SOXL, NVDA)에 영향을 미치는 글로벌 펀더멘털 및 이벤트 일정 점검 결과입니다.\n\n"
-                "- **반도체 공급망**: 주요 AI 하이퍼스케일러(빅테크)의 2026 회계연도 데이터센터 자본지출(CAPEX) 전망치가 상향 조정되고 있습니다. HBM3E 및 HBM4 수요 견인이 확고합니다.\n"
-                "- **주요 발표 캘린더**: 오늘 밤 미 동부시간 08:30(한국 22:30) 주간 신규 실업수당 청구건수 발표 예정. 시장 컨센서스는 22.1만 건으로 연착륙 기대를 지지할 것으로 전망됩니다."
-            ),
-            "metrics": [
-                {"label": "신규 실업수당 발표", "value": "오늘 22:30 KST"},
-                {"label": "예상치", "value": "22.1만 건"},
-                {"label": "빅테크 CAPEX 전망", "value": "전년 대비 +19.4%"}
-            ],
-            "action_required": "22:30 고용 지표 발표 직후 단기 틱 변동성 체크 대기",
-            "reactions": {"thumbs_up": 4},
-            "pinned": False
-        },
-        {
-            "id": "post-1600-agent5",
-            "agent_id": 5,
-            "agent_name": agent_configs[5]["name"],
-            "agent_role": agent_configs[5]["role"],
-            "icon": agent_configs[5]["icon"],
-            "avatar_bg": agent_configs[5]["avatar_bg"],
-            "badge_color": agent_configs[5]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 16:00",
-            "time_ago": "2시간 전",
-            "category": "GAMMA",
-            "badge": "🐋 감마 & 스마트머니",
-            "title": "[16:00 업무보고] 기관 옵션 풋/콜 비율 0.64 기록 · 콜 감마 스퀴즈 환경 포착",
-            "content": (
-                "나스닥 100(QQQ) 및 대형 테크 옵션 시장의 스마트머니 포지션 분석 보고입니다.\n\n"
-                "- **Put/Call Ratio**: 0.64 수준으로 콜옵션 우위 지속 중. 통상 0.70 미만은 기관 딜러들의 감마 롱(Gamma Long) 포지션을 의미하며, 지수 상승 시 딜러들의 현물 추격 매수가 발생하는 감마 스퀴즈 환경입니다.\n"
-                "- **엔비디아 감마 벽 (Gamma Wall)**: $150.00 행사가에 대규모 콜 감마 집중 확인. $150 돌파 시 가속 구간 진입 가능성이 큽니다."
-            ),
-            "metrics": [
-                {"label": "Put/Call Ratio", "value": "0.64 (콜 우위)", "highlight": True},
-                {"label": "NVDA 감마 벽", "value": "$150.00"},
-                {"label": "딜러 감마 상태", "value": "Positive Gamma (하방 경직)"}
-            ],
-            "action_required": "정규장 오픈 후 $150 돌파 여부 실시간 추적",
-            "reactions": {"eyes": 5, "fire": 3},
-            "pinned": False
-        },
-        {
-            "id": "post-1500-agent9",
-            "agent_id": 9,
-            "agent_name": agent_configs[9]["name"],
-            "agent_role": agent_configs[9]["role"],
-            "icon": agent_configs[9]["icon"],
-            "avatar_bg": agent_configs[9]["avatar_bg"],
-            "badge_color": agent_configs[9]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 15:00",
-            "time_ago": "3시간 전",
-            "category": "ENSEMBLE",
-            "badge": "🧬 앙상블 비중 확정",
-            "title": "[15:00 업무보고] 단기 고변동성 유니버스 교체 및 앙상블 최적 비중 산출 완료",
-            "content": (
-                "동훈님의 일일 실현 손익 및 고변동성 유니버스 교체 지침에 따라 10인 에이전트 파이프라인의 최종 포지션을 확정했습니다.\n\n"
-                "- **확정 비중**: SOXL 35%, TQQQ 25%, SGOV 20%, NVDA 15%, TSLA 5%.\n"
-                "- **자본 제약 반영**: 현재 잔고(68,585원) 기준으로는 1순위 자산인 SOXL 1주($29.80)를 우선 집행하고, 추가 입금 발생 시 TQQQ·NVDA로 비례 스케일업하는 탄력적 매수 구조를 수립했습니다."
-            ),
-            "metrics": [
-                {"label": "SOXL 비중", "value": "35%", "highlight": True},
-                {"label": "TQQQ 비중", "value": "25%"},
-                {"label": "SGOV 비중", "value": "20%"},
-                {"label": "NVDA 비중", "value": "15%"}
-            ],
-            "action_required": "Agent 10에게 최종 비중 테이블 전달 완료",
-            "reactions": {"check": 9, "thumbs_up": 6},
-            "pinned": False
-        },
-        {
-            "id": "post-1400-agent8",
-            "agent_id": 8,
-            "agent_name": agent_configs[8]["name"],
-            "agent_role": agent_configs[8]["role"],
-            "icon": agent_configs[8]["icon"],
-            "avatar_bg": agent_configs[8]["avatar_bg"],
-            "badge_color": agent_configs[8]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 14:00",
-            "time_ago": "4시간 전",
-            "category": "ALPHA",
-            "badge": "🎯 알파 검증 승인",
-            "title": "[14:00 업무보고] 상위 5대 단기 고손익비 시나리오 승인 및 비수익 전략 폐기",
-            "content": (
-                "Agent 7의 3개년 마찰 비용(0.24%) 차감 백테스트 결과를 기반으로 10개 시나리오 중 상위 5개 전략을 엄선했습니다.\n\n"
-                "1. **래리 윌리엄스 변동성 돌파 (SOXL/TQQQ)**: Sharpe 2.28, 승률 68.4%, 손익비 2.14\n"
-                "2. **무위험 캐리 & 패닉 딥바잉 (SGOV/SOXL)**: Sharpe 2.45, 승률 84.2%, 손익비 3.10\n"
-                "3. **단기 레버리지 리스크 패리티**: Sharpe 2.35, 승률 69.5%, 손익비 2.20\n"
-                "4. **장초반 30분 모멘텀 돌파 (ORB)**: Sharpe 2.05, 승률 65.2%\n"
-                "5. **일중 볼린저 과매도 반등**: Sharpe 1.88, 승률 72.1%\n\n"
-                "※ 휩소가 잦은 갭페이드 및 추격 스퀴즈 5개 전략은 폐기 처리했습니다."
-            ),
-            "metrics": [
-                {"label": "승인 전략 수", "value": "5개 전략", "highlight": True},
-                {"label": "평균 손익비", "value": "2.24 : 1"},
-                {"label": "평균 승률", "value": "71.8%"}
-            ],
-            "action_required": "앙상블 모델러(Agent 9)에게 승인 가중치 이관",
-            "reactions": {"check": 7},
-            "pinned": False
-        },
-        {
-            "id": "post-1300-agent6",
-            "agent_id": 6,
-            "agent_name": agent_configs[6]["name"],
-            "agent_role": agent_configs[6]["role"],
-            "icon": agent_configs[6]["icon"],
-            "avatar_bg": agent_configs[6]["avatar_bg"],
-            "badge_color": agent_configs[6]["badge_color"],
-            "timestamp": f"{now.strftime('%Y-%m-%d')} 13:00",
-            "time_ago": "5시간 전",
-            "category": "QUANT",
-            "badge": "📐 10대 시나리오 수식화",
-            "title": "[13:00 업무보고] 단기 일일 트레이딩 특화 10대 정량 시나리오 모델링 완료",
-            "content": (
-                "중장기 HRP와 구분되는 '일일 익절 & 복리 재투자' 단기 전술 10종의 수학적 모델링을 수식화했습니다.\n\n"
-                r"- $Breakout\_Price = Open + K \times (High_{t-1} - Low_{t-1}) \quad (K=0.5)" "\n"
-                r"- $Bracket\_TP = Entry \times 1.030, \quad Bracket\_SL = Entry \times 0.985" "\n"
-                "- 매일 장마감 전 포지션을 청산하고 익절금 전액을 SGOV(연 4.5% 무위험 일복리)에 자동 예치하는 복리 파이프라인 함수를 정형화했습니다."
-            ),
-            "metrics": [
-                {"label": "설계 시나리오", "value": "10종 정량 모델"},
-                {"label": "K 계수", "value": "0.5 (고정)"},
-                {"label": "손익비 설계", "value": "+3.0% / -1.5%"}
-            ],
-            "action_required": "백테스터(Agent 7)에게 파라미터 전달 완료",
-            "reactions": {"thumbs_up": 8},
-            "pinned": False
-        }
-    ]
+            "badge": d.get("badge", "TL 지시"),
+            "title": d.get("title", ""),
+            "content": d.get("content", ""),
+            "metrics": d.get("metrics", []),
+            "action_required": d.get("action", "이행 상태는 해당 에이전트 보고에 반영"),
+            "reactions": {},
+            "pinned": True,
+            "phase": "ARCHIVE",
+        })
+    return posts
 
-    # Preserve manually recorded live-execution posts (id prefix 'post-live-') across hourly rebuilds
-    _p1, _p2 = get_base_data_path()
-    if os.path.exists(_p1):
+
+def main():
+    clock = market_clock.resolve()
+    orch = CubeOrchestrator()
+    report = orch.run_daily_pipeline(quiet=True)
+    agents = {a["agent_id"]: a.get("report", {}) for a in report.get("agents", [])}
+
+    posts = []
+    for aid, fn in ((1, post_agent1), (2, post_agent2), (3, post_agent3), (4, post_agent4), (5, post_agent5),
+                    (6, post_agent6), (7, post_agent7), (8, post_agent8), (9, post_agent9), (10, post_agent10)):
         try:
-            with open(_p1, "r", encoding="utf-8") as _f:
-                _prev = json.load(_f).get("posts", [])
-            _live = [p for p in _prev if str(p.get("id", "")).startswith("post-live-")]
-            posts = _live + [p for p in posts if p.get("id") not in {q.get("id") for q in _live}]
+            posts.append(fn(agents.get(aid, {}), clock))
+        except Exception as e:
+            posts.append(_post(aid, clock, "⚠️ 보고 생성 실패", f"Agent {aid} 보고 실패: {e}", str(e), [], "로그 확인"))
+
+    posts.extend(directive_posts(clock))
+
+    # preserve manually recorded live-execution posts
+    if os.path.exists(FEED_PATH):
+        try:
+            with open(FEED_PATH, "r", encoding="utf-8") as f:
+                prev = json.load(f).get("posts", [])
+            live = [p for p in prev if str(p.get("id", "")).startswith("post-live-")]
+            posts = live + posts
         except Exception:
             pass
 
-    feed_data = {
+    snap = report.get("agents") and market_snapshot.load_snapshot()
+    q = snap.get("quotes", {})
+
+    def gm(sym):
+        d = q.get(sym) or {}
+        return {"level": d.get("last") or 0.0, "change": f"{d.get('change_pct') or 0:+.2f}%"}
+
+    feed = {
         "title": "CUBE 10-Agent Work Feed & Global Macro Room",
-        "last_updated": now_str,
-        "premarket_status": "ACTIVE (18:00 ~ 23:30 KST)",
-        "active_monitoring_agents": [1, 2, 4, 10],
+        "last_updated": clock["now_kst"] + " KST",
+        "phase": clock["phase"],
+        "phase_label": clock["label_ko"],
+        "session_mode": "24/7 — 모든 세션에서 10인 전원 가동",
+        "next_open_kst": clock["next_open_kst"],
+        "hours_to_next_open": clock["hours_to_next_open"],
+        "premarket_status": ("정규장 운영" if clock["phase"] == "REGULAR" else
+                             "프리마켓" if clock["phase"] == "PRE_MARKET" else
+                             "주말 준비 모드" if clock["phase"] == "WEEKEND_PREP" else clock["label_ko"]),
+        "active_monitoring_agents": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "agents_reporting": report.get("agents_ok"),
+        "agents_total": report.get("total_agents"),
+        "data_provenance": report.get("data_provenance"),
+        "pipeline_seconds": report.get("pipeline_seconds"),
         "global_macro": {
-            "hang_seng": {"level": 24315.92, "change": "-0.98%"},
-            "nikkei_225": {"level": 61248.59, "change": "+1.31%"},
-            "dax_40": {"level": 26523.46, "change": "+0.67%"},
-            "dxy_dollar_index": {"level": 102.55, "change": "+0.31%"},
-            "usd_krw": {"level": 1334.16, "change": "-0.72%"},
-            "usd_jpy": {"level": 159.19, "change": "+0.76%"},
-            "nasdaq_fut": {"level": 28386.75, "change": "+1.98%"},
-            "vix": {"level": 18.42, "change": "-5.34%"}
+            "hang_seng": gm("^HSI"), "nikkei_225": gm("^N225"), "dax_40": gm("^GDAXI"),
+            "dxy_dollar_index": gm("DX-Y.NYB"), "usd_krw": gm("KRW=X"), "usd_jpy": gm("JPY=X"),
+            "nasdaq_fut": gm("NQ=F"), "vix": gm("^VIX"),
         },
         "total_posts": len(posts),
-        "posts": posts
+        "posts": posts,
     }
 
-    p1, p2 = get_base_data_path()
-    os.makedirs(os.path.dirname(p1), exist_ok=True)
-    os.makedirs(os.path.dirname(p2), exist_ok=True)
+    for p in (FEED_PATH, DOCS_FEED_PATH):
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(feed, f, ensure_ascii=False, indent=2)
 
-    with open(p1, "w", encoding="utf-8") as f:
-        json.dump(feed_data, f, ensure_ascii=False, indent=2)
-    with open(p2, "w", encoding="utf-8") as f:
-        json.dump(feed_data, f, ensure_ascii=False, indent=2)
+    print(f"✅ feed updated {feed['last_updated']} [{clock['phase']}] posts {len(posts)} "
+          f"(agents {report.get('agents_ok')}/{report.get('total_agents')})")
 
-    print(f"✅ CUBE Work Feed updated successfully at {now_str}")
-    print(f"Total posts: {len(posts)} | Saved to {p1} and {p2}")
 
 if __name__ == "__main__":
-    generate_feed_entries()
+    main()

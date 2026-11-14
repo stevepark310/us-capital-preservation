@@ -1,15 +1,24 @@
 """
-Agent 10: Short-Term Execution Trader & Bracket Order Specialist
-Executes real-time orders via NH Open API with automatic Bracket Take-Profit & Stop-Loss triggers,
-dynamically adjusted by Agent 1's hourly News, Wall Street insights, and Social sentiment analysis.
-Adaptive portfolio sizing for current equity ($863.73 / 1,209,215 KRW).
+Agent 10: Execution Trader & Bracket Custodian
+
+The previous version emitted four "FILLED_EXECUTED" orders with 11-11 prices and
+hard-coded P&L inside an hourly report — i.e. it pretended to have executed
+trades that did not exist. Now it:
+
+  * reads the real ledger (single FX rate, one cash figure) and checks it,
+  * re-computes every open bracket from the realised fill (fill-based anchoring),
+  * produces a Monday-open plan with prices, brackets and cash allocation,
+  * reports the validated DIP_SWING candidate as PENDING_APPROVAL, because
+    holding overnight is a risk change the user has to accept,
+  * never marks an order as filled.
 """
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List
-from datetime import datetime
-import pandas as pd
+
 from agents.base import BaseAgent
-from core.smart_exit import SmartExitSystem
-from core.inverse_hedging import InverseHedgingEngine
+from core import ledger as ledger_mod, technical
+from core.exit_planner import AdaptiveExitPlanner
+
 
 class DailyTraderAgent(BaseAgent):
     def __init__(self):
@@ -17,163 +26,139 @@ class DailyTraderAgent(BaseAgent):
             agent_id=10,
             name="Agent 10: 일일 실전 트레이더 & 브래킷 집행관",
             code="SHORT_TERM_EXECUTION_TRADER",
-            role="NH 오픈API 실전 주문 집행 & Agent 1 시황·뉴스 연동 동적 브래킷 자동화",
-            description="Agent 1의 1시간 주기 실시간 뉴스·증권사 리포트·센티먼트 보고를 수신하여 목표가 매수 및 동적 익절/손절 브래킷을 즉각 재조정하여 발주합니다."
+            role="실전 원장 정합성·브래킷 재산정·개장 대기 주문 계획",
+            description="실전 원장과 활성 브래킷을 검증하고, 체결가 기준으로 매도 브래킷을 재산정하며, 다음 개장(23:30 KST) 대기 계획과 현금 배분을 보고합니다. 주문 집행은 시장 개장 시 별도 확인 절차를 따릅니다.",
         )
-        self.exit_system = SmartExitSystem()
-        self.inverse_engine = InverseHedgingEngine()
+        self.planner = AdaptiveExitPlanner()
 
     def run(self, market_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         self.status = "RUNNING"
-        self.last_run = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.last_run = (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S")
+        snap = context.get("snapshot") or {}
+        clock = context.get("clock") or {}
+        techs = context.get("technical") or {}
+        ensemble = context.get("ensemble") or {}
+        alpha = context.get("alpha") or {}
+        dip = (context.get("technical_report") or {}).get("dip_swing_watchlist") or {}
 
-        portfolio_value = context.get("portfolio_value", 863.73)
-        cash_krw = context.get("cash_krw", 1209215)
-        act_no = context.get("act_no", "20205134849")
-        news_sentiment = context.get("news_sentiment", {})
+        review = ledger_mod.validate(snapshot=snap, fix=True)
+        led = ledger_mod.summary(snapshot=snap)
+        phase = clock.get("phase", "UNKNOWN")
+        quotes = snap.get("quotes", {})
 
-        # Dynamic Live Market Prices with real-time fallback
-        default_prices = {
-            "SOXL": 62.20,   # 1주 약 83,500원 (2026-11-11 체결가 반영)
-            "TQQQ": 59.75,   # 1주 약 80,200원 (2026-11-11 체결가 반영)
-            "NVDA": 173.30,  # 1주 약 232,700원 (2026-11-11 체결가 반영)
-            "TSLA": 215.40,  # 1주 약 289,300원
-            "SGOV": 100.53   # 1주 약 135,000원 (2026-11-11 체결가 반영)
-        }
-        current_prices = default_prices.copy()
-        if market_data and isinstance(market_data.get("prices"), pd.DataFrame):
-            p_df = market_data["prices"]
-            for sym in default_prices:
-                if sym in p_df.columns:
-                    val = float(p_df[sym].dropna().iloc[-1])
-                    if val > 0:
-                        current_prices[sym] = round(val, 2)
-
-        orders: List[Dict[str, Any]] = []
-
-        # Ticker 1: SOXL (비중 35% -> 4주 집중 배정, 체결완료 orr_no 174442)
-        soxl_brackets = self.exit_system.get_dynamic_brackets("SOXL", sentiment_report=news_sentiment)
-        p_soxl = current_prices["SOXL"]
-        tp1_soxl = round(p_soxl * (1 + soxl_brackets["dynamic_tp1_pct"] / 100), 2)
-        tp2_soxl = round(p_soxl * (1 + soxl_brackets["dynamic_tp2_pct"] / 100), 2)
-        sl_soxl = round(p_soxl * (1 + soxl_brackets["dynamic_sl_pct"] / 100), 2)
-
-        orders.append({
-            "ticker": "SOXL",
-            "action": "BUY_ON_BREAKOUT",
-            "qty": 4,
-            "limit_price": p_soxl,
-            "take_profit_stage1": f"${tp1_soxl} (+{soxl_brackets['dynamic_tp1_pct']}%, 1주)",
-            "take_profit_stage2": f"${tp2_soxl} (+{soxl_brackets['dynamic_tp2_pct']}%, 1주)",
-            "runner_weight": f"{soxl_brackets['runner_weight_pct']}% (잔여 2주 ATR 트레일링)",
-            "stop_loss_target": f"${sl_soxl} ({soxl_brackets['dynamic_sl_pct']}%)",
-            "sentiment_score": f"{soxl_brackets['sentiment_score']} ({soxl_brackets['sentiment_grade']})",
-            "notional_usd": "$248.80 (35.4%)",
-            "notional_krw": "약 334,100원",
-            "status": "FILLED_EXECUTED",
-            "order_no": "174442",
-            "priority": 1,
-            "reason": f"Agent 1 실시간 뉴스 연동: {soxl_brackets['adjustment_note']} (TSMC 10월 서프라이즈 + 월가 Top Pick, 시가 갭업 눌림 체결)"
-        })
-
-        # Ticker 2: TQQQ (비중 25% -> 3주 배정, 체결완료 orr_no 174395)
-        tqqq_brackets = self.exit_system.get_dynamic_brackets("TQQQ", sentiment_report=news_sentiment)
-        p_tqqq = current_prices["TQQQ"]
-        tp1_tqqq = round(p_tqqq * (1 + tqqq_brackets["dynamic_tp1_pct"] / 100), 2)
-        tp2_tqqq = round(p_tqqq * (1 + tqqq_brackets["dynamic_tp2_pct"] / 100), 2)
-        sl_tqqq = round(p_tqqq * (1 + tqqq_brackets["dynamic_sl_pct"] / 100), 2)
-
-        orders.append({
-            "ticker": "TQQQ",
-            "action": "BUY_ON_BREAKOUT",
-            "qty": 3,
-            "limit_price": p_tqqq,
-            "take_profit_stage1": f"${tp1_tqqq} (+{tqqq_brackets['dynamic_tp1_pct']}%, 1주)",
-            "take_profit_stage2": f"${tp2_tqqq} (+{tqqq_brackets['dynamic_tp2_pct']}%, 1주)",
-            "stop_loss_target": f"${sl_tqqq} ({tqqq_brackets['dynamic_sl_pct']}%)",
-            "sentiment_score": f"{tqqq_brackets['sentiment_score']} ({tqqq_brackets['sentiment_grade']})",
-            "notional_usd": "$179.25 (25.5%)",
-            "notional_krw": "약 240,700원",
-            "status": "FILLED_EXECUTED",
-            "order_no": "174395",
-            "priority": 2,
-            "reason": "나스닥 100 야간 선물 +1.98% 랠리 및 기술주 갭상승 ORB 돌파 편승"
-        })
-
-        # Ticker 3: NVDA (비중 24% -> 1주 배정, 체결완료 orr_no 174411)
-        nvda_brackets = self.exit_system.get_dynamic_brackets("NVDA", sentiment_report=news_sentiment)
-        p_nvda = current_prices["NVDA"]
-        tp1_nvda = round(p_nvda * (1 + nvda_brackets["dynamic_tp1_pct"] / 100), 2)
-        sl_nvda = round(p_nvda * (1 + nvda_brackets["dynamic_sl_pct"] / 100), 2)
-
-        orders.append({
-            "ticker": "NVDA",
-            "action": "BUY_ON_SUPPORT",
-            "qty": 1,
-            "limit_price": p_nvda,
-            "take_profit_stage1": f"${tp1_nvda} (+{nvda_brackets['dynamic_tp1_pct']}%)",
-            "runner_weight": "50% (실적 발표 전 랠리 극대화)",
-            "stop_loss_target": f"${sl_nvda} ({nvda_brackets['dynamic_sl_pct']}%)",
-            "sentiment_score": f"{nvda_brackets['sentiment_score']} ({nvda_brackets['sentiment_grade']})",
-            "notional_usd": "$173.30 (24.7%)",
-            "notional_krw": "약 232,700원",
-            "status": "FILLED_EXECUTED",
-            "order_no": "174411",
-            "priority": 3,
-            "reason": "블랙웰 B200 랙 4대 빅테크 선주문 마감 및 씨티 목표가 $175 상향 반영"
-        })
-
-        # Ticker 4: SGOV (비중 14% -> 초단기 국채 캐리 1주 배정, 체결완료 orr_no 174377)
-        orders.append({
-            "ticker": "SGOV",
-            "action": "BUY_CARRY_PARKING",
-            "qty": 1,
-            "limit_price": current_prices["SGOV"],
-            "notional_usd": "$100.53 (14.3%)",
-            "notional_krw": "약 135,000원",
-            "status": "FILLED_EXECUTED",
-            "order_no": "174377",
-            "priority": 4,
-            "reason": "미 국채 연 4.52% 무위험 일복리 이자 수취 & 야간 변동성 완충용 현금 파킹"
-        })
-
-        # Cash Reserve & Inverse Hedging Readiness
-        vix = context.get("vix", 18.92)
-        dxy = context.get("dxy", 102.55)
-        sentiment_score = news_sentiment.get("overall_sentiment_score", 78.8)
-        downturn_eval = self.inverse_engine.evaluate_downturn_triggers(vix, dxy, sentiment_score, {})
-
-        self.output_data = {
-            "execution_broker": "NH투자증권 (나무)",
-            "account_number": act_no,
-            "cash_krw": cash_krw,
-            "cash_usd": portfolio_value,
-            "deployed_capital_usd": 701.88,
-            "deployed_capital_krw": 942600,
-            "cash_buffer_usd": 388.68,
-            "cash_buffer_krw": 522150,
-            "orders": orders,
-            "sentiment_feedback_active": True,
-            "hourly_sentiment_sync": "EVERY_1_HOUR (Agent 1 연동 실시간 브래킷 재계산)",
-            "inverse_hedging": {
-                "engine_status": "READY_FOR_DEPLOYMENT",
-                "downturn_mode": downturn_eval["mode"],
-                "triggers_fired": downturn_eval["triggers_fired"],
-                "target_short_tickers": ["SOXS", "SQQQ"],
-                "execution_rule": "시장 급락 조짐(VIX >= 22 또는 20일선 이탈) 포착 시 SOXS(+3.5% TP) / SQQQ(+2.8% TP) 자동 분할 매수 집행"
-            },
-            "key_takeaway": (
-                f"확충된 실시간 예수금 {cash_krw:,}원(${portfolio_value:.2f})을 바탕으로 "
-                "SOXL 4주, TQQQ 3주, NVDA 1주, SGOV 1주의 4대 자산 실전 매수 후 분할 익절(3전 3승, +$6.93)이 완결되었습니다. "
-                "하락 조짐 시 즉각 대응할 수 있도록 SOXS/SQQQ 3X 인버스 숏 포지션 엔진이 상시 가동 대기 중입니다."
+        # ---- open bracket review, re-anchored on the realised fill
+        bracket_review: List[Dict[str, Any]] = []
+        for ticker, b in (led.get("active_brackets") or {}).items():
+            if not isinstance(b, dict) or "entry_price" not in b:
+                continue
+            if b.get("carry_parking") or b.get("note") == "CARRY_PARKING":
+                bracket_review.append({"ticker": ticker, "qty": int(b.get("bought_qty", 1) or 1),
+                                       "entry_fill": b["entry_price"], "status": "CARRY_PARKING (익절·손절 대상 아님)",
+                                       "current_bracket": {}, "recomputed": {}, "diff_note": ["SGOV은 무위험 캐리 파킹"]})
+                continue
+            qty = int(b.get("bought_qty", 0) or 0)
+            filled = bool(b.get("tp1_filled")) and bool(b.get("tp2_filled")) and int(b.get("runner_qty", 0) or 0) == 0
+            atr_pct = (techs.get(ticker) or {}).get("atr_pct") or 6.0
+            pos = next((p for p in led.get("positions", []) if p["ticker"] == ticker), None)
+            hard_floor = float(b["sl"]) if ticker == "NVDA" else None
+            plan = self.planner.plan(
+                symbol=ticker, planned_price=b.get("planned_price", b["entry_price"]),
+                fill_price=b["entry_price"], qty=qty, atr_pct=atr_pct,
+                sentiment_score=(context.get("sentiment") or {}).get("tickers", {}).get(ticker, {}).get("sentiment_score", 50),
+                hard_floor_price=hard_floor, allow_runner=int(b.get("runner_qty", 0) or 0) > 0,
             )
+            last = (quotes.get(ticker) or {}).get("last")
+            locked = bool(b.get("levels_locked"))
+            bracket_review.append({
+                "ticker": ticker, "qty": qty, "entry_fill": b["entry_price"], "qty_open": int(b.get("runner_qty", 0) or 0),
+                "current_bracket": {"tp1": b.get("tp1"), "tp2": b.get("tp2"), "sl": b.get("sl")},
+                "recomputed": {"tp1": plan.tp1_price, "tp2": plan.tp2_price, "sl": plan.hard_sl_price,
+                               "breakeven": plan.breakeven_price, "atr_pct": atr_pct},
+                "levels_locked": locked,
+                "diff_note": ((b.get("levels_locked_reason") or "사용자 지정 레벨 유지") if locked else plan.notes),
+                "status": ("CLOSED (TP1·TP2 전량 체결, 러너 0주)" if filled and qty else
+                           ("HOLDING" if pos else "NO_POSITION")),
+                "last_price": last,
+                "pnl_usd": (pos or {}).get("unrealized_usd"),
+            })
+
+        # ---- next-session plan
+        equity = led.get("equity_usd") or 0.0
+        cash = led.get("cash_usd") or 0.0
+        weights = ensemble.get("target_portfolio_weights", {})
+        dip_signals = dip.get("signals") or []
+        dip_watch = dip.get("watch") or []
+        mode = alpha.get("recommended_execution_mode")
+        planned: List[Dict[str, Any]] = []
+        if mode == "DIP_SWING" and dip_signals:
+            for s in dip_signals:
+                planned.append({
+                    "ticker": s["symbol"], "action": "BUY_AT_NEXT_OPEN (DIP_SWING)",
+                    "reference_price": s["close"],
+                    "validated_tp": s["validated_tp"], "validated_sl": s["validated_sl"],
+                    "tp_pct": s["validated_tp_pct"], "sl_pct": s["validated_sl_pct"],
+                    "max_hold_sessions": s["max_hold_sessions"],
+                    "risk_per_trade_pct": 2.0,
+                    "size_guide_usd": round(min(equity * 0.25, equity * 0.02 / max(0.02, s["validated_sl_pct"] / 100)), 2),
+                    "status": "PENDING_APPROVAL (오버나이트 보유 승인 필요)",
+                })
+        elif mode == "DIP_SWING" and not dip_signals:
+            for w in dip_watch[:2]:
+                planned.append({
+                    "ticker": w["symbol"], "action": "WAIT_FOR_DIP_TRIGGER",
+                    "condition": w.get("why_not"),
+                    "validated_tp": w["validated_tp"], "validated_sl": w["validated_sl"],
+                    "tp_pct": w["validated_tp_pct"], "sl_pct": w["validated_sl_pct"],
+                    "size_guide_usd": round(equity * 0.25, 2),
+                    "status": "PENDING_APPROVAL (오버나이트 보유 승인 필요)",
+                })
+        elif mode and mode != "CASH_ONLY":
+            for sym, w in weights.items():
+                if sym == "SGOV" or w <= 0:
+                    continue
+                t = techs.get(sym) or {}
+                if not t:
+                    continue
+                planned.append({
+                    "ticker": sym, "action": "WATCH_BREAKOUT",
+                    "trigger": (t.get("breakout_trigger") or (t.get("weekly_pivots") or {}).get("pivot")),
+                    "target_weight": w, "size_guide_usd": round(equity * w, 2),
+                    "bracket": f"ATR {t.get('atr_pct')}% 기준 (core/exit_planner 재산정)",
+                    "status": "PLANNED (개장 후 신호 확인)",
+                })
+
+        reanchor_needed = [b for b in bracket_review if b["status"] == "HOLDING" and b.get("current_bracket", {}).get("sl")]
+        cash_krw = led.get("cash_krw")
+        self.output_data = {
+            "phase": phase, "phase_label": clock.get("label_ko"),
+            "execution_broker": "NH투자증권 (나무) Open API",
+            "account_number": led.get("account_no"),
+            "ledger": {
+                "fx_rate": led.get("fx_rate"), "fx_source": led.get("fx_source"),
+                "realized_pnl_usd": led.get("realized_pnl_usd"), "unrealized_pnl_usd": led.get("unrealized_pnl_usd"),
+                "net_pnl_usd": led.get("net_pnl_usd"),
+                "equity_usd": equity, "equity_krw": led.get("equity_krw"),
+                "cash_usd": cash, "cash_krw": cash_krw, "cash_pct": led.get("cash_pct"),
+                "win_rate_pct": led.get("win_rate_pct"), "trades": led.get("trades"),
+                "as_of": led.get("as_of"),
+            },
+            "consistency_check": {"status": review["status"], "issues": review["issues"],
+                                  "fixed_trading_day_flags": review.get("fixed_days", [])},
+            "bracket_review": bracket_review,
+            "reanchor_required": [{"ticker": b["ticker"], "recomputed_sl": b["recomputed"]["sl"],
+                                   "current_sl": b["current_bracket"].get("sl")} for b in reanchor_needed],
+            "planned_actions": planned,
+            "execution_status": ("NO_TRADE_WINDOW (주말·휴장)" if clock.get("is_off_hours") else "MONITORING"),
+            "next_open_kst": clock.get("next_open_kst"),
+            "swing_mode": {"recommended": mode == "DIP_SWING", "signals": dip_signals, "watch": dip_watch,
+                           "policy": "오버나이트 보유는 리스크 프로파일 변경이므로 사용자 승인 전 집행하지 않습니다."},
+            "key_takeaway": (
+                f"{clock.get('label_ko')}. 원장 정합성 {review['status']} (이슈 {len(review['issues'])}건, "
+                f"거래일 플래그 {len(review.get('fixed_days', []))}건 수정). "
+                f"현금 ${cash:,.2f} / {cash_krw:,}원 ({led.get('cash_pct')}%), 평가 ${equity:,.2f}. "
+                f"다음 개장 {clock.get('next_open_kst')}. 대기 계획 {len(planned)}건."
+            ),
         }
-        self.confidence_score = 0.96
+        self.confidence_score = 0.94
         self.status = "COMPLETED"
         return self.output_data
-
-if __name__ == "__main__":
-    agent = DailyTraderAgent()
-    res = agent.run({}, {"portfolio_value": 863.73, "cash_krw": 1209215})
-    import pprint
-    pprint.pprint(res)

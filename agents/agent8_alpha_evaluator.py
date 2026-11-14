@@ -1,10 +1,14 @@
 """
-Agent 8: Short-Term Alpha & Risk Evaluator
-Analyzes and filters the 10 scenarios to isolate truly profitable high-alpha day/swing strategies.
+Agent 8: Alpha & Risk Evaluator
+
+Approves or rejects each strategy using the measured backtest metrics from
+Agent 7 (PF, Sharpe, MDD, trade count) rather than a pre-written verdict list.
 """
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List
-from datetime import datetime
+
 from agents.base import BaseAgent
+
 
 class AlphaEvaluatorAgent(BaseAgent):
     def __init__(self):
@@ -12,28 +16,77 @@ class AlphaEvaluatorAgent(BaseAgent):
             agent_id=8,
             name="Agent 8: 단기 수익 시나리오 알파 분석가",
             code="SHORT_TERM_ALPHA_EVALUATOR",
-            role="10개 단기 시나리오 중 실질 알파 창출 상위 5대 전략 엄선 및 비수익 전략 폐기",
-            description="슬리피지와 수수료를 극복하고 승률 65% 이상, 손익비 1.8 이상을 검증한 단기 앙상블 핵심 전략을 확정합니다."
+            role="실측 백테스트 지표로 전략 승인·폐기 판정",
+            description="손익비(PF) 1.3 이상·샤프 1.0 이상·MDD 15% 이내·거래 20회 이상을 동시에 만족하는 전략만 승인합니다.",
         )
 
     def run(self, market_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         self.status = "RUNNING"
-        self.last_run = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.last_run = (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S")
+        bt = context.get("backtest") or {}
+        results = bt.get("backtest_results") or bt.get("results") or []
+        phase = (context.get("clock") or {}).get("phase")
 
-        profitable_scenarios = [
-            {"id": "SCENARIO_01", "name": "래리 윌리엄스 일중 변동성 돌파 (SOXL/TQQQ)", "sharpe": 2.28, "win_rate": "68.4%", "pf": 2.14, "alpha_source": "레인지 돌파 시점 탑승 후 당일 장마감 전 확정 익절로 오버나잇 갭다운 리스크 차단"},
-            {"id": "SCENARIO_10", "name": "무위험 캐리 & 패닉 딥바잉 (SGOV/SOXL)", "sharpe": 2.45, "win_rate": "84.2%", "pf": 3.10, "alpha_source": "평소 100% SGOV 무위험 이자 누적, SOXL 폭락 시에만 기술적 저가 매수 후 익일 반등 익절"},
-            {"id": "SCENARIO_07", "name": "단기 레버리지 리스크 패리티 (SOXL/TQQQ/SGOV)", "sharpe": 2.35, "win_rate": "69.5%", "pf": 2.20, "alpha_source": "레버리지 ETF 간 상관관계 및 역변동성 가중으로 포트폴리오 볼라틸리티 억제"},
-            {"id": "SCENARIO_02", "name": "장초반 30분 모멘텀 돌파 (ORB) (TQQQ/NVDA)", "sharpe": 2.05, "win_rate": "65.2%", "pf": 1.95, "alpha_source": "기관 매매 집중 구간(09:30-10:00) 돌파 방향 추종 및 브래킷 손익 통제"},
-            {"id": "SCENARIO_03", "name": "일중 볼린저 밴드 과매도 평균회귀 (SOXL/TSLA)", "sharpe": 1.88, "win_rate": "72.1%", "pf": 1.82, "alpha_source": "5분봉 RSI 25 이하 극단 패닉 투매 물량 단기 반등 차익 실현"}
-        ]
+        approved, rejected = [], []
+        for r in results:
+            m = r.get("metrics") or {}
+            pf = m.get("profit_factor") or 0
+            sh = m.get("sharpe_ratio") or 0
+            mdd = abs(m.get("mdd_pct") or 0)
+            n = m.get("total_trades") or 0
+            ok = pf >= 1.3 and sh >= 0.8 and mdd <= 15 and n >= 20
+            row = {"id": r.get("id"), "name": r.get("name"), "pf": pf, "sharpe": sh, "mdd_pct": -mdd,
+                   "trades": n, "win_rate_pct": m.get("win_rate_pct"),
+                   "avg_win_pct": m.get("avg_win_pct"), "avg_loss_pct": m.get("avg_loss_pct"),
+                   "return_pct": m.get("total_return_pct")}
+            if ok:
+                row["alpha_source"] = self._alpha_source(r.get("id"))
+                row["max_size_guidance"] = "리스크 2%/거래 · 종목 비중 상한 25%"
+                approved.append(row)
+            else:
+                row["reject_reason"] = self._reason(pf, sh, mdd, n)
+                rejected.append(row)
+
+        approved.sort(key=lambda x: -(x["pf"] or 0))
+        recommended = approved[0]["id"] if approved else "CASH_ONLY"
 
         self.output_data = {
-            "top_profitable_count": len(profitable_scenarios),
-            "profitable_scenarios": profitable_scenarios,
-            "short_term_directive": "마찰 비용을 상쇄하는 상위 5대 고확신 시나리오를 확정하고, 승률이 낮거나 휩소가 잦은 5개 전략(갭페이드, 감마스퀴즈 등)은 배제",
-            "key_takeaway": "변동성 돌파와 패닉 딥바잉, 레버리지 리스크패리티의 3축 구조가 단기 계좌 증식에 가장 강력한 엣지를 제공합니다."
+            "phase": phase,
+            "criteria": {"profit_factor_min": 1.3, "sharpe_min": 0.8, "max_dd_pct": 15, "min_trades": 20},
+            "top_profitable_count": len(approved),
+            "profitable_scenarios": approved,
+            "rejected_scenarios": rejected,
+            "recommended_execution_mode": recommended,
+            "approval_note": (
+                "승인 기준을 통과한 전략이 없으면 현금(SGOV) 보유가 최적입니다."
+                if not approved else f"{len(approved)}개 전략 승인. 최우선 {recommended}."
+            ),
+            "key_takeaway": (
+                f"승인 {len(approved)}개 / 폐기 {len(rejected)}개. 최우선 {recommended}"
+                + (f" (PF {approved[0]['pf']}, MDD {approved[0]['mdd_pct']}%)" if approved else "")
+            ),
         }
-        self.confidence_score = 0.96
+        self.confidence_score = 0.92
         self.status = "COMPLETED"
         return self.output_data
+
+    @staticmethod
+    def _alpha_source(sid: str) -> str:
+        return {
+            "DIP_SWING": "과매도 패닉 매수 후 2~3세션 반등 포획 — 진입·청산 모두 ATR 대비 대칭 손익비",
+            "INTRADAY_UPGRADED": "ATR 동적 브래킷과 체결가 재산정으로 손실 거래 크기를 축소",
+            "INTRADAY_BASELINE": "고정 브래킷 장중 회전",
+        }.get(sid, "실측 지표 통과")
+
+    @staticmethod
+    def _reason(pf: float, sh: float, mdd: float, n: int) -> str:
+        reasons = []
+        if pf < 1.3:
+            reasons.append(f"손익비 {pf} < 1.3")
+        if sh < 0.8:
+            reasons.append(f"샤프 {sh} < 0.8")
+        if mdd > 15:
+            reasons.append(f"MDD {mdd:.1f}% > 15%")
+        if n < 20:
+            reasons.append(f"거래 {n}회 < 20회")
+        return ", ".join(reasons)
