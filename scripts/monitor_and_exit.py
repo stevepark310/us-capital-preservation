@@ -179,14 +179,15 @@ def run_check() -> List[Dict[str, Any]]:
         save_brackets(brackets)
         return actions
 
+    dry_run = DRY_RUN
     broker = None
-    if not DRY_RUN:
+    if not dry_run:
         try:
             from execution.nh_trader import NHBroker
             broker = NHBroker(dry_run=False)
         except Exception as e:
             print(f"[monitor] broker unavailable ({e}) — DRY RUN으로 전환")
-            DRY_RUN = True
+            dry_run = True
 
     for t, b in brackets.items():
         if not isinstance(b, dict) or "entry_price" not in b:
@@ -210,7 +211,7 @@ def run_check() -> List[Dict[str, Any]]:
         if b.get("swing_hold"):
             decision = swing_exit_decision(b, price, clock)
             if decision and remaining > 0 and not (decision["stop"] and b.get("sl_triggered")):
-                actions.append(place_sell(broker, t, remaining, price, decision["reason"], DRY_RUN))
+                actions.append(place_sell(broker, t, remaining, price, decision["reason"], dry_run))
                 if decision["stop"]:
                     b["sl_triggered"] = True
                 if decision["close"]:
