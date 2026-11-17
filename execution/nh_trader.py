@@ -19,6 +19,39 @@ except ImportError:
     pass
 
 
+def _num(value, default=0.0) -> float:
+    """NH API returns numbers as str/int/float/'' — coerce safely."""
+    if value is None or value == "":
+        return default
+    try:
+        return float(str(value).replace(",", "").strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def _int(value, default=0) -> int:
+    return int(_num(value, default))
+
+
+def _redact(obj):
+    """Mask account numbers and any credential-looking key before logging."""
+    if isinstance(obj, dict):
+        out = {}
+        for k, v in obj.items():
+            lk = str(k).lower()
+            if any(t in lk for t in ("appkey", "app_key", "secret", "token", "password")):
+                out[k] = "***"
+            elif lk in ("act_no",) and isinstance(v, (str, int)):
+                s = str(v)
+                out[k] = ("*" * max(len(s) - 2, 0)) + s[-2:]
+            else:
+                out[k] = _redact(v)
+        return out
+    if isinstance(obj, list):
+        return [_redact(x) for x in obj]
+    return obj
+
+
 def _load_env_fallback():
     env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
     if os.path.exists(env_path):
@@ -60,6 +93,9 @@ class NHBroker:
         else:
             self.token_cache_file = token_cache_file
         self.access_token: Optional[str] = None
+        # NH expects an 11-digit account number (acct_no from /n2/acctinfo)
+        self.act_no_norm = (self.act_no or "").replace("-", "").strip()
+        self.last_response: Optional[dict] = None
 
         if self.app_key and self.app_secret:
             self._ensure_access_token()
@@ -119,6 +155,8 @@ class NHBroker:
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 res_json = json.loads(resp.read().decode("utf-8"))
+                self.last_response = res_json
+                print(f"[NH] POST {path} -> rsp_cd={res_json.get('rsp_cd')} rsp_msg={res_json.get('rsp_msg')}")
                 return res_json
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="replace")
@@ -131,9 +169,29 @@ class NHBroker:
         accounts = res.get("Output_0", [])
         return accounts
 
-    def get_balance(self) -> dict:
-        """Alias for get_portfolio_state() used by remote dispatch workflows."""
-        return self.get_portfolio_state()
+    def get_balance(self, include_raw: bool = True) -> dict:
+        """Alias used by the remote dispatch workflow; includes redacted raw payloads."""
+        return self.get_portfolio_state(include_raw=include_raw)
+
+    def get_recent_executions(self, days: int = 3) -> dict:
+        """Order/execution history (해외주식 주문체결내역) for the last N days — used to
+        confirm whether limit orders actually filled. Returns redacted raw responses."""
+        now_kst = datetime.utcnow() + timedelta(hours=9)
+        out = {}
+        for back in range(days):
+            d = (now_kst - timedelta(days=back)).strftime("%Y%m%d")
+            try:
+                res = self._call_api("/gbstock/inquiry/v1/unexecuted", {
+                    "orr_dt": d,
+                    "act_no": self._acct(),
+                    "oss_sby_dit_cd": "0",  # 0: 전체
+                    "sot_dit": "1",         # 1: 주문번호 역순
+                    "ost_cns_dit": "0",     # 0: 전체 (1 체결 / 2 미체결)
+                })
+                out[d] = _redact(res)
+            except Exception as e:
+                out[d] = {"error": str(e)}
+        return out
 
     def place_order(self, ticker: str, side: str, qty: int, price: float = 0.0) -> dict:
         """
@@ -159,7 +217,7 @@ class NHBroker:
 
         endpoint = "/gbstock/order/v1/sell" if side_norm == "SELL" else "/gbstock/order/v1/buy"
         payload = {
-            "act_no": self.act_no,
+            "act_no": self._acct(),
             "fc_sec_trd_nat_cd": "200",
             "iem_cd": ticker.strip().upper(),
             "orr_qty": int(qty),
@@ -170,9 +228,27 @@ class NHBroker:
             payload["wtm_cur_knd_cd"] = "1"
         return self._call_api(endpoint, payload)
 
-    def get_portfolio_state(self) -> dict:
+    def _acct(self) -> str:
+        """11-digit account number for API payloads (dashes stripped)."""
+        return self.act_no_norm or (self.act_no or "").replace("-", "").strip()
+
+    def _query_gb_balance(self, cur_cd: str = "USD") -> dict:
+        """POST /gbstock/inquiry/v1/balance — required Input_0 per NH Open API spec:
+        act_no, qut_iqr_dit_cd(1 정규장 / 9 전체), fc_sec_trd_nat_cd(200 미국), cur_cd(KRW 전체/통화).
+        The previous payload sent a non-existent `fc_mkt_dit_cd`, so the server answered with an
+        empty Output_0/Output_1 and the parser fell back to KRW cash only.
         """
-        Fetch US stock balance and USD cash from NH Global Stock balance API.
+        return self._call_api("/gbstock/inquiry/v1/balance", {
+            "act_no": self._acct(),
+            "qut_iqr_dit_cd": "9",       # 9: 전체(정규장+시간외)
+            "fc_sec_trd_nat_cd": "200",  # 200: 미국
+            "cur_cd": cur_cd,             # USD / KRW(전체)
+            "xns_dit_cd": "0",           # 0: 비용 미포함
+        })
+
+    def get_portfolio_state(self, include_raw: bool = False) -> dict:
+        """
+        Fetch US stock balance, USD cash and KRW cash from NH Open API.
         Endpoint: POST /gbstock/inquiry/v1/balance
         """
         if self.dry_run and not (self.app_key and self.app_secret and self.act_no):
@@ -184,75 +260,121 @@ class NHBroker:
                 "positions": {},
             }
 
-        input_data = {
-            "act_no": self.act_no,
-            "fc_mkt_dit_cd": "200",  # 200: USA
-        }
-        res = self._call_api("/gbstock/inquiry/v1/balance", input_data)
+        diag = {}
+        res = self._query_gb_balance("USD")
         out_0 = res.get("Output_0", {}) or {}
         out_1 = res.get("Output_1", []) or []
+        diag["balance_usd"] = {
+            "rsp_cd": res.get("rsp_cd"), "rsp_msg": res.get("rsp_msg"),
+            "output_0_keys": sorted(out_0.keys()),
+            "output_1_count": len(out_1) if isinstance(out_1, list) else 1,
+        }
 
-        # Parse Equity & Cash (USD)
-        total_eval_usd = float(out_0.get("fc_eal_amt", 0.0) or 0.0)
-        cash_usd = float(out_0.get("fc_dca", 0.0) or 0.0)
-        total_equity = float(out_0.get("fc_aet_amt", 0.0) or (total_eval_usd + cash_usd))
+        # If the USD slice came back empty, retry with the whole-currency view (KRW = 전체)
+        if not out_1 and not _num(out_0.get("fc_dca")) and not _num(out_0.get("fc_aet_amt")):
+            res_all = self._query_gb_balance("KRW")
+            out_0_all = res_all.get("Output_0", {}) or {}
+            out_1_all = res_all.get("Output_1", []) or []
+            diag["balance_all_ccy"] = {"rsp_cd": res_all.get("rsp_cd"), "rsp_msg": res_all.get("rsp_msg"),
+                                       "output_0": _redact(out_0_all), "output_1": _redact(out_1_all)}
+            if out_1_all:
+                res, out_0, out_1 = res_all, out_0_all, out_1_all
 
-        # Also query KRW balance from domestic stock balance API
-        krw_cash = 0
-        krw_total_aet = 0
+        # ---- Output_0: 계좌 레벨 집계 (외화예수금 / 평가 / 자산 / 총자산)
+        cash_usd = _num(out_0.get("fc_dca"))
+        eval_usd = _num(out_0.get("fc_eal_amt"))
+        asset_usd = _num(out_0.get("fc_aet_amt")) or (cash_usd + eval_usd)
+        cost_basis_usd = _num(out_0.get("fc_abk_amt"))
+        unrealized_usd_acct = _num(out_0.get("fc_eal_pls_amt"))
+        krw_dca_from_gb = _int(out_0.get("krw_dca"))
+        tot_aet_amt_krw = _int(out_0.get("tot_aet_amt"))
+
+        # ---- Output_1: 종목별 잔고
+        weights = {}
+        positions = {}
+        positions_eval = 0.0
+        items = out_1 if isinstance(out_1, list) else [out_1]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            sym = str(item.get("iem_cd", "") or "").strip()
+            qty = _int(item.get("cns_bse_bnc_qty"))
+            price = _num(item.get("fc_sec_end_pr"))
+            eval_amt = _num(item.get("fc_eal_amt"))
+            avg_price = _num(item.get("fc_phs_uit_pr")) or _num(item.get("fc_avg_phs_pr"))
+            if not avg_price and qty:
+                avg_price = _num(item.get("fc_cns_bse_phs_xps")) / qty
+            if sym and qty > 0:
+                positions[sym] = {
+                    "qty": qty,
+                    "price": price,
+                    "market_value": eval_amt,
+                    "avg_price": round(avg_price, 4) if avg_price else None,
+                    "cost_basis": round(_num(item.get("fc_cns_bse_phs_xps")), 2) or None,
+                    "unrealized": round(_num(item.get("fc_eal_pls_amt")), 2),
+                    "return_pct": round(_num(item.get("eal_pft_rt")), 2),
+                    "name": item.get("iem_nm") or item.get("oss_iem_eng_nm"),
+                    "krw_eval": _int(item.get("krw_eal_amt")),
+                    "sellable_qty": _int(item.get("sll_pbl_qty1")),
+                }
+                positions_eval += eval_amt
+
+        # ---- KRW 예수금/총자산 (국내 잔고 API 교차 확인)
+        krw_cash = krw_dca_from_gb
+        krw_total_aet = tot_aet_amt_krw
         try:
             res_kr = self._call_api("/krstock/inquiry/v1/balance", {
-                "act_no": self.act_no,
+                "act_no": self._acct(),
                 "bnc_bse_cd": "1",
                 "ltg_aot_dit_cd": "9",
                 "aet_bse": "1",
                 "qut_dit_cd": "UNT"
             })
             out_kr = res_kr.get("Output_0", {}) or {}
-            dca_val = int(out_kr.get("dca", 0) or 0)
-            krw_total_aet = int(out_kr.get("tot_aet_amt", 0) or dca_val)
-            # Use total asset value if cash is swept into CMA/RP overnight
-            krw_cash = max(dca_val, krw_total_aet)
+            dca_val = _int(out_kr.get("dca"))
+            krw_total_aet = _int(out_kr.get("tot_aet_amt")) or krw_total_aet or dca_val
+            krw_cash = max(krw_cash, dca_val, krw_total_aet)
+            diag["krw_balance"] = {"rsp_cd": res_kr.get("rsp_cd"), "rsp_msg": res_kr.get("rsp_msg"),
+                                   "output_0": _redact(out_kr)}
         except Exception as e:
-            pass
+            diag["krw_balance"] = {"error": str(e)}
 
-        usd_from_krw = round(krw_cash / 1400.0, 2)
-        if total_equity <= 0.0:
+        if asset_usd <= 0.0 and not positions:
             if krw_cash > 0:
-                total_equity = usd_from_krw
-                cash_usd = usd_from_krw
+                asset_usd = round(krw_cash / 1400.0, 2)
+                cash_usd = cash_usd or asset_usd
             elif self.dry_run:
-                print(f"[NH Broker] Account {self.act_no} has $0.00 USD balance. Simulating with $10,000.00 for Dry-Run rebalance preview.")
-                total_equity = 10000.0
+                print(f"[NH Broker] Account has $0.00 USD balance. Simulating $10,000.00 for dry-run preview.")
+                asset_usd = 10000.0
                 cash_usd = 10000.0
-            else:
-                total_equity = 1.0  # Prevent division by zero
 
-        weights = {}
-        positions = {}
-        for item in out_1:
-            sym = item.get("iem_cd", "").strip()
-            qty = int(item.get("cns_bse_bnc_qty", 0) or 0)
-            eval_amt = float(item.get("fc_eal_amt", 0.0) or 0.0)
-            price = float(item.get("fc_sec_end_pr", 0.0) or 0.0)
+        if asset_usd > 0:
+            for sym, p in positions.items():
+                weights[sym] = round(p["market_value"] / asset_usd, 4)
 
-            if sym and qty > 0:
-                weights[sym] = eval_amt / total_equity
-                positions[sym] = {
-                    "qty": qty,
-                    "price": price,
-                    "market_value": eval_amt,
-                }
-
-        return {
-            "equity": total_equity,
+        state = {
+            "equity": asset_usd,
             "cash": cash_usd,
             "cash_usd": cash_usd,
+            "positions_market_value_usd": round(positions_eval, 2),
+            "cost_basis_usd": round(cost_basis_usd, 2),
+            "unrealized_usd": round(unrealized_usd_acct or sum(p["unrealized"] for p in positions.values()), 2),
             "cash_krw": krw_cash,
             "krw_total_aet": krw_total_aet,
             "weights": weights,
             "positions": positions,
+            "rsp_cd": res.get("rsp_cd"),
+            "rsp_msg": res.get("rsp_msg"),
         }
+        if include_raw:
+            state["diagnostics"] = diag
+            state["raw_balance"] = _redact({"Output_0": out_0, "Output_1": items,
+                                            "rsp_cd": res.get("rsp_cd"), "rsp_msg": res.get("rsp_msg")})
+            try:
+                state["recent_executions"] = self.get_recent_executions(days=3)
+            except Exception as e:
+                state["recent_executions"] = {"error": str(e)}
+        return state
 
     def execute_rebalance(
         self,
@@ -332,7 +454,7 @@ class NHBroker:
             else:
                 endpoint = "/gbstock/order/v1/sell" if side == "sell" else "/gbstock/order/v1/buy"
                 payload = {
-                    "act_no": self.act_no,
+                    "act_no": self._acct(),
                     "fc_sec_trd_nat_cd": "200",  # USA
                     "iem_cd": sym,
                     "orr_qty": shares,
