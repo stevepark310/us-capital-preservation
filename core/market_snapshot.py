@@ -358,8 +358,14 @@ def _intraday_last(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
         return {}
 
 
-def build_snapshot(force_history: bool = False, quiet: bool = False) -> Dict[str, Any]:
-    """Build (and persist) the desk-wide market snapshot."""
+def build_snapshot(force_history: bool = False, quiet: bool = False,
+                   max_age_min: float = None) -> Dict[str, Any]:
+    """Build (and persist) the desk-wide market snapshot.
+
+    `max_age_min`은 캐시 허용 시간(분)을 이번 호출만 덮어쓴다. 무인 집행은 10분
+    주기로 손절/익절을 판단하므로 8분 캐시를 그대로 쓰면 최대 18분 전 가격으로
+    주문할 수 있다 — `core/autotrader.py`는 2분을 넘긴 스냅샷을 새로 만든다.
+    """
     from core import market_clock
 
     clock = market_clock.resolve()
@@ -378,7 +384,8 @@ def build_snapshot(force_history: bool = False, quiet: bool = False) -> Dict[str
             age_min = (now_utc - datetime.fromisoformat(prev["generated_at_utc"])).total_seconds() / 60.0
             # a snapshot written before the 2026-11-14 expansion has no bonds/fx/crypto
             # blocks — rebuild instead of serving a partial schema to the agents.
-            if (age_min < QUOTE_TTL_MINUTES and prev.get("phase") == clock["phase"]
+            ttl = QUOTE_TTL_MINUTES if max_age_min is None else float(max_age_min)
+            if (age_min < ttl and prev.get("phase") == clock["phase"]
                     and "bonds" in prev and "cycle" in prev):
                 prev["clock"] = clock
                 return prev

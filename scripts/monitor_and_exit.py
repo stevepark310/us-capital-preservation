@@ -13,8 +13,12 @@ Changes from the previous version
    max(chandelier(highest high - 0.9×ATR), EMA20), floored at +1.5% locked
    profit — so a runaway move is not cut at TP2 and a collapse still exits.
 4. Orders are only sent while the US regular session is open.
+5. 2026-11-17: 무인 집행 엔진(`core/autotrader.py`)과 갈라지지 않도록 청산 판정을
+   `core/exit_rules`로 일원화하고, `--execute` 옵션은 `execution/order_bridge`를 통해
+   GitHub Actions로 주문한다(로컬 NH API 8443 차단 대응). 단일 작성자 리스로
+   두 엔진이 동시에 같은 브래킷을 팔지 않는다.
 
-Run:  python3 scripts/monitor_and_exit.py [--dry-run]
+Run:  python3 scripts/monitor_and_exit.py [--dry-run] [--execute]
 """
 import json
 import os
@@ -26,37 +30,52 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
 from core import market_clock, market_snapshot, technical, ledger as ledger_mod
+from core import exit_rules
+from core.session_time import kst_hhmm, session_minutes as _session_minutes, time_reached
 from core.exit_planner import AdaptiveExitPlanner
 
 BRACKETS_FILE = os.path.join(BASE_DIR, "data", "active_brackets.json")
 ORDERS_LOG = os.path.join(BASE_DIR, "data", "live_order_responses.jsonl")
+LEASE_FILE = os.path.join(BASE_DIR, "data", "autotrader_lease.json")
 PLANNER = AdaptiveExitPlanner()
 DRY_RUN = "--dry-run" in sys.argv or os.getenv("CUBE_DRY_RUN") == "1"
+EXECUTE = "--execute" in sys.argv and not DRY_RUN
+ROUTER = None
 
 
-def kst_hhmm(clock: Dict[str, Any]) -> str:
-    return str(clock.get("now_kst") or "")[11:16]
-
-
-def _session_minutes(hhmm: str) -> int:
-    """미국 정규장(23:30~06:00 KST)은 자정을 넘으므로 00:00~11:59는 다음 날로 취급한다."""
+def _lease_read() -> Dict[str, Any]:
     try:
-        h, m = hhmm.split(":")[:2]
-        total = int(h) * 60 + int(m)
+        with open(LEASE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
     except Exception:
-        return -1
-    return total + 24 * 60 if int(h) < 12 else total
+        return {}
 
 
-def time_reached(clock: Dict[str, Any], hhmm: Optional[str]) -> bool:
-    """True when the session clock has passed hhmm (KST). Missing gate = always active."""
-    if not hhmm:
-        return True
-    now = _session_minutes(kst_hhmm(clock))
-    gate = _session_minutes(hhmm)
-    if now < 0 or gate < 0:
-        return True
-    return now >= gate
+def _lease_write(owner: Optional[str]) -> None:
+    payload = {"owner": owner}
+    if owner:
+        payload.update({"heartbeat_kst": (datetime.now(timezone.utc).replace(tzinfo=None)
+                                          + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S"),
+                        "pid": os.getpid(), "mode": "monitor_execute"})
+    else:
+        payload["released_kst"] = (datetime.now(timezone.utc).replace(tzinfo=None)
+                                   + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S")
+    with open(LEASE_FILE, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
+def _lease_holder() -> Optional[str]:
+    """다른 엔진이 최근 15분 내 하트비트를 남겼으면 그 owner를 돌려준다."""
+    lease = _lease_read()
+    owner = lease.get("owner")
+    if not owner:
+        return None
+    try:
+        ts = datetime.strptime(str(lease.get("heartbeat_kst"))[:19], "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return None
+    now = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=9)
+    return owner if (now - ts) < timedelta(minutes=15) else None
 
 
 def load_brackets() -> Dict[str, Any]:
@@ -161,10 +180,20 @@ def chandelier_v2_exit(bracket: Dict[str, Any], price: float, clock: Dict[str, A
     return None
 
 
+def chandelier_v2_exit(bracket: Dict[str, Any], price: float, clock: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """v2 청산 — 판정 로직은 core/exit_rules 하나만 쓴다(무인 트레이더와 동일)."""
+    decision = exit_rules.chandelier_v2_exit(bracket, price, clock)
+    if not decision:
+        return None
+    return {"reason": decision["reason"], "close": decision.get("close", True),
+            "stop": decision.get("stop", False)}
+
+
 def place_sell(broker, ticker: str, qty: int, price: float, reason: str, dry: bool) -> Dict[str, Any]:
     record = {
         "ts": (datetime.now(timezone.utc) + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S KST"),
         "side": "SELL", "ticker": ticker, "qty": qty, "price": round(float(price), 2), "reason": reason,
+        "engine": "monitor_and_exit",
     }
     if dry or broker is None:
         record["status"] = "DRY_RUN"
@@ -172,6 +201,19 @@ def place_sell(broker, ticker: str, qty: int, price: float, reason: str, dry: bo
         with open(ORDERS_LOG, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
         return record
+
+    if EXECUTE:
+        # 로컬 NH 8443이 막혀 있으므로 GitHub Actions 디스패치로 주문하고 접수 결과를 기록한다.
+        res = ROUTER.place(ticker, "SELL", int(qty), round(float(price) * 0.997, 2), reason,
+                           dry_run=False, extra={"engine": "monitor_and_exit"})
+        record.update({"status": res.get("status"), "order_no": res.get("orr_no"),
+                       "run_id": res.get("run_id"), "channel": res.get("channel"),
+                       "limit_price": round(float(price) * 0.997, 2)})
+        if res.get("error"):
+            record["error"] = res["error"]
+        print(f"[SELL/BRIDGE] {ticker} {qty} @ ~${price:.2f} ({reason}) → {record['status']}")
+        return record
+
     act_no = broker._acct() if hasattr(broker, "_acct") else (broker.act_no or "").replace("-", "")
     payload = {
         "act_no": act_no, "fc_sec_trd_nat_cd": "200", "iem_cd": ticker,
@@ -202,27 +244,22 @@ def sentiment_scores() -> Dict[str, float]:
 
 
 def swing_exit_decision(bracket: Dict[str, Any], price: float, clock: Dict[str, Any]) -> Dict[str, Any]:
-    """Exit rule for an approved DIP_SWING overnight position.
+    """DIP_SWING 청산 판정 — core/exit_rules에 위임(엔진 간 규칙 불일치 방지)."""
+    decision = exit_rules.swing_exit_decision(bracket, price, clock)
+    if not decision:
+        return None
+    return {"reason": decision["reason"], "close": decision.get("close", False),
+            "stop": decision.get("stop", False)}
 
-    The approved terms are: validated ATR×1.5 bracket, whole-position exit, and a hard
-    cap of `max_hold_sessions` sessions (time exit near that session's close). No intraday
-    partial take-profits and no stop tightening — that is the intraday rotation's rule.
-    """
-    session = clock.get("session_date")
-    if bracket.get("last_session_date") and bracket["last_session_date"] != session:
-        bracket["sessions_held"] = int(bracket.get("sessions_held", 1) or 1) + 1
-    bracket["last_session_date"] = session
-    bracket.setdefault("sessions_held", 1)
-    max_hold = int(bracket.get("max_hold_sessions", 3) or 3)
-    late = str(clock.get("now_kst", ""))[11:16] >= "05:45"   # 정규장 마감(06:00 KST) 15분 전
 
-    if float(price) <= float(bracket.get("sl", 0)):
-        return {"reason": f"DIP_SWING STOP (${price:.2f} ≤ ${bracket['sl']:.2f})", "close": False, "stop": True}
-    if bracket.get("tp") and float(price) >= float(bracket["tp"]):
-        return {"reason": f"DIP_SWING TARGET (${price:.2f} ≥ ${bracket['tp']:.2f})", "close": True, "stop": False}
-    if int(bracket.get("sessions_held", 1)) >= max_hold and late:
-        return {"reason": f"DIP_SWING TIME EXIT ({max_hold}세션 종가 청산)", "close": True, "stop": False}
-    return None
+def _autotrader_pending() -> set:
+    """무인 엔진이 이미 주문을 내고 체결 확인을 기다리는 종목 — 중복 주문 방지."""
+    try:
+        with open(os.path.join(BASE_DIR, "data", "autotrader_state.json"), "r", encoding="utf-8") as f:
+            st = json.load(f)
+        return {p.get("ticker") for p in (st.get("pending") or []) if p.get("ticker")}
+    except Exception:
+        return set()
 
 
 def run_check() -> List[Dict[str, Any]]:
@@ -245,9 +282,20 @@ def run_check() -> List[Dict[str, Any]]:
         save_brackets(brackets)
         return actions
 
-    dry_run = DRY_RUN
+    dry_run = not EXECUTE
     broker = None
-    if not dry_run:
+    global ROUTER
+    busy_tickers = _autotrader_pending() if EXECUTE else set()
+    lease_owner = "monitor_and_exit"
+    if EXECUTE:
+        holder = _lease_holder()
+        if holder and holder != lease_owner:
+            print(f"[monitor] 다른 집행 엔진이 실행 중(lease={holder}) — 이번 주기는 주문 없이 건너뜁니다.")
+            return actions
+        from execution.order_bridge import OrderRouter
+        ROUTER = OrderRouter(dry_run=False)
+        _lease_write(lease_owner)
+    if not dry_run and not EXECUTE:
         try:
             from execution.nh_trader import NHBroker
             broker = NHBroker(dry_run=False)
@@ -267,6 +315,9 @@ def run_check() -> List[Dict[str, Any]]:
         b = reanchor(b, t, atr_pct, senti.get(t, 50.0))
         price = (quotes.get(t) or {}).get("intraday_price") or (quotes.get(t) or {}).get("last")
         if not price:
+            continue
+        if t in busy_tickers:
+            print(f"[monitor] {t}: 무인 엔진이 이미 주문을 내고 체결 확인 대기 중 — 이번 주기 청산 판단을 건너뜁니다.")
             continue
         b["highest_high"] = max(float(b.get("highest_high") or b["entry_price"]), float(price))
 
@@ -305,43 +356,21 @@ def run_check() -> List[Dict[str, Any]]:
                 b["sl"] = rs["stop"]
                 b["runner_trail_source"] = rs["source"]
 
-        # 실적 가드: 평단 사다리 포지션은 지정 시각(기본 05:40 KST) 이후 잔여 수량을 시장가 청산한다.
-        # 3배 레버리지로 NVDA 실적(11-18 06:20 KST)을 넘기지 않기 위한 규칙 (2026-11-17 지시).
-        if (b.get("force_exit_kst") and remaining > 0 and not b.get("force_exited")
-                and not b.get("sl_triggered") and not b.get("closed")
-                and time_reached(clock, b.get("force_exit_kst"))):
-            actions.append(place_sell(broker, t, remaining, price,
-                                      f"실적 가드 강제청산 ({b['force_exit_kst']} KST, NVDA 실적 전 레버리지 정리)",
-                                      DRY_RUN))
-            b["force_exited"] = True
-            b["closed"] = True
-            brackets[t] = b
-            continue
-
-        # 개장 유예: 개장 직후 15분(기본 23:45 KST)까지는 갭 휩쏘 방지를 위해 손절을 발동하지 않는다.
-        if float(price) <= float(b["sl"]) and not b.get("sl_triggered") \
-                and time_reached(clock, b.get("sl_active_after_kst")):
-            if remaining > 0:
-                actions.append(place_sell(broker, t, remaining, price,
-                                          f"STOP/TRAIL (${price:.2f} ≤ ${b['sl']:.2f}, {b.get('runner_trail_source','stop')})", dry_run))
-                b["sl_triggered"] = True
-                b["closed"] = True
-        elif not b.get("tp1_filled") and float(price) >= float(b["tp1"]):
-            actions.append(place_sell(broker, t, int(b.get("tp1_qty", 1)), price,
-                                      f"TP1 (+{((price/float(b['entry_price']))-1)*100:.1f}%)", DRY_RUN))
-            b["tp1_filled"] = True
-            b["sl"] = max(float(b["sl"]), float(b.get("breakeven_stop") or b["entry_price"]))
-        elif b.get("tp1_filled") and b.get("tp2") and not b.get("tp2_filled") and float(price) >= float(b["tp2"]):
-            actions.append(place_sell(broker, t, int(b.get("tp2_qty", 1)), price,
-                                      f"TP2 (+{((price/float(b['entry_price']))-1)*100:.1f}%)", DRY_RUN))
-            b["tp2_filled"] = True
-            b["sl"] = max(float(b["sl"]), float(b["entry_price"]) * 1.015)
+        # ---- 평단 사다리 / 실적 가드 (판정은 core/exit_rules — 무인 트레이더와 동일 규칙)
+        decision = exit_rules.ladder_exit_decision(b, float(price), clock)
+        if decision and remaining > 0:
+            qty = min(int(decision.get("qty") or remaining), remaining)
+            actions.append(place_sell(broker, t, qty, price, decision["reason"], dry_run))
+            exit_rules.apply_post(b, decision)
         brackets[t] = b
 
+    if EXECUTE:
+        _lease_write(None)
     save_brackets(brackets)
     return actions
 
 
 if __name__ == "__main__":
     acts = run_check()
-    print(f"Total actions: {len(acts)} (dry_run={DRY_RUN})")
+    mode = "EXECUTE(bridge)" if EXECUTE else "DRY_RUN"
+    print(f"Total actions: {len(acts)} (mode={mode})")

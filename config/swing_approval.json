@@ -299,6 +299,84 @@
       ]
     }
   },
+  "autonomous_execution": {
+    "enabled": true,
+    "mode": "AUTONOMOUS_INTRADAY",
+    "delegated_by": "박동훈 (사용자)",
+    "delegated_at_kst": "2026-11-17 12:02",
+    "authorization_quote": "매수매도를 자동으로 장중에 판단해서 하더록 해. 매번 물어보지 말고. 대신 손실은 줄이고 이익은 극대화할수 있는 전략을 계속 업데이트하고 각 직원들이 10분 마다 각자 업무를 업데이트 해서 업무보고를 올릴 수 있도록해줘",
+    "ask_before_trade": false,
+    "engine": "core/autotrader.py",
+    "cli": "python3 scripts/autotrader.py --execute",
+    "execution_channel": {
+      "primary": "github_actions",
+      "workflow": "nh_trade_dispatch.yml",
+      "repo": "stevepark310/us-capital-preservation",
+      "modes": {
+        "buy": "gh workflow run nh_trade_dispatch.yml -R stevepark310/us-capital-preservation -f mode=buy -f ticker=SOXL -f qty=1 -f price=50.60",
+        "sell": "gh workflow run nh_trade_dispatch.yml -R stevepark310/us-capital-preservation -f mode=sell -f ticker=SOXL -f qty=1 -f price=50.30",
+        "verify": "gh workflow run nh_trade_dispatch.yml -R stevepark310/us-capital-preservation -f mode=test_balance"
+      },
+      "reason": "api.nhplug.com:8443 아웃바운드 차단(Errno 111) — GitHub Actions 러너에서는 NH Open API 직접 호출이 성공(2026-11-17 11:14 실행 실측)",
+      "direct_fallback": "로컬에서 NH API가 열려 있으면 NHBroker(dry_run=False).place_order 직접 사용",
+      "verification": "gh run view <run_id> --log의 rsp_cd/응답 JSON 확인 → 다음 주기에 mode=test_balance로 잔고·보유수량 대조(data/nh_account_snapshot.json)"
+    },
+    "universe": [
+      "SOXL",
+      "TQQQ",
+      "SOXS",
+      "SQQQ"
+    ],
+    "entry_sources": [
+      "DIP_SWING_DAILY",
+      "DIP_SWING_INTRADAY",
+      "BEAR_ALPHA_HEDGE",
+      "NVDA_EARNINGS_GAP_SOXS"
+    ],
+    "guardrails": {
+      "risk_per_trade_pct": 1.5,
+      "entry_budget_pct_of_cash": 20.0,
+      "entry_budget_pct_of_equity": 12.0,
+      "entry_budget_cap_usd": 120.0,
+      "entry_budget_floor_usd": 25.0,
+      "cash_reserve_floor_usd": 150.0,
+      "max_open_positions": 4,
+      "max_entries_per_session": 3,
+      "max_orders_per_session": 8,
+      "daily_realized_loss_limit_usd": 25.0,
+      "daily_realized_loss_limit_pct": 3.0,
+      "ticker_cooldown_min": 20,
+      "duplicate_order_window_min": 10,
+      "order_timeout_sec": 300,
+      "opening_blackout_kst": "23:30-00:00",
+      "no_new_entry_after_kst": "04:30",
+      "force_exit_kst": "05:40",
+      "min_price_usd": 3.0,
+      "vix_riskoff_scale": {
+        "24.0": 0.5,
+        "28.0": 0.0
+      },
+      "no_averaging_down": true,
+      "nvda_levels_locked": {
+        "tp": 173.0,
+        "sl": 150.0,
+        "note": "사용자 지정 — 자동매매가 변경·추가매수하지 않는다"
+      }
+    },
+    "execution": {
+      "order_type": "limit",
+      "buy_limit_offset_bps": 20,
+      "sell_limit_offset_bps": -30,
+      "price_round": 2,
+      "note": "NH 워크플로우는 지정가(ahi_nmn_pr_tp_cd=00)만 지원 — 체결 확률을 위해 매수는 +0.20%, 매도는 -0.30% 버퍼를 둔다"
+    },
+    "safety": {
+      "single_writer_lease_min": 15,
+      "lock_stale_min": 12,
+      "kill_switch_file": "data/autotrader_halt.json",
+      "kill_switch_note": "파일이 있으면 신규 매수 전면 중단(청산은 계속)"
+    }
+  },
   "universe": [
     "SOXL",
     "TQQQ"
