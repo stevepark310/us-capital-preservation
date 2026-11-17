@@ -1,7 +1,7 @@
 {
   "engine": "SHORT_DESK_REVIEW",
   "version": "1.0",
-  "generated_at_kst": "2026-11-17 11:57:07 KST",
+  "generated_at_kst": "2026-11-17 11:58:40 KST",
   "directive": "2026-11-17 동훈님 지시 — \"다른 종목들 예를 들어 숏 종목 등 다른 종목에 대해서도 매수 검토해봐. 수익 알고리즘도 가장 최신 논문과 트레이더들의 노하우를 가져와서 보강해줘\"",
   "scope_note": "검토 전용. 주문 없음(place_order 미호출). 승인 시 monitor_and_exit가 집행.",
   "fees": {
@@ -741,6 +741,44 @@
         "strength": "중간"
       }
     ],
+    "pre_earnings_stats": [
+      {
+        "ticker": "SOXS",
+        "subset": "발표 전 세션",
+        "n": 39,
+        "net_mean_pct": -0.34,
+        "median_pct": -0.47,
+        "win_pct": 46.2,
+        "worst_pct": -12.0,
+        "best_pct": 14.7,
+        "t_stat": -0.42,
+        "strength": "낮음"
+      },
+      {
+        "ticker": "SQQQ",
+        "subset": "발표 전 세션",
+        "n": 39,
+        "net_mean_pct": -0.44,
+        "median_pct": -0.85,
+        "win_pct": 38.5,
+        "worst_pct": -6.2,
+        "best_pct": 13.3,
+        "t_stat": -0.84,
+        "strength": "낮음"
+      },
+      {
+        "ticker": "NVDS",
+        "subset": "발표 전 세션",
+        "n": 17,
+        "net_mean_pct": -0.17,
+        "median_pct": -0.5,
+        "win_pct": 47.1,
+        "worst_pct": -4.9,
+        "best_pct": 3.3,
+        "t_stat": -0.31,
+        "strength": "낮음"
+      }
+    ],
     "note": "갭업 조건에서만 플러스. 타이트 손절을 넣으면 엣지가 사라진다(갭≥+2% SOXS: TP3/SL1.5 +0.80% vs 종가청산 +2.77%) → 넓은 재난손절(-8%)만 사용.",
     "examples": [
       {
@@ -972,6 +1010,34 @@
           "best_pct": 17.92,
           "t_stat": 0.75
         }
+      }
+    },
+    "volatility_targeting": {
+      "SOXL": {
+        "fixed_one_share": {
+          "n": 39,
+          "win_pct": 51.3,
+          "ev_pct": 2.48,
+          "median_pct": 0.23,
+          "profit_factor": 1.84,
+          "worst_pct": -8.24,
+          "best_pct": 26.76,
+          "t_stat": 1.46
+        },
+        "verdict": "탈락 — 샤프 개선 없음(SOXL 1.46→1.45), TQQQ MDD 악화(-18.1%→-27.1%). 1주 단위 계좌에서 0.45~1.5배 가중은 집행 불가."
+      },
+      "TQQQ": {
+        "fixed_one_share": {
+          "n": 51,
+          "win_pct": 45.1,
+          "ev_pct": 0.701,
+          "median_pct": -1.79,
+          "profit_factor": 1.34,
+          "worst_pct": -8.24,
+          "best_pct": 19.31,
+          "t_stat": 0.79
+        },
+        "verdict": "탈락 — 샤프 개선 없음(SOXL 1.46→1.45), TQQQ MDD 악화(-18.1%→-27.1%). 1주 단위 계좌에서 0.45~1.5배 가중은 집행 불가."
       }
     }
   },

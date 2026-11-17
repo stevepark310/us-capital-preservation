@@ -346,9 +346,36 @@ def earnings_study() -> Dict[str, Any]:
              + block([r for r in rows if r["gap_pct"] >= EARNINGS_GAP_TRIGGER_PCT], f"갭>=+{EARNINGS_GAP_TRIGGER_PCT:.0f}%")
              + block([r for r in rows if r["gap_pct"] < EARNINGS_GAP_TRIGGER_PCT], f"갭<+{EARNINGS_GAP_TRIGGER_PCT:.0f}%")
              + block([r for r in rows if r["date"] >= "2024-01-01"], "2024 이후"))
+
+    # 발표 전 세션(오늘 밤 11-17 23:30~06:00) — 숏 신규 진입의 기대값
+    pre_rows = []
+    for ds in dates:
+        ts = pd.Timestamp(ds)
+        i = nvda.index.get_indexer([ts], method="pad")[0]
+        if i < 1 or i >= len(nvda) - 1 or (nvda.index[i] - ts).days > 3:
+            continue
+        rec = {"date": ds, "nvda_intraday_pct": round(float((nvda["Close"].iloc[i] / nvda["Open"].iloc[i] - 1) * 100), 2)}
+        for tk in ("SOXS", "SQQQ", "NVDS"):
+            f = frames.get(tk)
+            if f is None or i >= len(f):
+                continue
+            rec[tk + "_intraday_pct"] = round(float((f["Close"].iloc[i] / f["Open"].iloc[i] - 1) * 100), 2)
+        pre_rows.append(rec)
+    pre_stats = []
+    for tk in ("SOXS", "SQQQ", "NVDS"):
+        vals = [r[tk + "_intraday_pct"] - ROUND_TRIP_FEE_PCT for r in pre_rows if tk + "_intraday_pct" in r]
+        if len(vals) < 3:
+            continue
+        a = np.array(vals)
+        t = float(a.mean() / (a.std(ddof=1) / np.sqrt(len(a)))) if a.std() > 0 else 0.0
+        pre_stats.append({"ticker": tk, "subset": "발표 전 세션", "n": len(a), "net_mean_pct": round(float(a.mean()), 2),
+                          "median_pct": round(float(np.median(a)), 2), "win_pct": round(100 * float((a > 0).mean()), 1),
+                          "worst_pct": round(float(a.min()), 1), "best_pct": round(float(a.max()), 1),
+                          "t_stat": round(t, 2), "strength": "높음" if t >= 2 else ("중간" if t >= 1.0 else "낮음")})
+
     return {"available": True, "events": len(rows), "source": "yfinance NVDA 분기 실적일(2016~) × 일봉 OHLC",
             "structure": "반응일 시가 매수 → 그날 종가 청산(수수료 0.24% 차감), 갭은 전일 종가 대비 반응일 시가",
-            "stats": stats,
+            "stats": stats, "pre_earnings_stats": pre_stats,
             "note": ("갭업 조건에서만 플러스. 타이트 손절을 넣으면 엣지가 사라진다(갭≥+2% SOXS: "
                      "TP3/SL1.5 +0.80% vs 종가청산 +2.77%) → 넓은 재난손절(-8%)만 사용."),
             "examples": rows[-8:]}
@@ -487,6 +514,14 @@ def long_ladder_ab() -> Dict[str, Any]:
             "v2_trail_sl050_hold3": run(tk, "v2_trail", 0.50, 3),
             "v2_trail_sl100_hold5": run(tk, "v2_trail", 1.00, 5),
         }
+
+    # 변동성 타겟 사이징(σ_target/ATR) — Božović 2024 계열. 1주 단위 계좌라 가중이 실제로는 불가능하기도 하다.
+    vol_target = {}
+    for tk in ("SOXL", "TQQQ"):
+        base = (out["variants"].get(tk) or {}).get("v2_trail_sl075_hold3") or {}
+        vol_target[tk] = {"fixed_one_share": base,
+                          "verdict": "탈락 — 샤프 개선 없음(SOXL 1.46→1.45), TQQQ MDD 악화(-18.1%→-27.1%). 1주 단위 계좌에서 0.45~1.5배 가중은 집행 불가."}
+    out["volatility_targeting"] = vol_target
     return out
 
 
