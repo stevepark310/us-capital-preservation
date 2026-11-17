@@ -133,7 +133,16 @@ class AutonomousTrader:
     def load_state(self, session_date: str) -> Dict[str, Any]:
         st = _load(STATE_PATH, {})
         if not st or st.get("session_date") != session_date:
+            prev_pending = st.get("pending") or []
             st = _fresh_state(session_date)
+            # 세션이 바뀌어도 '미확인 주문'은 이어서 확인한다 — 그렇지 않으면 마감 직전에
+            # 낸 주문이 사라지고 브래킷만 남아 다음 날 유령 보유로 잡힌다(72시간 초과는 제외).
+            keep = []
+            for p in prev_pending:
+                age = self._age_min(p.get("ts_kst"))
+                if age is None or age <= 72 * 60:
+                    keep.append(p)
+            st["pending"] = keep
         st.setdefault("pending", [])
         st.setdefault("cooldowns", {})
         st.setdefault("realized", [])
