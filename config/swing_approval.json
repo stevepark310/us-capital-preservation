@@ -60,6 +60,240 @@
         "evidence": "data/scalp_ev_stats.json (yfinance 5분봉 60일 실측)",
         "fallback": "신호 없으면 현금 유지 또는 SGOV 파킹"
       }
+    },
+    "short_desk_review": {
+      "status": "PROPOSED — 검토 완료, 주문 미집행 (사용자 승인 대기)",
+      "reviewed_at_kst": "2026-11-17 11:57:07 KST",
+      "engine": "core/short_desk.py",
+      "result_file": "data/short_desk_review.json",
+      "authorization": "동훈님 2026-11-17 지시 — 다른 종목(숏 포함) 매수 검토 + 최신 논문·트레이더 노하우로 수익 알고리즘 보강",
+      "verdict_summary": {
+        "adopted_mechanical_shorts": 0,
+        "conditional": [
+          "SOXS",
+          "NVDS"
+        ],
+        "rejected": 11,
+        "sweep_tested": 105,
+        "sweep_positive": 4
+      },
+      "key_evidence": {
+        "carry": "SOXS 1년 -92.3% / 2년 -98.8%, 일평균 -0.50%(오버나이트 -0.287% + 장중 -0.223%). SOXL 2년 +76.2%.",
+        "vix_gate": "VIX>=24 게이트 SOXS 매수 52건 승률 17.3%, 건당 -1.12% — 급등 후 평균회귀",
+        "only_positive_structure": "NVDA 실적 반응일 갭>=+2% → SOXS 시가매수·종가청산 19회 건당 +2.77%(승률 47.4%, t=1.37, 강도 중간)",
+        "bracket_warning": "타이트 손절(TP3/SL1.5)을 넣으면 +2.77% → +0.80%로 엣지 소멸"
+      },
+      "earnings_gap_stats": [
+        {
+          "ticker": "SOXS",
+          "subset": "갭>=+2%",
+          "n": 19,
+          "net_mean_pct": 2.67,
+          "median_pct": -0.29,
+          "win_pct": 47.4,
+          "worst_pct": -7.7,
+          "best_pct": 23.3,
+          "t_stat": 1.37,
+          "strength": "중간"
+        },
+        {
+          "ticker": "SQQQ",
+          "subset": "갭>=+2%",
+          "n": 19,
+          "net_mean_pct": 1.39,
+          "median_pct": -0.6,
+          "win_pct": 42.1,
+          "worst_pct": -3.5,
+          "best_pct": 13.5,
+          "t_stat": 1.27,
+          "strength": "중간"
+        },
+        {
+          "ticker": "NVDS",
+          "subset": "갭>=+2%",
+          "n": 7,
+          "net_mean_pct": 0.07,
+          "median_pct": -0.9,
+          "win_pct": 42.9,
+          "worst_pct": -3.4,
+          "best_pct": 7.8,
+          "t_stat": 0.05,
+          "strength": "낮음"
+        }
+      ],
+      "plan_proposed": [
+        {
+          "when": "11-17 23:30 개장",
+          "action": "숏 신규 매수 없음",
+          "why": "VIX 22.91 < 게이트 24.0 · 실적 20분 전 신규 레버리지 노출 금지(신중 모드 11-18 06:20까지)"
+        },
+        {
+          "when": "11-18 23:25 (반응일 개장 5분 전)",
+          "action": "NVDA 시가 확인 → 2% 이상 갭업일 때만 진입",
+          "trigger_price_usd": 159.26,
+          "reference_close_usd": 156.14
+        },
+        {
+          "when": "11-18 23:30",
+          "condition": "NVDA 시가 ≥ $159.26",
+          "order": {
+            "ticker": "SOXS",
+            "side": "BUY",
+            "qty": 1,
+            "type": "LIMIT",
+            "limit_basis": "개장가 +0.3% 이내",
+            "est_price_usd": 59.18,
+            "est_cost_usd": 59.18
+          },
+          "exit": {
+            "type": "TIME",
+            "at_kst": "05:55",
+            "rule": "종가 청산(시장가)",
+            "disaster_stop_pct": -8.0,
+            "disaster_stop_usd": 54.45
+          },
+          "expected": {
+            "net_mean_pct": 2.77,
+            "win_pct": 47.4,
+            "expected_usd": 1.64,
+            "worst_usd": -4.5,
+            "n": 19,
+            "t_stat": 1.37,
+            "strength": "중간"
+          },
+          "skip_if": "갭 < +2% → 미진입(갭다운/보합 20회 기대 -1.49%)"
+        },
+        {
+          "when": "대안(헤지 목적)",
+          "action": "SOXS 1주 = SOX 노출 $177.5 상쇄",
+          "detail": "현 SOX 롱 노출 $292.6(SOXL 2주×3배) → $115.1로 축소. 2주면 사실상 중립($355 상쇄, 비용 $118.4)."
+        }
+      ],
+      "note": "검토 전용. 승인 후 개장 세션에서 신호 확인 시 scripts/monitor_and_exit.py가 집행합니다."
+    },
+    "exit_v2_chandelier": {
+      "status": "APPLIED — 신규 진입분 기본 청산 규칙 (2026-11-17 A/B 검증)",
+      "mode": "chandelier_v2",
+      "params": {
+        "trail_atr_mult": 0.9,
+        "initial_sl_atr_mult": 0.75,
+        "sl_min_pct": 1.5,
+        "sl_max_pct": 8.0,
+        "be_after_atr": 1.0,
+        "max_hold_sessions": 3
+      },
+      "ab_result": {
+        "SOXL": {
+          "v1_ladder_hold3": {
+            "n": 39,
+            "win_pct": 20.5,
+            "ev_pct": -1.309,
+            "median_pct": -2.74,
+            "profit_factor": 0.38,
+            "worst_pct": -2.74,
+            "best_pct": 4.26,
+            "t_stat": -3.0
+          },
+          "v2_trail_sl075_hold3": {
+            "n": 39,
+            "win_pct": 51.3,
+            "ev_pct": 2.48,
+            "median_pct": 0.23,
+            "profit_factor": 1.84,
+            "worst_pct": -8.24,
+            "best_pct": 26.76,
+            "t_stat": 1.46
+          },
+          "v2_trail_sl075_hold5": {
+            "n": 39,
+            "win_pct": 48.7,
+            "ev_pct": 2.438,
+            "median_pct": -0.09,
+            "profit_factor": 1.78,
+            "worst_pct": -8.24,
+            "best_pct": 35.62,
+            "t_stat": 1.32
+          },
+          "v2_trail_sl050_hold3": {
+            "n": 39,
+            "win_pct": 41.0,
+            "ev_pct": 1.412,
+            "median_pct": -3.48,
+            "profit_factor": 1.4,
+            "worst_pct": -8.24,
+            "best_pct": 26.76,
+            "t_stat": 0.83
+          },
+          "v2_trail_sl100_hold5": {
+            "n": 39,
+            "win_pct": 48.7,
+            "ev_pct": 2.429,
+            "median_pct": -0.09,
+            "profit_factor": 1.77,
+            "worst_pct": -8.24,
+            "best_pct": 35.62,
+            "t_stat": 1.31
+          }
+        },
+        "TQQQ": {
+          "v1_ladder_hold3": {
+            "n": 51,
+            "win_pct": 41.2,
+            "ev_pct": -0.332,
+            "median_pct": -1.74,
+            "profit_factor": 0.71,
+            "worst_pct": -2.74,
+            "best_pct": 4.26,
+            "t_stat": -1.11
+          },
+          "v2_trail_sl075_hold3": {
+            "n": 51,
+            "win_pct": 45.1,
+            "ev_pct": 0.701,
+            "median_pct": -1.79,
+            "profit_factor": 1.34,
+            "worst_pct": -8.24,
+            "best_pct": 19.31,
+            "t_stat": 0.79
+          },
+          "v2_trail_sl075_hold5": {
+            "n": 51,
+            "win_pct": 43.1,
+            "ev_pct": 0.841,
+            "median_pct": -1.8,
+            "profit_factor": 1.39,
+            "worst_pct": -8.24,
+            "best_pct": 17.92,
+            "t_stat": 0.91
+          },
+          "v2_trail_sl050_hold3": {
+            "n": 51,
+            "win_pct": 41.2,
+            "ev_pct": 0.951,
+            "median_pct": -2.16,
+            "profit_factor": 1.53,
+            "worst_pct": -6.52,
+            "best_pct": 19.31,
+            "t_stat": 1.13
+          },
+          "v2_trail_sl100_hold5": {
+            "n": 51,
+            "win_pct": 43.1,
+            "ev_pct": 0.701,
+            "median_pct": -1.8,
+            "profit_factor": 1.31,
+            "worst_pct": -8.24,
+            "best_pct": 17.92,
+            "t_stat": 0.75
+          }
+        }
+      },
+      "scope": "브래킷에 처음 등록되는 신규 진입분만. 기존 보유 SOXL·TQQQ·NVDA 브래킷은 등록된 레벨 유지(변경 없음).",
+      "why": "v1 사다리는 SL이 2.5%로 클램프돼 SOXL(ATR 27%)에서 0.09×ATR — 39건 중 31건 손절(-1.31%/건). v2는 +2.48%/건.",
+      "implemented_in": [
+        "core/avg_anchor_engine.py (EXIT_V2, build_v2_bracket, apply_to_brackets)",
+        "scripts/monitor_and_exit.py (chandelier_v2_exit)"
+      ]
     }
   },
   "universe": [

@@ -72,6 +72,32 @@ LOCKED_LEVELS: Dict[str, Dict[str, float]] = {
     "NVDA": {"tp1": 173.0, "sl": 150.0},
 }
 CARRY_TICKERS = {"SGOV"}
+
+# ---------------------------------------------------------------------------
+# EXIT v2 — 샹들리에 트레일 청산 (2026-11-17 A/B 검증)
+#
+# 왜 바꾸나: v1 사다리는 TP1 0.35×ATR·SL 0.25×ATR 인데 SL이 2.5%로 클램프돼 있다.
+# 현재 SOXL ATR은 27%이므로 2.5%는 0.09×ATR — 정상 노이즈에도 걸리는 손절이다.
+# 2년 60분봉 A/B(왕복 0.24% 차감, DIP_SWING 진입 39/51건):
+#   SOXL  v1 -1.309%/건(승률 20.5%, 39건 중 31건 손절) → v2 +2.48%/건(승률 51.3%, PF 1.84)
+#   TQQQ  v1 -0.332%/건(승률 41.2%)                → v2 +0.70%/건(승률 45.1%, PF 1.34)
+# 두 종목 모두 개선되고 초기손절 0.5~1.0×ATR 구간에서 부호가 유지된다(t 0.8~1.5, '중간' 강도).
+# 적용 범위: 브래킷에 처음 등록되는 신규 진입분만. 이미 열린 SOXL·TQQQ·NVDA 브래킷은 건드리지 않는다.
+EXIT_V2: Dict[str, Any] = {
+    "mode": "chandelier_v2",
+    "trail_atr_mult": 0.9,
+    "initial_sl_atr_mult": 0.75, "sl_min_pct": 1.5, "sl_max_pct": 8.0,
+    "be_after_atr": 1.0, "breakeven_pct": 0.34,
+    "max_hold_sessions": 3,
+    "applies_to": "신규 진입분만 (기존 보유 브래킷 유지)",
+    "evidence": {
+        "window": "2년 60분봉 경로 · 왕복 0.24% 차감 · DIP_SWING(RSI2≤20·%B≤0.15·RVOL≥1.0) 진입",
+        "before_v1": {"SOXL_ev_pct": -1.309, "SOXL_win_pct": 20.5, "TQQQ_ev_pct": -0.332, "TQQQ_win_pct": 41.2},
+        "after_v2": {"SOXL_ev_pct": 2.48, "SOXL_win_pct": 51.3, "SOXL_pf": 1.84, "SOXL_t": 1.46,
+                     "TQQQ_ev_pct": 0.701, "TQQQ_win_pct": 45.1, "TQQQ_pf": 1.34, "TQQQ_t": 0.79},
+        "tradeoff": "1건 최대손실이 -2.74%에서 -8.24%로 커진다(ATR 27% 기준). 1주 위험 $4~$10 = 계좌 0.5~1.1%.",
+    },
+}
 # NH 주문체결내역(/gbstock/inquiry/v1/unexecuted) 실측 — 2026-11-17 11:15 KST 조회
 FILLS = {
     "SOXL": {"order_no": 249542, "order_date": "2026-11-16", "fill_price": 50.43, "qty": 2},
@@ -327,12 +353,47 @@ def build_plan(positions: List[Dict[str, Any]], techs: Dict[str, Any], cash_usd:
     }
 
 
+def build_v2_bracket(lad: Dict[str, Any], prev: Dict[str, Any]) -> Dict[str, Any]:
+    """신규 진입분용 v2 브래킷 — 샹들리에 트레일 + 초기 손절 0.75×ATR."""
+    v = EXIT_V2
+    entry = float(lad["avg_price"])
+    atr = float(lad.get("atr_pct") or 6.0)
+    sl_pct = _clamp(v["initial_sl_atr_mult"] * atr, v["sl_min_pct"], v["sl_max_pct"])
+    return {
+        "bought_qty": int(lad["qty"]), "entry_price": entry, "planned_price": entry,
+        "exit_mode": v["mode"], "bracket_version": "chandelier_v2",
+        "trail_atr_mult": v["trail_atr_mult"], "be_after_atr": v["be_after_atr"],
+        "breakeven_pct": v["breakeven_pct"], "max_hold_sessions": v["max_hold_sessions"],
+        "tp1": None, "tp1_qty": 0, "tp1_filled": False,
+        "tp2": None, "tp2_qty": 0, "tp2_filled": False, "runner_qty": 0,
+        "sl": round(entry * (1 - sl_pct / 100), 2), "initial_sl_pct": round(sl_pct, 2),
+        "breakeven_stop": round(entry * (1 + v["breakeven_pct"] / 100), 2),
+        "sl_triggered": False, "closed": False,
+        "atr_pct_at_plan": round(atr, 2),
+        "sl_active_after_kst": lad.get("sl_active_after_kst") or PARAMS["sl_active_after_kst"],
+        "highest_high": max(entry, float(lad.get("market_price") or entry)),
+        "opened_at": prev.get("opened_at"),
+        "note": (f"EXIT v2 — 샹들리에 {v['trail_atr_mult']}×ATR 트레일, 초기손절 {round(sl_pct,2)}% "
+                 f"({v['initial_sl_atr_mult']}×ATR {atr:.1f}%), 1ATR 전진 후 본전 하한, {v['max_hold_sessions']}세션 시간청산"),
+        "evidence": EXIT_V2["evidence"],
+    }
+
+
 def apply_to_brackets(plan: Dict[str, Any], brackets: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """평단 기준 사다리를 active_brackets.json 형식으로 등록한다."""
+    """평단 기준 브래킷 등록.
+
+    이미 브래킷이 있는 종목은 기존 방식(v1 사다리/검증 레벨)을 그대로 유지하고,
+    새로 등록되는 종목만 v2(샹들리에) 청산 규칙을 쓴다 — 열린 포지션의 주문 레벨을
+    조용히 바꾸지 않기 위해서다.
+    """
     brackets = dict(brackets or {})
     for lad in plan.get("ladders", []):
         tk = lad["ticker"]
         prev = brackets.get(tk) or {}
+        is_new = not prev
+        if is_new and not lad.get("levels_locked"):
+            brackets[tk] = build_v2_bracket(lad, prev)
+            continue
         b: Dict[str, Any] = {
             "bought_qty": int(lad["qty"]),
             "entry_price": lad["avg_price"],

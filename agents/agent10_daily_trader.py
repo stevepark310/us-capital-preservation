@@ -14,6 +14,8 @@ trades that did not exist. Now it:
   * never marks an order as filled.
 """
 from datetime import datetime, timedelta, timezone
+import json
+import os
 from typing import Dict, Any, List
 
 from agents.base import BaseAgent
@@ -249,6 +251,35 @@ class DailyTraderAgent(BaseAgent):
         except Exception as e:
             avg_anchor_plan = {"error": str(e)}
 
+        # ---- 숏/인버스 매수 검토 데스크 (2026-11-17 지시) — data/short_desk_review.json 결과를 그대로 싣는다
+        short_desk: Dict[str, Any] = {}
+        try:
+            sd_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                   "data", "short_desk_review.json")
+            with open(sd_path, "r", encoding="utf-8") as f:
+                sd = json.load(f)
+            earn = sd.get("earnings_event") or {}
+            gap_rows = [s for s in (earn.get("stats") or []) if s.get("subset", "").startswith("갭>=")]
+            ab = (sd.get("long_side_ab") or {}).get("variants") or {}
+            short_desk = {
+                "reviewed_at_kst": sd.get("generated_at_kst"),
+                "status": "검토 전용 · 주문 없음",
+                "conclusion": sd.get("conclusion"),
+                "verdicts": [{"ticker": v.get("ticker"), "verdict": v.get("verdict"),
+                              "price_usd": v.get("price_usd"), "ret_1y_pct": v.get("ret_1y_pct"),
+                              "reason": v.get("reason")} for v in (sd.get("verdicts") or [])][:6],
+                "rejected_count": len(sd.get("rejected") or []),
+                "screened": len(sd.get("screening") or []),
+                "sweep": {k: (sd.get("strategy_sweep") or {}).get(k) for k in ("tested", "positive_cells")},
+                "earnings_event": {"events": earn.get("events"), "gap_stats": gap_rows,
+                                   "trigger_pct": 2.0, "note": earn.get("note")},
+                "long_side_ab": ab,
+                "plan": sd.get("plan"),
+                "hedge_table": (sd.get("hedge_table") or [])[:3],
+            }
+        except Exception as e:
+            short_desk = {"error": str(e)}
+
         preserved = {
             "dip_swing_approval": f"{appr_block['status']} ({appr_block.get('approved_at_kst')})",
             "nvda_levels_locked": "TP $173.0 / SL $150.0 — 사용자 지정, 변경 금지",
@@ -296,6 +327,7 @@ class DailyTraderAgent(BaseAgent):
             "crypto_weekend_alert": weekend_alert,
             "preserved_controls": preserved,
             "avg_anchor_plan": avg_anchor_plan,
+            "short_desk": short_desk,
             "market_stance": stance,
             "key_takeaway": (
                 f"{clock.get('label_ko')}. 원장 정합성 {review['status']} (이슈 {len(review['issues'])}건, "

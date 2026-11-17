@@ -568,6 +568,40 @@ def post_agent10(r: Dict[str, Any], clock) -> Dict[str, Any]:
         f"• BEAR ALPHA: {pres.get('bear_alpha_gate')}\n"
         f"• {pres.get('intraday_rotation')}"
     )
+    sd = r.get("short_desk") or {}
+    sd_txt = ""
+    if sd and not sd.get("error"):
+        vd = sd.get("verdicts") or []
+        lines = [f"• {v.get('ticker')} ${_fmt(v.get('price_usd'))} ({_fmt(v.get('ret_1y_pct'))}%/1년) → {v.get('verdict')} — {v.get('reason')}"
+                 for v in vd]
+        gs = (sd.get("earnings_event") or {}).get("gap_stats") or []
+        g_txt = " · ".join(f"{g.get('ticker')} {_fmt(g.get('net_mean_pct'))}%(n={g.get('n')}, 승률 {g.get('win_pct')}%, {g.get('strength')})"
+                           for g in gs) or "측정 불가"
+        ab_lines = []
+        for tk, v in (sd.get("long_side_ab") or {}).items():
+            a1 = v.get("v1_ladder_hold3") or {}
+            a2 = v.get("v2_trail_sl075_hold3") or {}
+            if a1 and a2:
+                ab_lines.append(f"• {tk} v1 {_fmt(a1.get('ev_pct'))}%/건(승률 {a1.get('win_pct')}%) → "
+                                f"v2 {_fmt(a2.get('ev_pct'))}%/건(승률 {a2.get('win_pct')}%, PF {a2.get('profit_factor')})")
+        steps = (sd.get("plan") or {}).get("steps") or []
+        def _step(s: Dict[str, Any]) -> str:
+            if s.get("order"):
+                o = s["order"]
+                ex = s.get("exit") or {}
+                return (f"• {s.get('when')}: {s.get('condition')} → {o.get('ticker')} {o.get('side')} "
+                        f"{o.get('qty')}주(약 ${_fmt(o.get('est_price_usd'))}), {ex.get('at_kst')} 종가 청산, "
+                        f"재난손절 {ex.get('disaster_stop_pct')}%")
+            return f"• {s.get('when')}: {s.get('action') or s.get('condition')}"
+        step_txt = "\n".join(_step(x) for x in steps[:4])
+        sweep = sd.get("sweep") or {}
+        sd_txt = ("\n\n[숏·인버스 매수 검토 — 실측 판정]\n" + ("\n".join(lines) if lines else "• 판정 없음")
+                  + f"\n• 채택 0건 · 스윕 {sweep.get('tested')}조합 중 플러스 {sweep.get('positive_cells')}개(전부 다중검정 탈락)"
+                    f" · 대표 탈락 후보 {sd.get('rejected_count')}건 사유 보존"
+                  + f"\n\n[NVDA 반응일 갭업 되돌림 — 유일한 플러스 구조]\n• 갭≥+2% 숏ETF 세션내: {g_txt}"
+                  + "\n\n[롱 사다리 A/B — v2 샹들리에(신규 진입 기본값)]\n" + ("\n".join(ab_lines) or "• A/B 없음")
+                  + "\n\n[오늘 밤 집행 검토안 — 승인 대기]\n" + (step_txt or "• 계획 없음"))
+
     content = (
         f"원장 정합성 {r.get('consistency_check', {}).get('status')} "
         f"(이슈 {len(r.get('consistency_check', {}).get('issues', []))}건, 거래일 플래그 "
@@ -576,13 +610,13 @@ def post_agent10(r: Dict[str, Any], clock) -> Dict[str, Any]:
         f"평가 ${_fmt(led.get('equity_usd'))} ({_fmt(led.get('equity_krw'), 0)}원)\n"
         f"현금 ${_fmt(led.get('cash_usd'))} / {_fmt(led.get('cash_krw'), 0)}원 ({led.get('cash_pct')}%) · 환율 {led.get('fx_rate')}원 "
         f"({led.get('fx_source')})\n\n[브래킷 재산정]\n" + ("\n".join(rows) if rows else "• 활성 브래킷 없음") +
-        "\n\n[개장 대기 계획]\n" + "\n".join(ptxt) + swing_txt + aapd_txt + controls_txt +
+        "\n\n[개장 대기 계획]\n" + "\n".join(ptxt) + swing_txt + aapd_txt + sd_txt + controls_txt +
         f"\n\n다음 개장 {r.get('next_open_kst')} · 상태 {r.get('execution_status')}"
     )
     return _post(10, clock, "⚡ 집행관 — 원장·브래킷·선행지표 사이징·파킹·환율",
                  f"[{clock['now_kst'][11:16]} 집행] 현금 {_fmt(led.get('cash_pct'))}% (${_fmt(led.get('cash_usd'))}) · "
                  f"LEI 상한 {lic.get('position_cap_pct')}% · SGOV 파킹 월 ${lic and _fmt((park.get('sgov_carry') or {}).get('monthly_interest_usd'))} · "
-                 f"태세 {r.get('market_stance')} · 계획 {len(plan)}건",
+                 f"태세 {r.get('market_stance')} · 계획 {len(plan)}건 · 숏 검토 {sd.get('screened') or len(sd.get('verdicts') or [])}종목",
                  content,
                  [{"label": "평가자산", "value": f"${_fmt(led.get('equity_usd'))}", "highlight": True},
                   {"label": "오늘 목표", "value": f"+${_fmt((aapd.get('summary') or {}).get('daily_target_usd'))}", "highlight": True},

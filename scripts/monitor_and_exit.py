@@ -74,7 +74,7 @@ def save_brackets(b: Dict[str, Any]) -> None:
 
 def reanchor(bracket: Dict[str, Any], ticker: str, atr_pct: float, sentiment: float) -> Dict[str, Any]:
     """Recompute levels from the realised fill; record the provenance."""
-    if bracket.get("bracket_version") in ("fill_anchored_v2", "swing_validated"):
+    if bracket.get("bracket_version") in ("fill_anchored_v2", "swing_validated", "chandelier_v2"):
         return bracket
     qty = int(bracket.get("bought_qty", 1) or 1)
     hard_floor = float(bracket["sl"]) if ticker == "NVDA" else None
@@ -119,6 +119,46 @@ def reanchor(bracket: Dict[str, Any], ticker: str, atr_pct: float, sentiment: fl
     bracket["recalc_note"] = f"{before} → TP1 {bracket.get('tp1')} / TP2 {bracket['tp2']} / SL {bracket['sl']}"
     bracket.setdefault("highest_high", bracket.get("entry_price"))
     return bracket
+
+
+def chandelier_v2_exit(bracket: Dict[str, Any], price: float, clock: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """v2 청산 — 샹들리에 트레일(0.9ATR) + 초기손절 0.75ATR + 3세션 시간청산.
+
+    근거(2026-11-17 A/B, 2년 60분봉 39~51건): 고정 사다리(v1)는 SOXL ATR 27%에서
+    손절이 2.5%로 클램프돼 39건 중 31건이 손절(-1.31%/건)이었다. 트레일 v2는
+    SOXL +2.48%/건, TQQQ +0.70%/건으로 두 종목 모두 개선됐다.
+    부분익절 없이 전량 1회 청산한다(계좌 1~2주 단위에서 분할은 수수료만 늘린다).
+    """
+    session = clock.get("session_date")
+    if bracket.get("last_session_date") and bracket["last_session_date"] != session:
+        bracket["sessions_held"] = int(bracket.get("sessions_held", 1) or 1) + 1
+    bracket["last_session_date"] = session
+    bracket.setdefault("sessions_held", 1)
+    entry = float(bracket.get("entry_price") or 0)
+    if entry <= 0:
+        return None
+    atr_pct = float(bracket.get("atr_pct_at_plan") or (bracket.get("ladder_params") or {}).get("atr_pct") or 6.0)
+    atr_abs = entry * atr_pct / 100.0
+    k = float(bracket.get("trail_atr_mult", 0.9))
+    hh = max(float(bracket.get("highest_high") or entry), float(price))
+    bracket["highest_high"] = hh
+    trail = hh - k * atr_abs
+    if hh >= entry + float(bracket.get("be_after_atr", 1.0)) * atr_abs:
+        trail = max(trail, entry * (1 + float(bracket.get("breakeven_pct", 0.34)) / 100))
+    bracket["trail_stop"] = round(trail, 2)
+    max_hold = int(bracket.get("max_hold_sessions", 3) or 3)
+    late = str(clock.get("now_kst", ""))[11:16] >= "05:45"
+
+    if not time_reached(clock, bracket.get("sl_active_after_kst")):
+        return None                       # 개장 15분 유예
+    if float(price) <= float(bracket.get("sl", 0)):
+        return {"reason": f"v2 STOP (${price:.2f} ≤ ${bracket['sl']:.2f})", "close": True, "stop": True}
+    if float(price) <= trail:
+        return {"reason": f"v2 TRAIL (${price:.2f} ≤ ${trail:.2f}, 최고 ${hh:.2f} − {k}×ATR)",
+                "close": True, "stop": False}
+    if int(bracket.get("sessions_held", 1)) >= max_hold and late:
+        return {"reason": f"v2 TIME EXIT ({max_hold}세션 종가 청산)", "close": True, "stop": False}
+    return None
 
 
 def place_sell(broker, ticker: str, qty: int, price: float, reason: str, dry: bool) -> Dict[str, Any]:
@@ -242,6 +282,16 @@ def run_check() -> List[Dict[str, Any]]:
                     b["sl_triggered"] = True
                 if decision["close"]:
                     b["closed"] = True
+            brackets[t] = b
+            continue
+
+        # ---- v2 샹들리에 트레일 (2026-11-17 A/B 검증 — 신규 진입 기본 청산 규칙)
+        if b.get("exit_mode") == "chandelier_v2":
+            decision = chandelier_v2_exit(b, float(price), clock)
+            if decision and remaining > 0 and not (decision["stop"] and b.get("sl_triggered")):
+                actions.append(place_sell(broker, t, remaining, price, decision["reason"], dry_run))
+                b["sl_triggered"] = bool(decision["stop"])
+                b["closed"] = True
             brackets[t] = b
             continue
 
