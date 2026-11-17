@@ -291,8 +291,14 @@ def strategy_sweep() -> Dict[str, Any]:
                     continue
                 a = np.array(nets)
                 t = float(a.mean() / (a.std(ddof=1) / np.sqrt(len(a)))) if a.std() > 0 else 0.0
+                eq, peak, mdd = 426.63, 426.63, 0.0
+                px_unit = opens[days[idx[0]]] if idx else 1.0
+                for x in a:
+                    eq += x / 100 * px_unit * max(1, int(426.63 // max(px_unit, 1e-9)))
+                    peak = max(peak, eq); mdd = min(mdd, eq / peak - 1)
                 results.append({"ticker": tk, "signal": name, "tp_pct": tp_pct, "sl_pct": sl_pct,
                                 "max_sessions": hold, "n": len(a), "win_pct": round(100 * float((a > 0).mean()), 1),
+                                "mdd_pct_1share_acct": round(100 * mdd, 1),
                                 "ev_pct": round(float(a.mean()), 3),
                                 "profit_factor": round(float(a[a > 0].sum() / -a[a < 0].sum()), 2) if (a < 0).any() else None,
                                 "t_stat": round(t, 2)})
@@ -499,7 +505,11 @@ def long_ladder_ab() -> Dict[str, Any]:
             return None
         a = np.array(nets)
         t = float(a.mean() / (a.std(ddof=1) / np.sqrt(len(a)))) if a.std() > 0 else 0.0
+        eq = 100.0; peak = 100.0; mdd = 0.0
+        for x in a:
+            eq *= (1 + x / 100); peak = max(peak, eq); mdd = min(mdd, eq / peak - 1)
         return {"n": len(a), "win_pct": round(100 * float((a > 0).mean()), 1),
+                "mdd_pct_full_notional": round(100 * mdd, 1),
                 "ev_pct": round(float(a.mean()), 3), "median_pct": round(float(np.median(a)), 2),
                 "profit_factor": round(float(a[a > 0].sum() / -a[a < 0].sum()), 2) if (a < 0).any() else None,
                 "worst_pct": round(float(a.min()), 2), "best_pct": round(float(a.max()), 2), "t_stat": round(t, 2)}
