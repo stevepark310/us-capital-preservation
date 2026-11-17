@@ -14,11 +14,58 @@
     "reason": "NVDA 실적 발표(11/18 06:20 KST) 전 변동성 및 반도체 갭락 방어 (사용자 승인)",
     "opening_blackout_kst": "23:30~00:00 신규 매수 전면 보류",
     "dip_swing_soxl_hold": true,
-    "intraday_scalp_rule": "00:00 이후 반등 확인(VWAP 상회·5분봉 저점) 시 현금($634.77)의 15~20%($100~$130) 이내 소액 회전 지속",
+    "intraday_scalp_rule": "00:00 이후 DIP_SWING 등급 신호(RSI2<=20 · %B<=0.15 · RVOL>=1.0)가 나올 때만 주문가능 현금의 15~20%($64~$85)로 1회 진입. 5분봉 VWAP 돌파 단독 스캘핑은 60일 실측 건당 순기대 -0.29%(SOXL)/-0.30%(TQQQ)로 중단(2026-11-17).",
     "bear_alpha_rule": "VIX >= 24.0 + 확인 신호 2개 이상 시 SOXS/SQQQ 분할 숏 대기",
-    "nvda_sl_usd": 150.0
+    "nvda_sl_usd": 150.0,
+    "cash_reference_usd": 426.63,
+    "cash_reference_note": "NH 잔고 실측(2026-11-17 11:15 KST) 주문가능 현금. 예수금 $636.01에서 미결제정산 -$209.38을 제외한 값",
+    "updated_at_kst": "2026-11-17 11:20",
+    "avg_anchor_engine": {
+      "enabled": true,
+      "engine": "AVG_ANCHOR_PROFIT_DESK v1",
+      "plan_file": "data/avg_anchor_plan.json",
+      "levels": {
+        "NVDA": {
+          "avg": 173.3,
+          "tp": 173.0,
+          "sl": 150.0,
+          "locked": true
+        },
+        "SOXL": {
+          "avg": 50.43,
+          "tp1": 51.94,
+          "tp2": 53.46,
+          "sl": 48.92,
+          "force_exit_kst": "05:40"
+        },
+        "TQQQ": {
+          "avg": 54.0,
+          "tp1": 55.59,
+          "tp2": 57.18,
+          "sl": 52.64,
+          "force_exit_kst": "05:40"
+        }
+      },
+      "guards": {
+        "sl_grace_until_kst": "23:45",
+        "force_exit_kst": "05:40",
+        "force_exit_reason": "NVDA 3분기 실적(2026-11-18 06:20 KST) 전 3배 레버리지 노출 축소",
+        "no_averaging_down": "실적 전 물타기·추가 매수 금지"
+      },
+      "authorization": "동훈님 2026-11-17 11:12 지시 — 평단가 기준으로 오늘 수익을 낼 수 있도록 전 직원에게 수익 알고리즘 수립 지시",
+      "cash_engine": {
+        "budget_usd": 85.0,
+        "max_rounds": 1,
+        "gate": "DIP_SWING 등급 신호만 (5분봉 VWAP 돌파 단독 진입 폐기)",
+        "evidence": "data/scalp_ev_stats.json (yfinance 5분봉 60일 실측)",
+        "fallback": "신호 없으면 현금 유지 또는 SGOV 파킹"
+      }
+    }
   },
-  "universe": ["SOXL", "TQQQ"],
+  "universe": [
+    "SOXL",
+    "TQQQ"
+  ],
   "entry_conditions": {
     "rsi2_max": 20.0,
     "pct_b_max": 0.15,

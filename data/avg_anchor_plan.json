@@ -1,0 +1,232 @@
+{
+  "engine": "AVG_ANCHOR_PROFIT_DESK",
+  "engine_ko": "평단 기준 일일 수익 엔진",
+  "version": "1.0",
+  "generated_at_kst": "2026-11-17 11:23:50 KST",
+  "directive": {
+    "given_at_kst": "2026-11-17 11:12",
+    "quote": "체결됬는데 지금 계좌 호출해서 최신화해줘. 잔고에서 보면 되잖아. 그리고 지금 평단가 기준으로 오늘 수익을 내야하니까 전반적으로 모든 직원들에게 강력한 수익 알고리즘을 창출할 수 있도록 지시해줘.",
+    "interpretation": "실계좌 체결 평단을 기준점으로 오늘 세션에서 실현 수익을 만들며, 손실은 짧게 자른다."
+  },
+  "market": {
+    "phase": "OFF_HOURS",
+    "next_open_kst": "2026-11-17 23:30 KST",
+    "vix": 22.91,
+    "earnings": {
+      "ticker": "NVDA",
+      "at_kst": "2026-11-18 06:20"
+    }
+  },
+  "params": {
+    "tp1_atr_mult": 0.35,
+    "tp2_atr_mult": 0.7,
+    "sl_atr_mult": 0.25,
+    "tp1_min_pct": 1.5,
+    "tp1_max_pct": 3.0,
+    "tp2_min_pct": 3.0,
+    "tp2_max_pct": 6.0,
+    "sl_min_pct": 1.5,
+    "sl_max_pct": 2.5,
+    "breakeven_pct": 0.34,
+    "sl_active_after_kst": "23:45",
+    "force_exit_kst": "05:40",
+    "session_close_kst": "06:00",
+    "earnings_kst": "2026-11-18 06:20",
+    "scalp": {
+      "budget_pct_min": 15.0,
+      "budget_pct_max": 20.0,
+      "budget_cap_usd": 85.0,
+      "tp_pct": 1.8,
+      "sl_pct": 1.2,
+      "time_stop_min": 90,
+      "max_rounds": 1,
+      "first_entry_after_kst": "00:00",
+      "last_entry_kst": "04:30",
+      "universe": [
+        "SOXL",
+        "TQQQ"
+      ],
+      "entry_gate": "DIP_SWING 등급 신호만 (RSI2<=20 · %B<=0.15 · RVOL>=1.0) — 5분봉 VWAP 돌파 단독 진입은 폐기",
+      "suspended_rule": "5분봉 VWAP 상향 돌파 + 90분 스캘핑(+1.8%/-1.2%)은 60일 실측에서 건당 총기대 -0.049%(SOXL)/-0.056%(TQQQ), 왕복 0.24% 수수료 차감 후 -0.29%/-0.30%로 음의 기대값 → 기계적 반복 회전 중단(2026-11-17 실측)"
+    },
+    "hedge": {
+      "enabled_gate": "VIX >= 24.0 + 확인 신호 2개 이상 (DXY>=104.5 / 센티먼트<40 등)",
+      "instruments": [
+        "SOXS",
+        "SQQQ"
+      ],
+      "max_notional_usd": 60.0
+    }
+  },
+  "ladders": [
+    {
+      "ticker": "NVDA",
+      "qty": 1,
+      "avg_price": 173.3,
+      "atr_pct": 6.3,
+      "breakeven": 173.89,
+      "tp1": 173.0,
+      "tp1_pct": -0.17,
+      "tp2": null,
+      "tp2_pct": null,
+      "sl": 150.0,
+      "sl_pct": -13.44,
+      "tp1_qty": 1,
+      "tp2_qty": 0,
+      "runner_qty": 0,
+      "levels_locked": true,
+      "force_exit_kst": null,
+      "expected_pnl_usd": {
+        "tp1": -0.3,
+        "tp2": 0.0,
+        "sl_full": -23.3
+      },
+      "reward_risk": null,
+      "note": "사용자 지정 레벨 유지 (TP $173.0 / SL $150.0). 엔진은 참고값만 계산."
+    },
+    {
+      "ticker": "SOXL",
+      "qty": 2,
+      "avg_price": 50.43,
+      "market_price": 50.08,
+      "atr_pct": 25.91,
+      "breakeven": 50.6,
+      "tp1": 51.94,
+      "tp1_pct": 3.0,
+      "tp2": 53.46,
+      "tp2_pct": 6.0,
+      "sl": 49.17,
+      "sl_pct": -2.5,
+      "tp1_qty": 1,
+      "tp2_qty": 1,
+      "runner_qty": 0,
+      "levels_locked": false,
+      "force_exit_kst": "05:40",
+      "sl_active_after_kst": "23:45",
+      "expected_pnl_usd": {
+        "tp1": 1.51,
+        "tp2": 3.03,
+        "sl_full": -2.52
+      },
+      "reward_risk": 1.8,
+      "measured": {
+        "available": true,
+        "tp_touch_pct": 61.8,
+        "sl_touch_pct": 53.8,
+        "grid_used": {
+          "tp_pct": 3.0,
+          "sl_pct": 2.5
+        },
+        "ev_pct_per_share": 0.038,
+        "sample_days": 249,
+        "note": "1년 일봉 근사(전일 종가 진입 가정, 장중 순서 미확인·양쪽 도달일은 손절 가정)"
+      },
+      "note": "평단 $50.43 기준 ATR 25.91% → TP1 3.0% / TP2 6.0% / SL -2.5%"
+    },
+    {
+      "ticker": "TQQQ",
+      "qty": 2,
+      "avg_price": 54.0,
+      "market_price": 53.55,
+      "atr_pct": 8.4,
+      "breakeven": 54.18,
+      "tp1": 55.59,
+      "tp1_pct": 2.94,
+      "tp2": 57.18,
+      "tp2_pct": 5.88,
+      "sl": 52.87,
+      "sl_pct": -2.1,
+      "tp1_qty": 1,
+      "tp2_qty": 1,
+      "runner_qty": 0,
+      "levels_locked": false,
+      "force_exit_kst": "05:40",
+      "sl_active_after_kst": "23:45",
+      "expected_pnl_usd": {
+        "tp1": 1.59,
+        "tp2": 3.18,
+        "sl_full": -2.26
+      },
+      "reward_risk": 2.11,
+      "measured": {
+        "available": true,
+        "tp_touch_pct": 34.9,
+        "sl_touch_pct": 45.8,
+        "grid_used": {
+          "tp_pct": 3.0,
+          "sl_pct": 2.0
+        },
+        "ev_pct_per_share": 0.059,
+        "sample_days": 249,
+        "note": "1년 일봉 근사(전일 종가 진입 가정, 장중 순서 미확인·양쪽 도달일은 손절 가정)"
+      },
+      "note": "평단 $54.00 기준 ATR 8.40% → TP1 2.94% / TP2 5.88% / SL -2.1%"
+    }
+  ],
+  "excluded": {
+    "carry_parking": [
+      "SGOV"
+    ],
+    "note": "SGOV는 무위험 캐리 파킹으로 익절·손절 대상에서 제외"
+  },
+  "cash_engine": {
+    "cash_available_usd": 426.63,
+    "budget_usd": 85.0,
+    "budget_range_usd": [
+      63.99,
+      85.0
+    ],
+    "budget_pct_of_cash": 20.0,
+    "tp_pct": 1.8,
+    "sl_pct": 1.2,
+    "time_stop_min": 90,
+    "max_rounds": 1,
+    "window_kst": "00:00~04:30",
+    "entry_gate": "DIP_SWING 등급 신호만 (RSI2<=20 · %B<=0.15 · RVOL>=1.0) — 5분봉 VWAP 돌파 단독 진입은 폐기",
+    "universe": [
+      "SOXL",
+      "TQQQ"
+    ],
+    "expected_pnl_usd": 1.53
+  },
+  "hedge": {
+    "enabled_gate": "VIX >= 24.0 + 확인 신호 2개 이상 (DXY>=104.5 / 센티먼트<40 등)",
+    "instruments": [
+      "SOXS",
+      "SQQQ"
+    ],
+    "max_notional_usd": 60.0,
+    "armed": false,
+    "vix": 22.91
+  },
+  "guards": {
+    "sl_active_after_kst": "23:45",
+    "force_exit_kst": "05:40",
+    "force_exit_reason": "NVDA 3분기 실적(2026-11-18 06:20 KST) 전 3배 레버리지 노출 축소",
+    "no_averaging_down": "실적 전 물타기·추가 매수 금지 (NVDA 사용자 규칙 및 신중 모드 유지)",
+    "opening_blackout_kst": "23:30~00:00 신규 매수 보류",
+    "nvda_levels_locked": "TP $173.0 / SL $150.0 (사용자 지정, 엔진 미변경)",
+    "bear_alpha_gate": "VIX >= 24.0 + 확인 2개 (변경 금지)"
+  },
+  "summary": {
+    "positions_under_management": [
+      "NVDA",
+      "SOXL",
+      "TQQQ"
+    ],
+    "expected_tp_total_usd": 9.31,
+    "max_loss_at_sl_usd": -4.78,
+    "scalp_expected_usd": 0.0,
+    "scalp_suspended": true,
+    "scalp_evidence": "5분봉 VWAP 상향 돌파 + 90분 스캘핑(+1.8%/-1.2%)은 60일 실측에서 건당 총기대 -0.049%(SOXL)/-0.056%(TQQQ), 왕복 0.24% 수수료 차감 후 -0.29%/-0.30%로 음의 기대값 → 기계적 반복 회전 중단(2026-11-17 실측)",
+    "scalp_note": "현금은 SGOV 파킹 또는 DIP_SWING 등급 신호 1회에만 사용한다.",
+    "expected_best_case_usd": 9.31,
+    "expected_worst_case_usd": -4.78,
+    "daily_target_usd": 1.34,
+    "daily_target_rule": "자산의 0.15% — 실측 기대값(아래)과 같은 자릿수의 목표. 0.5% 목표는 소액 포지션에서 비현실적이어서 하향했다.",
+    "measured_expected_usd_per_session": 0.1,
+    "measured_basis": "1년 일봉 실측 TP/SL 도달확률로 계산한 하루 기대 실현손익. 2주·1주 소액 포지션에서는 0.5% 목표($4.46)에 구조적으로 미달하며, 자본(포지션 크기)을 늘리지 않는 한 하루 +$1 내외가 현실적 상한이다.",
+    "capital_constraint": "평가자산 $891.63 중 레버리지 노출이 $208.86뿐이다. 이 크기에서 사다리 기대값은 하루 $+0.10 수준이며, 하루 $1.34을 넘기려면 포지션 확대(리스크 증가) 또는 2차 익절까지 가는 날이 필요하다.",
+    "daily_target_note": "오늘 목표는 1차 익절 최소 1건(+$1.5 내외) 이상 실현. 실측 기대(+0.10)를 넘기려면 2차 익절(TP2 도달률 SOXL 42.6%)까지 가는 날이 필요하다."
+  }
+}

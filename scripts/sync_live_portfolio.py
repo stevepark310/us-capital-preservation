@@ -34,7 +34,10 @@ def sync_portfolio() -> dict:
     for p in led.get("positions", []):
         ticker = p.get("ticker")
         q = quotes.get(ticker) or {}
-        px = q.get("intraday_price") or q.get("last") or p.get("market_price") or p.get("avg_price")
+        # 브로커 표시가(NH 종가)가 있으면 그것이 계좌 평가 기준이다. Yahoo 일봉이 미확정(NaN)이거나
+        # 시간외 호가와 섞여 원장과 어긋나는 경우가 있어 실측 잔고를 우선한다.
+        broker_mark = p.get("broker_mark_price")
+        px = broker_mark or q.get("intraday_price") or q.get("last") or p.get("market_price") or p.get("avg_price")
         avg = float(p.get("avg_price") or 0)
         qty = int(p.get("qty") or 0)
         unreal = round((float(px) - avg) * qty, 2) if avg and px else 0.0
@@ -44,7 +47,9 @@ def sync_portfolio() -> dict:
             "qty": qty,
             "avg_price": round(avg, 2),
             "market_price": round(float(px), 2) if px else None,
-            "price_as_of": q.get("last_bar_date") if q else None,
+            "price_as_of": p.get("price_as_of") or (q.get("last_bar_date") if q else None),
+            "broker_mark_price": broker_mark,
+            "quote_last": q.get("last"),
             "eval_usd": round(float(px) * qty, 2) if px else 0.0,
             "unrealized_usd": unreal,
             "unrealized_krw": int(round(unreal * fx_rate)),
@@ -66,6 +71,7 @@ def sync_portfolio() -> dict:
         "session_phase": clock.get("phase"),
         "price_basis": ("정규장 실시간" if clock.get("phase") == "REGULAR" else
                         "마지막 종가 기준 (휴장·시간외)"),
+        "price_source": "NH Open API 종가(fc_sec_end_pr) 우선, 없으면 Yahoo 마지막 시세",
         "fx_rate": fx_rate,
         "fx_source": led.get("fx_source"),
         "initial_funding_krw": led.get("initial_funding_krw"),
@@ -76,6 +82,10 @@ def sync_portfolio() -> dict:
         "cash_buffer_krw": led.get("cash_krw"),
         "cash_buffer_pct": led.get("cash_pct"),
         "cash_buffer_note": CASH_NOTE,
+        "cash_deposit_usd": led.get("cash_deposit_usd"),
+        "cash_pending_settlement_usd": led.get("cash_pending_settlement_usd"),
+        "account_sync": led.get("account_sync"),
+        "fills_confirmed": led.get("fills_confirmed"),
         "realized_pnl_usd": led.get("realized_pnl_usd"),
         "realized_pnl_krw": led.get("realized_pnl_krw"),
         "unrealized_pnl_usd": led.get("unrealized_pnl_usd"),

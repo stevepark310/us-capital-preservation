@@ -510,6 +510,34 @@ def post_agent10(r: Dict[str, Any], clock) -> Dict[str, Any]:
         swing_txt = (f"\n\n[DIP_SWING 오버나이트 {oa.get('status')}] {oa.get('entry_rule')} · 최대 {oa.get('max_hold_sessions')}세션 · "
                      f"1회 리스크 {oa.get('risk_per_trade_pct')}% · 최대 {oa.get('max_positions')}종목 · 상한 ${_fmt(cap.get('dip_swing_cap_usd'))}" +
                      (f"\n승인 {oa.get('approved_at_kst')} ({oa.get('approved_by')}) · {oa.get('execution_mode')}" if oa.get("approved") else ""))
+    aapd = r.get("avg_anchor_plan") or {}
+    ladder_lines = []
+    for l in (aapd.get("ladders") or []):
+        e = l.get("expected_pnl_usd") or {}
+        if l.get("levels_locked"):
+            ladder_lines.append(
+                f"• {l['ticker']} {l.get('qty')}주 · 평단 ${_fmt(l.get('avg_price'))} → "
+                f"본전 회수 매도 ${_fmt(l.get('tp1'))} / SL ${_fmt(l.get('sl'))} "
+                f"(사용자 지정 레벨 잠금 · 자동 변경 없음)")
+            continue
+        ladder_lines.append(
+            f"• {l['ticker']} {l.get('qty')}주 · 평단 ${_fmt(l.get('avg_price'))} → "
+            f"TP1 ${_fmt(l.get('tp1'))} ({l.get('tp1_pct')}%, {l.get('tp1_qty')}주, +${_fmt(e.get('tp1'))}) / "
+            f"TP2 ${_fmt(l.get('tp2'))} ({l.get('tp2_pct')}%, {l.get('tp2_qty')}주, +${_fmt(e.get('tp2'))}) / "
+            f"SL ${_fmt(l.get('sl'))} ({l.get('sl_pct')}%, ${_fmt(e.get('sl_full'))})"
+            + (" · 사용자 레벨 잠금" if l.get("levels_locked") else "")
+            + (f" · {l.get('force_exit_kst')} 강제청산" if l.get("force_exit_kst") else ""))
+    ce = aapd.get("cash_engine") or {}
+    summ = aapd.get("summary") or {}
+    gd = aapd.get("guards") or {}
+    aapd_txt = ("\n\n[평단 기준 일일 수익 엔진 — 평단 확정값 기준 사다리]\n" + ("\n".join(ladder_lines) or "• 계산 실패")
+                + (f"\n• 현금 엔진: ${_fmt(ce.get('budget_usd'))} ({ce.get('budget_pct_of_cash')}%) · "
+                   f"목표 +{ce.get('tp_pct')}% / 손절 -{ce.get('sl_pct')}% / {ce.get('time_stop_min')}분 시간손절 "
+                   f"· {ce.get('window_kst')} · 최대 {ce.get('max_rounds')}회전"
+                   if ce else "")
+                + (f"\n• 기대: 최대 +${_fmt(summ.get('expected_best_case_usd'))} / 최악 ${_fmt(summ.get('expected_worst_case_usd'))} "
+                   f"/ 오늘 목표 +${_fmt(summ.get('daily_target_usd'))}" if summ else "")
+                + f"\n• 가드: {gd.get('sl_active_after_kst')}까지 손절 유예 · {gd.get('force_exit_kst')} 레버리지 강제청산(실적 전) · 물타기 금지")
     lic = r.get("leading_indicator_controls") or {}
     park = r.get("parking_plan") or {}
     fx = r.get("fx_commentary") or {}
@@ -548,7 +576,7 @@ def post_agent10(r: Dict[str, Any], clock) -> Dict[str, Any]:
         f"평가 ${_fmt(led.get('equity_usd'))} ({_fmt(led.get('equity_krw'), 0)}원)\n"
         f"현금 ${_fmt(led.get('cash_usd'))} / {_fmt(led.get('cash_krw'), 0)}원 ({led.get('cash_pct')}%) · 환율 {led.get('fx_rate')}원 "
         f"({led.get('fx_source')})\n\n[브래킷 재산정]\n" + ("\n".join(rows) if rows else "• 활성 브래킷 없음") +
-        "\n\n[개장 대기 계획]\n" + "\n".join(ptxt) + swing_txt + controls_txt +
+        "\n\n[개장 대기 계획]\n" + "\n".join(ptxt) + swing_txt + aapd_txt + controls_txt +
         f"\n\n다음 개장 {r.get('next_open_kst')} · 상태 {r.get('execution_status')}"
     )
     return _post(10, clock, "⚡ 집행관 — 원장·브래킷·선행지표 사이징·파킹·환율",
@@ -557,6 +585,7 @@ def post_agent10(r: Dict[str, Any], clock) -> Dict[str, Any]:
                  f"태세 {r.get('market_stance')} · 계획 {len(plan)}건",
                  content,
                  [{"label": "평가자산", "value": f"${_fmt(led.get('equity_usd'))}", "highlight": True},
+                  {"label": "오늘 목표", "value": f"+${_fmt((aapd.get('summary') or {}).get('daily_target_usd'))}", "highlight": True},
                   {"label": "종목 상한", "value": f"{lic.get('position_cap_pct')}%", "highlight": True},
                   {"label": "SGOV 월이자", "value": f"${_fmt((park.get('sgov_carry') or {}).get('monthly_interest_usd'))}"},
                   {"label": "코인 경보", "value": "발동" if wk.get("triggered") else "없음"}],

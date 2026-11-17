@@ -20,7 +20,7 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
@@ -32,6 +32,31 @@ BRACKETS_FILE = os.path.join(BASE_DIR, "data", "active_brackets.json")
 ORDERS_LOG = os.path.join(BASE_DIR, "data", "live_order_responses.jsonl")
 PLANNER = AdaptiveExitPlanner()
 DRY_RUN = "--dry-run" in sys.argv or os.getenv("CUBE_DRY_RUN") == "1"
+
+
+def kst_hhmm(clock: Dict[str, Any]) -> str:
+    return str(clock.get("now_kst") or "")[11:16]
+
+
+def _session_minutes(hhmm: str) -> int:
+    """미국 정규장(23:30~06:00 KST)은 자정을 넘으므로 00:00~11:59는 다음 날로 취급한다."""
+    try:
+        h, m = hhmm.split(":")[:2]
+        total = int(h) * 60 + int(m)
+    except Exception:
+        return -1
+    return total + 24 * 60 if int(h) < 12 else total
+
+
+def time_reached(clock: Dict[str, Any], hhmm: Optional[str]) -> bool:
+    """True when the session clock has passed hhmm (KST). Missing gate = always active."""
+    if not hhmm:
+        return True
+    now = _session_minutes(kst_hhmm(clock))
+    gate = _session_minutes(hhmm)
+    if now < 0 or gate < 0:
+        return True
+    return now >= gate
 
 
 def load_brackets() -> Dict[str, Any]:
@@ -107,8 +132,9 @@ def place_sell(broker, ticker: str, qty: int, price: float, reason: str, dry: bo
         with open(ORDERS_LOG, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
         return record
+    act_no = broker._acct() if hasattr(broker, "_acct") else (broker.act_no or "").replace("-", "")
     payload = {
-        "act_no": broker.act_no, "fc_sec_trd_nat_cd": "200", "iem_cd": ticker,
+        "act_no": act_no, "fc_sec_trd_nat_cd": "200", "iem_cd": ticker,
         "orr_qty": qty, "fc_orr_uit_pr": round(float(price), 2),
         "ahi_nmn_pr_tp_cd": "00", "wtm_cur_knd_cd": "1",
     }
@@ -229,11 +255,27 @@ def run_check() -> List[Dict[str, Any]]:
                 b["sl"] = rs["stop"]
                 b["runner_trail_source"] = rs["source"]
 
-        if float(price) <= float(b["sl"]) and not b.get("sl_triggered"):
+        # 실적 가드: 평단 사다리 포지션은 지정 시각(기본 05:40 KST) 이후 잔여 수량을 시장가 청산한다.
+        # 3배 레버리지로 NVDA 실적(11-18 06:20 KST)을 넘기지 않기 위한 규칙 (2026-11-17 지시).
+        if (b.get("force_exit_kst") and remaining > 0 and not b.get("force_exited")
+                and not b.get("sl_triggered") and not b.get("closed")
+                and time_reached(clock, b.get("force_exit_kst"))):
+            actions.append(place_sell(broker, t, remaining, price,
+                                      f"실적 가드 강제청산 ({b['force_exit_kst']} KST, NVDA 실적 전 레버리지 정리)",
+                                      DRY_RUN))
+            b["force_exited"] = True
+            b["closed"] = True
+            brackets[t] = b
+            continue
+
+        # 개장 유예: 개장 직후 15분(기본 23:45 KST)까지는 갭 휩쏘 방지를 위해 손절을 발동하지 않는다.
+        if float(price) <= float(b["sl"]) and not b.get("sl_triggered") \
+                and time_reached(clock, b.get("sl_active_after_kst")):
             if remaining > 0:
                 actions.append(place_sell(broker, t, remaining, price,
-                                          f"STOP/TRAIL (${price:.2f} ≤ ${b['sl']:.2f}, {b.get('runner_trail_source','stop')})", DRY_RUN))
+                                          f"STOP/TRAIL (${price:.2f} ≤ ${b['sl']:.2f}, {b.get('runner_trail_source','stop')})", dry_run))
                 b["sl_triggered"] = True
+                b["closed"] = True
         elif not b.get("tp1_filled") and float(price) >= float(b["tp1"]):
             actions.append(place_sell(broker, t, int(b.get("tp1_qty", 1)), price,
                                       f"TP1 (+{((price/float(b['entry_price']))-1)*100:.1f}%)", DRY_RUN))

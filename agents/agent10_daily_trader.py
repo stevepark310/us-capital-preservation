@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List
 
 from agents.base import BaseAgent
-from core import ledger as ledger_mod, technical, strategy_approval
+from core import ledger as ledger_mod, technical, strategy_approval, avg_anchor_engine
 from core.exit_planner import AdaptiveExitPlanner
 
 
@@ -230,6 +230,25 @@ class DailyTraderAgent(BaseAgent):
                        "주말 코인 변동으로 인한 월요일 갭 경보 없음 — 통상 개장 계획 유지"),
             "reading_ko": gap_risk.get("reading_ko"),
         }
+        # ---- 2026-11-17 지시: 평단 기준 일일 수익 엔진 (AAPD)
+        try:
+            aapd = avg_anchor_engine.build_plan(
+                positions=led.get("positions") or [], techs=techs, cash_usd=cash, equity_usd=equity,
+                vix=((snap.get("quotes") or {}).get("^VIX") or {}).get("last"),
+                phase=phase, next_open_kst=clock.get("next_open_kst"))
+            avg_anchor_plan = {
+                "engine": aapd["engine"], "engine_ko": aapd["engine_ko"],
+                "ladders": [{k: l.get(k) for k in ("ticker", "qty", "avg_price", "tp1", "tp1_pct", "tp2",
+                                                   "tp2_pct", "sl", "sl_pct", "tp1_qty", "tp2_qty",
+                                                   "levels_locked", "force_exit_kst", "expected_pnl_usd",
+                                                   "reward_risk")} for l in aapd["ladders"]],
+                "cash_engine": aapd["cash_engine"], "hedge": aapd["hedge"], "guards": aapd["guards"],
+                "summary": aapd["summary"],
+                "directive": aapd["directive"]["quote"],
+            }
+        except Exception as e:
+            avg_anchor_plan = {"error": str(e)}
+
         preserved = {
             "dip_swing_approval": f"{appr_block['status']} ({appr_block.get('approved_at_kst')})",
             "nvda_levels_locked": "TP $173.0 / SL $150.0 — 사용자 지정, 변경 금지",
@@ -276,6 +295,7 @@ class DailyTraderAgent(BaseAgent):
             "fx_commentary": fx_note,
             "crypto_weekend_alert": weekend_alert,
             "preserved_controls": preserved,
+            "avg_anchor_plan": avg_anchor_plan,
             "market_stance": stance,
             "key_takeaway": (
                 f"{clock.get('label_ko')}. 원장 정합성 {review['status']} (이슈 {len(review['issues'])}건, "
@@ -285,6 +305,9 @@ class DailyTraderAgent(BaseAgent):
                 f"CUBE-LEI {lei.get('regime_ko')} → 레버리지 계수 {regime_factor}·종목 상한 {pos_cap_pct}%·태세 {stance}. "
                 f"SGOV 파킹 시 월 {carry_block.get('monthly_interest_usd')}달러 이자. "
                 f"코인 주말 경보 {'발생' if weekend_alert['triggered'] else '없음'}. "
+                f"평단 엔진: {(avg_anchor_plan.get('summary') or {}).get('positions_under_management')} "
+                f"기대 최대 ${(avg_anchor_plan.get('summary') or {}).get('expected_best_case_usd')} · "
+                f"목표 ${(avg_anchor_plan.get('summary') or {}).get('daily_target_usd')}. "
                 f"다음 개장 {clock.get('next_open_kst')}. 대기 계획 {len(planned)}건."
             ),
         }
