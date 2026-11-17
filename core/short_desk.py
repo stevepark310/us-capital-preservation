@@ -526,6 +526,56 @@ def long_ladder_ab() -> Dict[str, Any]:
 
 
 # ------------------------------------------------------------------ 7) 판정
+ALT_CACHE = os.path.join(CACHE, "short_desk_alt.pkl")
+ALT_UNIVERSE = ["KO", "XLV", "XLP", "XLU", "PFE", "MRK", "JNJ", "XLE", "XOM", "TLT", "IEF", "IWM",
+                "EEM", "VZ", "UUP", "GLD", "BRK-B", "COST", "WMT", "XLF", "SPY", "QQQ"]
+
+
+def alternatives() -> Dict[str, Any]:
+    """현금 $426.63로 1~4주 살 수 있는 대안 종목 — 추세·상대강도·변동성 기준."""
+    frames = (_load_pkl(ALT_CACHE) or {}).get("frames") or {}
+    if not frames:
+        try:
+            import yfinance as yf
+            df = yf.download(ALT_UNIVERSE, period="1y", interval="1d", group_by="ticker",
+                             progress=False, auto_adjust=False, threads=True)
+            frames = {s: df[s].dropna(how="all") for s in ALT_UNIVERSE if s in df.columns.get_level_values(0)}
+            os.makedirs(CACHE, exist_ok=True)
+            with open(ALT_CACHE, "wb") as f:
+                pickle.dump({"fetched_at": datetime.now().isoformat(), "frames": frames}, f)
+        except Exception as e:  # noqa: BLE001
+            return {"available": False, "error": str(e)[:120]}
+    spy = enrich(frames["SPY"]) if "SPY" in frames else None
+    if spy is None:
+        return {"available": False}
+    spy_3m = float(spy["Close"].iloc[-1] / spy["Close"].iloc[-64] - 1) * 100
+    rows = []
+    for tk in ALT_UNIVERSE:
+        f = frames.get(tk)
+        if f is None or len(f) < 130:
+            continue
+        f = enrich(f)
+        c = f["Close"]
+        px = float(c.iloc[-1])
+        r3 = float(c.iloc[-1] / c.iloc[-64] - 1) * 100
+        above200 = bool(px > float(f["sma200"].iloc[-1])) if pd.notna(f["sma200"].iloc[-1]) else None
+        rows.append({"ticker": tk, "price_usd": round(px, 2), "shares_affordable": int(426.63 // px),
+                     "ret_1m_pct": round(float(c.iloc[-1] / c.iloc[-22] - 1) * 100, 1),
+                     "ret_3m_pct": round(r3, 1), "rel_3m_vs_spy_pct": round(r3 - spy_3m, 1),
+                     "above_200dma": above200, "atr_pct": round(float(f["atr_pct"].iloc[-1]), 1)})
+    rows.sort(key=lambda r: -r["rel_3m_vs_spy_pct"])
+    picks = [r for r in rows if r["shares_affordable"] >= 1 and r["above_200dma"] and r["atr_pct"] <= 3.0]
+    return {
+        "available": True, "spy_3m_pct": round(spy_3m, 1),
+        "screen": rows,
+        "affordable_uptrend_lowvol": [r["ticker"] for r in picks[:8]],
+        "verdict": ("오늘 밤(신중 모드·NVDA 실적 전) 신규 매수 없음. 대안매수는 실적 통과 후 ① 200일선 위 "
+                    "② 상대강도 +10%p 이상 ③ ATR 3% 이하 조건을 만족하는 종목을 1~2주만, 그리고 현금 파킹(SGOV 4.17%)을 "
+                    "기본값으로 둔다. 방어주는 이미 3개월 +10~18%로 급등해 추격 매수 위험이 크다."),
+        "note": "이 스크린은 추세·변동성 기준이며 기대값 백테스트가 아니다(단기 엣지 주장 없음).",
+    }
+
+
 def verdicts(screen: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     by = {r["ticker"]: r for r in screen}
     out = []
@@ -644,6 +694,7 @@ def review() -> Dict[str, Any]:
         "strategy_sweep": sweep,
         "earnings_event": earn,
         "hedge_table": hedge_table(),
+        "alternatives": alternatives(),
         "long_side_ab": long_ladder_ab(),
         "verdicts": verdicts(screen),
         "rejected": REJECTED,

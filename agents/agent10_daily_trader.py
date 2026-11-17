@@ -276,6 +276,10 @@ class DailyTraderAgent(BaseAgent):
                 "long_side_ab": ab,
                 "plan": sd.get("plan"),
                 "hedge_table": (sd.get("hedge_table") or [])[:3],
+                "alternatives": {"available": (sd.get("alternatives") or {}).get("available"),
+                                 "picks": (sd.get("alternatives") or {}).get("affordable_uptrend_lowvol"),
+                                 "verdict": (sd.get("alternatives") or {}).get("verdict"),
+                                 "spy_3m_pct": (sd.get("alternatives") or {}).get("spy_3m_pct")},
             }
         except Exception as e:
             short_desk = {"error": str(e)}

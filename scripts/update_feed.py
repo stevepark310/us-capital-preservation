@@ -600,7 +600,12 @@ def post_agent10(r: Dict[str, Any], clock) -> Dict[str, Any]:
                     f" · 대표 탈락 후보 {sd.get('rejected_count')}건 사유 보존"
                   + f"\n\n[NVDA 반응일 갭업 되돌림 — 유일한 플러스 구조]\n• 갭≥+2% 숏ETF 세션내: {g_txt}"
                   + "\n\n[롱 사다리 A/B — v2 샹들리에(신규 진입 기본값)]\n" + ("\n".join(ab_lines) or "• A/B 없음")
-                  + "\n\n[오늘 밤 집행 검토안 — 승인 대기]\n" + (step_txt or "• 계획 없음"))
+                  + "\n\n[오늘 밤 집행 검토안 — 승인 대기]\n" + (step_txt or "• 계획 없음")
+                  + (("\n\n[대안 롱 종목 스크린]\n• SPY 3개월 " + _fmt((sd.get('alternatives') or {}).get('spy_3m_pct'))
+                      + "% 대비 강세·200일선 위·ATR 3% 이하: "
+                      + ", ".join((sd.get("alternatives") or {}).get("picks") or [])
+                      + "\n• " + ((sd.get("alternatives") or {}).get("verdict") or ""))
+                     if (sd.get("alternatives") or {}).get("available") else ""))
 
     content = (
         f"원장 정합성 {r.get('consistency_check', {}).get('status')} "
