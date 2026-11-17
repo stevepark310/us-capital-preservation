@@ -72,6 +72,11 @@ LOCKED_LEVELS: Dict[str, Dict[str, float]] = {
     "NVDA": {"tp1": 173.0, "sl": 150.0},
 }
 CARRY_TICKERS = {"SGOV"}
+# NH 주문체결내역(/gbstock/inquiry/v1/unexecuted) 실측 — 2026-11-17 11:15 KST 조회
+FILLS = {
+    "SOXL": {"order_no": 249542, "order_date": "2026-11-16", "fill_price": 50.43, "qty": 2},
+    "TQQQ": {"order_no": 249661, "order_date": "2026-11-16", "fill_price": 54.00, "qty": 2},
+}
 LADDER_TICKERS = ("SOXL", "TQQQ")
 
 
@@ -344,8 +349,9 @@ def apply_to_brackets(plan: Dict[str, Any], brackets: Optional[Dict[str, Any]] =
             "sl_triggered": False,
             "closed": False,
             "opened_at": prev.get("opened_at") or "2026-11-17 01:15 KST",
-            "filled_at_kst": "2026-11-17 01:15 KST (미국 11-16 세션)",
-            "order_no": prev.get("order_no"),
+            "filled_at_kst": ("2026-11-17 01:15 KST" if tk == "SOXL" else "2026-11-17 01:45 KST"),
+            "fill_evidence": "NH POST /gbstock/inquiry/v1/unexecuted — 미체결 0, 체결 수량 전량",
+            "order_no": (FILLS.get(tk) or {}).get("order_no") or prev.get("order_no"),
             "avg_price_source": "NH Open API 해외주식 잔고 (fc_phs_uit_pr, 2026-11-17 11:15 KST 조회)",
             "profit_ladder": True,
             "ladder_engine": plan.get("engine"),
