@@ -81,6 +81,9 @@ def resolve(now: Optional[datetime] = None) -> Dict[str, Any]:
     elif d in US_HOLIDAYS_2026:
         phase = "HOLIDAY_PREP"
         session_date = prev_trading_day(d)
+    elif t >= REGULAR_START:
+        phase = "REGULAR"
+        session_date = d
     elif t >= PRE_MARKET_START:
         phase = "PRE_MARKET"
         session_date = d
