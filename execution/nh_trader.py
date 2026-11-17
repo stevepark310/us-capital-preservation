@@ -131,6 +131,45 @@ class NHBroker:
         accounts = res.get("Output_0", [])
         return accounts
 
+    def get_balance(self) -> dict:
+        """Alias for get_portfolio_state() used by remote dispatch workflows."""
+        return self.get_portfolio_state()
+
+    def place_order(self, ticker: str, side: str, qty: int, price: float = 0.0) -> dict:
+        """
+        Submit a single US stock limit order via NH Global Stock Order API.
+        side: 'BUY' or 'SELL'
+        """
+        side_norm = side.strip().upper()
+        if side_norm not in ("BUY", "SELL"):
+            raise ValueError(f"Unsupported side: {side}")
+        if qty <= 0:
+            raise ValueError(f"qty must be positive: {qty}")
+        if price <= 0:
+            raise ValueError("price must be > 0 for limit order (ahi_nmn_pr_tp_cd='00')")
+
+        if self.dry_run:
+            return {
+                "dry_run": True,
+                "ticker": ticker.upper(),
+                "side": side_norm,
+                "qty": qty,
+                "price": round(float(price), 2),
+            }
+
+        endpoint = "/gbstock/order/v1/sell" if side_norm == "SELL" else "/gbstock/order/v1/buy"
+        payload = {
+            "act_no": self.act_no,
+            "fc_sec_trd_nat_cd": "200",
+            "iem_cd": ticker.strip().upper(),
+            "orr_qty": int(qty),
+            "fc_orr_uit_pr": round(float(price), 2),
+            "ahi_nmn_pr_tp_cd": "00",
+        }
+        if side_norm == "BUY":
+            payload["wtm_cur_knd_cd"] = "1"
+        return self._call_api(endpoint, payload)
+
     def get_portfolio_state(self) -> dict:
         """
         Fetch US stock balance and USD cash from NH Global Stock balance API.
