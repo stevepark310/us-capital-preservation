@@ -43,6 +43,28 @@ class EnsembleSynthesizerAgent(BaseAgent):
                          "DEFENSIVE_TBILL / BEAR_HEDGE 중 하나를 결정하고, 국면 계수로 레버리지·현금 비중을 조정합니다."),
         )
 
+    @staticmethod
+    def _thirteenf_context() -> Dict[str, Any]:
+        """13F 스마트머니 현금화 압력 — 참고 블록.
+
+        2026-11-17 A/B(`data/13f_ab_backtest.json`): 고정 축소(0.7배)는 PF 2.04→2.04로
+        정보가치가 없었고, VIX 구간 계수(20~24 → 0.75)만 PF/MDD를 개선해 그쪽을 채택했다.
+        따라서 이 블록은 태세·비중 계산에 **넣지 않고** 근거 표시만 한다.
+        """
+        try:
+            from agents.agent5_superinvestor import load_13f
+            si = load_13f()
+            if not si:
+                return {"available": False}
+            cash = si.get("cashization") or {}
+            return {"available": True, "quarter": si.get("quarter"),
+                    "cashization_index": cash.get("index"),
+                    "regime_ko": cash.get("regime_ko"),
+                    "applied_to_stance": False,
+                    "note_ko": "13F 현금화 신호는 태세·비중에 자동 반영하지 않습니다(분기 1회 표본 — A/B에서 정보가치 0)."}
+        except Exception as e:
+            return {"available": False, "error": str(e)}
+
     def run(self, market_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         self.status = "RUNNING"
         self.last_run = (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S")
@@ -215,6 +237,7 @@ class EnsembleSynthesizerAgent(BaseAgent):
             "fx_rate": ledger.get("fx_rate"),
             "target_alloc_krw": {k: (int(round(v * (ledger.get("fx_rate") or 1335))) if v else 0) for k, v in alloc.items()},
             "regime_note": note,
+            "smart_money_13f_context": self._thirteenf_context(),
             "key_takeaway": (
                 f"{note}. 태세 {stance} (5축 복합 {composite:+.0f}: 주식 {equity_axis['score']:+.0f} / 채권 {bond_axis['score']:+.0f} / "
                 f"환율 {fx_axis['score']:+.0f} / 코인 {crypto_axis['score']:+.0f} / 사이클 {cycle_axis['score']:+.0f}). "

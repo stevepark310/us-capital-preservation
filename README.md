@@ -209,3 +209,24 @@ python3 core/leading_indicators.py          # CUBE-LEI 단독 산출 → data/le
 python3 scripts/run_lei_filter_backtest.py  # 필터 방어효과 5년 시뮬 → data/lei_filter_backtest.json
 python3 scripts/run_full_pipeline.py        # 위 두 단계 포함 전체 파이프라인
 ```
+
+## 7. 투자 대가 13F 스마트머니 (2026-11-17 확장)
+
+분기 공시(13F-HR)를 **영상·기사 요약이 아니라 SEC EDGAR 정보 테이블 XML 원문**으로 파싱해 구조화한다.
+
+```bash
+python3 scripts/build_superinvestor_13f.py --refresh   # EDGAR 6개 기관 Q3/Q2 원문 → data/superinvestor_13f.json
+python3 scripts/run_13f_ab_backtest.py --refresh       # 개선안 A/B(2년 일봉 + 1년 60분봉, 왕복 0.24%) → data/13f_ab_backtest.json
+```
+
+- 대상: 버크셔 해서웨이(0001067983) · 듀케인 패밀리오피스(0001536411) · 퍼싱 스퀘어(0001336528, 13F-NT만 제출) ·
+  틸 매크로(0001562087) · 시추에이셔널 어웨어니스(0002045724) · 국민연금(0001608046)
+- 산출: 기관별 신규/전량매도/증액/감축, **주식수 변화 × Q3 가격** 순현금흐름(가격효과 제거),
+  섹터별 대가 순매수/매도 스코어(**기관 동일가중** — NPS $159B가 액티브 기관을 덮지 않게),
+  현금화 압력지수(0~100, 흐름축 50% + 매도폭 50%), 영상 주장 대조표(`video_claims_check`)
+- 소비: `Agent 5`가 `superinvestor_13f` 블록으로 리포트·피드에 표시하고, `Agent 9`는 참고 블록만 갖는다.
+- **사이징에는 자동 적용하지 않는다**: 13F는 분기 1회·롱 온리·현금 미공개라 타이밍 검정력이 없다.
+  A/B에서 고정 축소는 PF 불변(정보가치 0), VIX 20~24 구간 0.75배만 PF/MDD를 개선해 그쪽을 채택했다
+  (`config/swing_approval.json` → `smart_money_13f_review`).
+- 13F 매집 종목(SOXX·AMZN·GOOGL·STX 등)의 DIP_SWING 신호는 `data/13f_candidates.json`에 **제안 전용**으로 남는다
+  (신규 종목 편입은 사용자 승인 항목).

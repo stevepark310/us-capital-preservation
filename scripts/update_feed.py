@@ -308,10 +308,42 @@ def post_agent5(r: Dict[str, Any], clock) -> Dict[str, Any]:
     cf = r.get("credit_flow") or {}
     df = r.get("duration_flow") or {}
     cf2 = r.get("crypto_institutional_flow") or {}
+    si = r.get("superinvestor_13f") or {}
     rows = []
     for sym, c in chains.items():
         rows.append(f"• {sym} ({c.get('expiry')}): Put/Call OI {c.get('put_call_oi')} · 거래량비 {c.get('put_call_volume')} · "
                     f"감마월 ${_fmt(c.get('gamma_wall_strike'))} · 맥스페인 ${_fmt(c.get('max_pain_strike'))}")
+    si_txt = ""
+    if si.get("available"):
+        cash = si.get("cashization") or {}
+        sec_lines = []
+        for s in (si.get("sector_consensus") or [])[:5]:
+            sec_lines.append(f"• {s.get('sector_ko')}: 스코어 {s.get('score'):+} ({s.get('breadth')}, "
+                             f"기관평균 {s.get('avg_flow_pct_per_manager'):+.2f}%/평가액)")
+        pos_lines = []
+        for i in (si.get("investors") or [])[:6]:
+            if not i.get("positions"):
+                pos_lines.append(f"• {i.get('name')}: 13F-NT — 원문 검증 불가(영상 참고)")
+                continue
+            pos_lines.append(f"• {i.get('name')} ({i.get('pm')}): {i.get('positions')}종목 · "
+                             f"${i.get('value_usd_b')}B · 순흐름 {i.get('net_flow_pct_of_value')}% · {i.get('stance')}"
+                             + (f" · 상위 {', '.join([x for x in (i.get('top_holdings') or []) if x])}" if i.get('top_holdings') else ""))
+        tick_rows = [f"• {t.get('ticker')}: {t.get('net_flow_usd_m'):+.0f}M USD "
+                     f"({', '.join(t.get('buyers') or []) or '—'} 매수 / {', '.join(t.get('sellers') or []) or '—'})"
+                     for t in (si.get("ticker_consensus") or [])[:6]]
+        sigs = [c for c in (si.get("candidate_signals") or []) if c.get("signal")]
+        near = sorted([c for c in (si.get("candidate_signals") or []) if not c.get("signal")],
+                      key=lambda x: (x.get("pct_b") if x.get("pct_b") is not None else 9))[:3]
+        si_txt = (f"\n\n[13F 스마트머니 — {si.get('quarter')} 원문 {si.get('covered')}/{si.get('requested')}인]\n"
+                  f"• 현금화 압력지수 {cash.get('index')}/100 ({cash.get('regime_ko')}) · 순주식흐름 {cash.get('net_flow_usd_b'):+.2f}B USD\n"
+                  + "\n".join(pos_lines) + "\n"
+                  "• 섹터 컨센서스(기관 동일가중):\n" + "\n".join(sec_lines) + "\n"
+                  "• 대가 순매수/순매도 종목:\n" + ("\n".join(tick_rows) if tick_rows else "• 매핑 데이터 없음") + "\n"
+                  + ("• 감시종목 DIP 신호: " + ", ".join(f"{c['ticker']} %B {c.get('pct_b')} · RVOL {c.get('rvol')}" for c in sigs) + "\n"
+                     if sigs else
+                     "• 감시종목 신호 없음 — 근접: " + ", ".join(f"{c['ticker']} %B {c.get('pct_b')}" for c in near) + "\n")
+                  + f"• 사이즈 적용: 미적용 (고정 축소 A/B상 PF 변화 0 → 정보가치 없음). {si.get('candidate_policy')}\n"
+                  f"• NVDA 거버넌스: {(si.get('nvidia_governance') or {}).get('note_ko', '—')}")
     content = ("실제 옵션 체인 미결제약정 기준입니다. 소셜(레딧·X) 데이터는 연동되어 있지 않아 수치를 만들지 않습니다.\n\n"
                + ("\n".join(rows) if rows else "체인 조회 실패 — 다음 주기 재시도") +
                "\n\n[크레딧 자금흐름 — HYG/LQD · HY OAS]\n" +
@@ -326,18 +358,26 @@ def post_agent5(r: Dict[str, Any], clock) -> Dict[str, Any]:
                f"• IBIT ${cf2.get('ibit_last')} (20일 {_fmt(cf2.get('ibit_ret_20d_pct'))}%, RVOL {cf2.get('ibit_rvol')}) · "
                f"COIN ${cf2.get('coin_last')} ({_fmt(cf2.get('coin_chg_pct'))}%)\n"
                f"• IBIT - BTC 20일 차이 {_fmt(cf2.get('ibit_minus_btc_pp'))}%p → {cf2.get('institutional_demand')}\n"
-               f"• 주의: {cf2.get('note')}\n\n"
-               f"데이터 시점: {r.get('data_as_of')} ({r.get('stale_note')})")
-    return _post(5, clock, "🐋 기관 포지셔닝 (옵션 + 크레딧 + 듀레이션 + 크립토)",
+               f"• 주의: {cf2.get('note')}\n"
+               f"데이터 시점: {r.get('data_as_of')} ({r.get('stale_note')})" + si_txt)
+    title = ("🐋 기관 포지셔닝 (옵션 + 크레딧 + 듀레이션 + 크립토 + 13F)" if si.get("available")
+             else "🐋 기관 포지셔닝 (옵션 + 크레딧 + 듀레이션 + 크립토)")
+    si_cash = (si.get("cashization") or {}) if si.get("available") else {}
+    metrics = [{"label": "QQQ P/C OI", "value": r.get("qqq_put_call_oi"), "highlight": True},
+               {"label": "HY OAS", "value": f"{cf.get('hy_oas_bp')}bp"},
+               {"label": "TLT 20일", "value": f"{_fmt(df.get('tlt_ret_20d_pct'))}%"},
+               {"label": "IBIT-BTC", "value": f"{_fmt(cf2.get('ibit_minus_btc_pp'))}%p"}]
+    if si_cash:
+        metrics.insert(1, {"label": "13F 현금화", "value": f"{si_cash.get('index')}/100", "highlight": True})
+        metrics.append({"label": "13F 순흐름", "value": f"{si_cash.get('net_flow_usd_b'):+.1f}B"})
+    return _post(5, clock, title,
                  f"[{clock['now_kst'][11:16]} 기관] QQQ P/C {r.get('qqq_put_call_oi')} → {r.get('institutional_bias')} · "
                  f"HY OAS {cf.get('hy_oas_bp')}bp({cf.get('credit_level')}) · TLT {df.get('long_duration_demand','—').split(' (')[0]} · "
-                 f"IBIT {cf2.get('institutional_demand','—').split(' (')[0]}",
+                 f"IBIT {cf2.get('institutional_demand','—').split(' (')[0]}"
+                 + (f" · 13F 현금화 {si_cash.get('index')}/100" if si_cash else ""),
                  content,
-                 [{"label": "QQQ P/C OI", "value": r.get("qqq_put_call_oi"), "highlight": True},
-                  {"label": "HY OAS", "value": f"{cf.get('hy_oas_bp')}bp"},
-                  {"label": "TLT 20일", "value": f"{_fmt(df.get('tlt_ret_20d_pct'))}%"},
-                  {"label": "IBIT-BTC", "value": f"{_fmt(cf2.get('ibit_minus_btc_pp'))}%p"}],
-                 "감마월 하회 시 변동성 확대 구간이므로 진입을 분할합니다. 크레딧·듀레이션·크립토 흐름은 20일 실측 모멘텀 기준입니다.")
+                 metrics,
+                 "감마월 하회 시 변동성 확대 구간이므로 진입을 분할합니다. 크레딧·듀레이션·크립토 흐름은 20일 실측 모멘텀, 13F는 SEC 원문 분기 공시 기준입니다.")
 
 
 def post_agent6(r: Dict[str, Any], clock) -> Dict[str, Any]:

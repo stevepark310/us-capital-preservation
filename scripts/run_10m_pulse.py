@@ -121,10 +121,18 @@ def _agent_state(aid, report, status, pulse_ctx):
                  {"label": "침체확률", "value": f"{pr.get('probability_used')}%"}])
     if aid == 5:
         cf = a.get("credit_flow") or {}
+        si = a.get("superinvestor_13f") or {}
+        cash = (si.get("cashization") or {}) if si.get("available") else {}
+        top_sig = [c for c in (si.get("candidate_signals") or []) if c.get("signal")]
         return (f"QQQ P/C {a.get('qqq_put_call_oi')} → {a.get('institutional_bias')} · HY OAS {cf.get('hy_oas_bp')}bp "
-                f"({cf.get('credit_level')}) · 기관 듀레이션 {(a.get('duration_flow') or {}).get('long_duration_demand', '—')}",
+                f"({cf.get('credit_level')}) · 기관 듀레이션 {(a.get('duration_flow') or {}).get('long_duration_demand', '—')}"
+                + (f" · 13F 현금화 {cash.get('index')}/100({cash.get('regime_ko')}) "
+                   f"· 대가 순매수 {', '.join([t.get('ticker') for t in (si.get('ticker_consensus') or [])[:3]])}"
+                   + (f" · 감시 신호 {', '.join(c['ticker'] for c in top_sig)}" if top_sig else " · 감시 신호 없음")
+                   if cash else ""),
                 [{"label": "QQQ P/C", "value": a.get("qqq_put_call_oi"), "highlight": True},
-                 {"label": "HY OAS", "value": f"{cf.get('hy_oas_bp')}bp"}])
+                 {"label": "HY OAS", "value": f"{cf.get('hy_oas_bp')}bp"}]
+                + ([{"label": "13F 현금화", "value": f"{cash.get('index')}/100", "highlight": True}] if cash else []))
     if aid == 6:
         lf = a.get("leading_indicator_filter") or {}
         return (f"국면 {lf.get('regime')} → 레버리지 계수 {lf.get('leverage_cap_factor')} · 종목 상한 {lf.get('position_cap_pct')}% · "

@@ -171,8 +171,14 @@ def scan_latest(daily: Dict[str, pd.DataFrame], params: Dict[str, Any] = None) -
 
 
 def portfolio_backtest(daily: Dict[str, pd.DataFrame], params: Dict[str, Any] = None,
-                       start: str = None, end: str = None) -> Dict[str, Any]:
-    """Capital-honest portfolio simulation of the dip signal (daily bars)."""
+                       start: str = None, end: str = None,
+                       size_scale_fn=None) -> Dict[str, Any]:
+    """Capital-honest portfolio simulation of the dip signal (daily bars).
+
+    `size_scale_fn(day, symbol, signal) -> float` (optional) lets a caller scale each
+    entry's notional (1.0 = full size, 0 = skip). Used for A/B tests of risk overlays
+    (VIX tiering, 13F cash-bias). Default None keeps the approved sizing untouched.
+    """
     p = params or DIP_PARAMS
     prepared = {s: prepare(daily[s]) for s in p["universe"] if s in daily and len(daily[s]) > 40}
     if not prepared:
@@ -242,9 +248,17 @@ def portfolio_backtest(daily: Dict[str, pd.DataFrame], params: Dict[str, Any] = 
                 for sc, sym, sig in cands:
                     if len(positions) >= p["max_positions"]:
                         break
+                    scale = 1.0
+                    if size_scale_fn is not None:
+                        try:
+                            scale = float(size_scale_fn(day, sym, sig))
+                        except Exception:
+                            scale = 1.0
+                    if not np.isfinite(scale) or scale <= 0:
+                        continue
                     df = prepared[sym]
                     entry = float(df.loc[day, "Open"]) * (1 + ROUND_TRIP_FEE / 2)
-                    budget = equity * p["size_pct"]
+                    budget = equity * p["size_pct"] * scale
                     if budget > cash:
                         continue
                     qty = max(1, int(budget // entry))
@@ -255,9 +269,9 @@ def portfolio_backtest(daily: Dict[str, pd.DataFrame], params: Dict[str, Any] = 
                     stop = round(entry - p["sl_atr_mult"] * atr, 2)
                     # risk-based sizing: never risk more than risk_per_trade_pct of equity
                     stop_dist_pct = max(0.02, (entry - stop) / entry)
-                    risk_budget = equity * p.get("risk_per_trade_pct", 0.02)
+                    risk_budget = equity * p.get("risk_per_trade_pct", 0.02) * scale
                     qty_risk = max(1, int(risk_budget // (stop_dist_pct * entry)))
-                    qty_cap = max(1, int((equity * p["size_pct"]) // entry))
+                    qty_cap = max(1, int((equity * p["size_pct"] * scale) // entry))
                     qty = min(qty, qty_risk, qty_cap)
                     cost = qty * entry
                     if cost > cash:
