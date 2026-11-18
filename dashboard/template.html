@@ -543,7 +543,7 @@ const S = {
    1. 유틸
    ========================================================================== */
 const $ = id => document.getElementById(id);
-const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const esc = s => String(s == null ? "" : (typeof s === "object" ? JSON.stringify(s) : s)).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const num = (v, d = 2) => (v === null || v === undefined || v === "" || isNaN(+v)) ? "—" : (+v).toLocaleString("ko-KR", {minimumFractionDigits:d, maximumFractionDigits:d});
 const usd = (v, d = 2) => (v === null || v === undefined || isNaN(+v)) ? "—" : (v < 0 ? "-" : "") + "$" + Math.abs(+v).toLocaleString("en-US", {minimumFractionDigits:d, maximumFractionDigits:d});
 const numA = (v, d = 2) => { if (v === null || v === undefined || v === "" || isNaN(+v)) return "—";
@@ -1291,7 +1291,10 @@ function renderScenarios(){
   const r8 = (sums[8] || {}).report || {};
   const r9 = (sums[9] || {}).report || {};
   const scen = r6.scenarios || [];
-  $("scen-note").textContent = `${scen.length}개 후보 · ATR 기준 ${r6.atr_basis || "—"} · 유효 ${(r6.approved_now || []).length}개`;
+  const ab = r6.atr_basis;
+  const abTxt = !ab ? "—" : (typeof ab === "string" ? ab
+      : Object.entries(ab).map(([k, v]) => `${k.replace(/_atr_pct$/, "")} ${num(v,2)}%`).join(" · "));
+  $("scen-note").textContent = `${scen.length}개 후보 · ATR 기준 ${abTxt} · 유효 ${(r6.approved_now || []).length}개`;
   $("scen-list").innerHTML = scen.length ? `<div class="grid g-2">${scen.map(s => {
     const val = s.validated || {};
     const ok = (r6.approved_now || []).includes(s.id);
