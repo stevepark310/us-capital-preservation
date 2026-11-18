@@ -63,6 +63,12 @@ def sync_portfolio() -> dict:
     equity_usd = led.get("equity_usd") or 0.0
     unreal_usd = round(sum(p["unrealized_usd"] for p in positions), 2)
 
+    # 현금성 자산 = 외화예수금(fc_dca) + 미결제 정산금(fc_ny_stl_xcl_amt).
+    # 미결제 정산금을 빼고 총자산과 비교하면 '예수금+평가≠총자산' 차이가 매번 생긴다
+    # (11-18 06:01 스냅샷의 -$9.15가 정확히 이 항목이었다).
+    pending_usd = float(led.get("cash_pending_settlement_usd") or 0.0)
+    cash_total_usd = round(float(led.get("cash_usd") or 0.0) + pending_usd, 2)
+
     payload = {
         "api_status": "CONNECTED",
         "broker": "NH투자증권 나무 (Open API)",
@@ -83,7 +89,11 @@ def sync_portfolio() -> dict:
         "cash_buffer_pct": led.get("cash_pct"),
         "cash_buffer_note": CASH_NOTE,
         "cash_deposit_usd": led.get("cash_deposit_usd"),
-        "cash_pending_settlement_usd": led.get("cash_pending_settlement_usd"),
+        "cash_pending_settlement_usd": pending_usd,
+        "cash_pending_settlement_krw": int(round(pending_usd * fx_rate)),
+        "cash_total_usd": cash_total_usd,
+        "cash_total_krw": int(round(cash_total_usd * fx_rate)),
+        "cash_total_pct": round(cash_total_usd / equity_usd * 100, 1) if equity_usd else None,
         "account_sync": led.get("account_sync"),
         "fills_confirmed": led.get("fills_confirmed"),
         "realized_pnl_usd": led.get("realized_pnl_usd"),
