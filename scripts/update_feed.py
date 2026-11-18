@@ -678,8 +678,10 @@ def directive_posts(clock) -> List[Dict[str, Any]]:
     for i, d in enumerate(items):
         posts.append({
             "id": f"post-directive-{i:03d}",
-            "agent_id": 10,
+            "agent_id": 0,
             "agent_name": "박동훈 TL 지시 기록",
+            "agent_person": "박동훈 TL",
+            "agent_title": "대표 지시 기록",
             "agent_role": "SYSTEM_DIRECTIVE",
             "icon": "📌",
             "avatar_bg": "from-red-600 to-amber-600",

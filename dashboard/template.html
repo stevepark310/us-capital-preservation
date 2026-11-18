@@ -593,8 +593,9 @@ function agentSummaries(){
   for (const a of (report().agents || [])) out[a.agent_id] = a;
   return out;
 }
+/* 직원별 목록 — TL 지시 기록(카테고리 DIRECTIVE)은 직원 보고가 아니므로 제외 */
 function postsOf(id){
-  return posts().filter(p => +p.agent_id === +id)
+  return posts().filter(p => +p.agent_id === +id && p.category !== "DIRECTIVE")
     .sort((a,b) => (parseTs(b.timestamp)||0) - (parseTs(a.timestamp)||0));
 }
 function latestOf(id){ return postsOf(id)[0] || null; }
