@@ -39,6 +39,7 @@ DIP_PARAMS = {
     "rsi2_max": 20.0,
     "pct_b_max": 0.15,
     "rvol_min": 1.0,
+    "rvol_required": False,  # 2026-11-18 승인: RVOL은 필수 → 가점(방어 모드에서만 필수)
     "tp_atr_mult": 1.5,      # validated: 2y +38.2% / MDD -6.6% (risk 2%/trade)
     "sl_atr_mult": 1.5,
     "max_hold_days": 3,
@@ -113,12 +114,16 @@ def signal_row(row: pd.Series, params: Dict[str, Any] = None) -> Optional[Dict[s
         rsi2, pctb, rvol = float(row["RSI2"]), float(row["PCT_B"]), float(row["RVOL"])
     except Exception:
         return None
-    if rsi2 > p["rsi2_max"] or pctb > p["pct_b_max"] or rvol < p["rvol_min"]:
+    if rsi2 > p["rsi2_max"] or pctb > p["pct_b_max"]:
+        return None
+    # RVOL은 필수가 아니라 가점이다(2026-11-18). 방어 모드(`rvol_required=True`)에서만 필수로 복귀.
+    if bool(p.get("rvol_required", True)) and rvol < p["rvol_min"]:
         return None
     score = 0.0
     score += min(40.0, (p["rsi2_max"] - rsi2) * 2.0)          # deeper oversold
     score += min(30.0, (p["pct_b_max"] - pctb) * 100.0)       # below the band
-    score += min(30.0, (rvol - p["rvol_min"]) * 15.0)         # volume confirmation
+    if rvol >= p["rvol_min"]:                                  # volume confirmation (bonus)
+        score += min(30.0, (rvol - p["rvol_min"]) * 15.0)
     return {
         "rsi2": round(rsi2, 1), "rsi14": round(float(row["RSI14"]), 1),
         "pct_b": round(pctb, 3), "rvol": round(rvol, 2),
@@ -164,7 +169,9 @@ def scan_latest(daily: Dict[str, pd.DataFrame], params: Dict[str, Any] = None) -
         else:
             base.update({"rsi2": round(float(row["RSI2"]), 1), "pct_b": round(float(row["PCT_B"]), 3),
                          "rvol": round(float(row["RVOL"]), 2) if np.isfinite(row["RVOL"]) else None,
-                         "why_not": f"RSI2 {row['RSI2']:.0f}>{p['rsi2_max']:.0f} or %B {row['PCT_B']:.2f}>{p['pct_b_max']:.2f} or RVOL {row['RVOL']:.1f}<{p['rvol_min']}"})
+                         "why_not": (f"RSI2 {row['RSI2']:.0f}>{p['rsi2_max']:.0f} or %B {row['PCT_B']:.2f}>{p['pct_b_max']:.2f}"
+                                     + (f" or RVOL {row['RVOL']:.1f}<{p['rvol_min']}(방어 모드 필수)"
+                                        if p.get("rvol_required", True) else ""))})
             out["watch"].append(base)
     out["params"] = p
     return out

@@ -1,6 +1,6 @@
 {
   "engine": "chandelier_v2",
-  "trail_atr_mult": 0.9,
+  "trail_atr_mult": 1.5,
   "initial_sl_atr_mult": 0.75,
   "sl_min_pct": 1.5,
   "sl_max_pct": 15.0,
@@ -12,9 +12,10 @@
   "entry_filters": {
     "rsi2_max": 20.0,
     "pct_b_max": 0.15,
-    "rvol_min": 1.0
+    "rvol_min": 1.0,
+    "rvol_required": false
   },
-  "source": "config/swing_approval.json exit_v2_chandelier (2026-11-17 A/B 검증)",
-  "updated_at_kst": "2026-11-18 10:30:00",
-  "last_note": "SL_MAX: sl_max_pct 8.0 → 15.0 (2026-11-18 예산·사이징 교착 해소 — 8% 클램프는 SOXL에서 0.31 ATR 노이즈 손절. 거래당 리스크 한도 3.0%와 함께 적용). VOL_TARGET 계수 0.7 유지."
+  "source": "config/swing_approval.json exit_v2_chandelier + bracket_specs (2026-11-18 구조 개선 ③)",
+  "updated_at_kst": "2026-11-18 11:37:00",
+  "last_note": "TRAIL 0.9 → 1.5×ATR (장중 규격). 0.9×ATR 트레일은 5분봉 ATR 1.5~2.6%에서 1.4~2.3%로 3~9% 스윙의 앞 1/3에서 끊었다(11-17 SOXL +7.7% 중 +3.89%). RVOL ≥ 1.0은 필수 → 가점(rvol_required=false, 방어 모드에서만 필수). SL_MAX 15%·거래당 리스크 3.0% 유지."
 }

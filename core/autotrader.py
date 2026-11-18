@@ -11,8 +11,9 @@ Autonomous Trader — 장중 무인 매수·매도 집행 엔진 (2026-11-17 12:
 2. **청산(exits)** — `core/exit_rules`의 세 규칙(사다리 / v2 샹들리에 / DIP_SWING)을
    적용해 조건이 닿으면 확인 없이 즉시 매도 주문을 낸다. 손절·강제청산은
    가드레일과 무관하게 항상 집행된다(방어가 우선).
-3. **진입(entries)** — 승인된 신호(DIP_SWING 일봉·장중, BEAR ALPHA, NVDA 갭 SOXS)만
-   받고, 예산·포지션 수·손실 한도·쿨다운·중복 방지 게이트를 모두 통과할 때만 산다.
+3. **진입(entries)** — 승인된 신호(DIP_SWING 일봉·장중, BEAR ALPHA, NVDA 갭 SOXS,
+   C5 개장30분 방향 파일럿)만 받고, 예산·포지션 수·손실 한도·쿨다운·중복 방지 게이트를
+   모두 통과할 때만 산다.
 4. **전략 자기점검** — `core/strategy_evolver`가 실측 표본·기대값·PF·MDD 게이트를
    통과할 때만 파라미터를 안전 범위에서 조정하고 로그를 남긴다.
 
@@ -36,7 +37,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from core import execution_policy, exit_rules, market_clock, session_time
-from core import entry_signals
+from core import bracket_specs, entry_signals
 from execution.order_bridge import OrderRouter
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -354,6 +355,8 @@ class AutonomousTrader:
                 sl_pct = float(b.get("initial_sl_pct") or 4.0)
                 b["sl"] = round(px * (1 - sl_pct / 100), 2)
                 b["breakeven_stop"] = round(px * 1.0034, 2)
+                if b.get("tp_pct_at_plan"):
+                    b["tp"] = round(px * (1 + float(b["tp_pct_at_plan"]) / 100), 2)
                 b["highest_high"] = round(max(float(b.get("highest_high") or 0), px), 2)
             b["filled_at_kst"] = _now_str()
             b["order_no"] = p.get("order_no")
@@ -474,34 +477,154 @@ class AutonomousTrader:
         minutes_into = session_time.session_minutes(session_time.kst_hhmm(clock)) - session_time.session_minutes("23:30")
         cands: List[Dict[str, Any]] = []
 
-        # 1) DIP_SWING — 완료 세션 일봉 신호(세션 초반 90분만 유효: '다음 세션 시가' 진입 규칙)
+        # 1) C5 파일럿 — 개장 30분 방향 1일 1회(2026-11-18 11:37 승인). 우선순위 1.
+        c5 = self._c5_candidate(market, st, brackets)
+        if c5.get("candidate"):
+            cands.append(c5["candidate"])
+        # 2) DIP_SWING — 완료 세션 일봉 신호(세션 초반 90분만 유효: '다음 세션 시가' 진입 규칙)
         if 0 <= minutes_into <= DAILY_ENTRY_WINDOW_MIN:
             scan = entry_signals.dip_daily(market.get("daily") or {}, DIP_UNIVERSE, filters)
             for sig in scan.get("signals") or []:
                 cands.append({"source": "DIP_SWING_DAILY", "ticker": sig.get("symbol"),
-                              "signal": sig, "why": f"RSI2 {sig.get('rsi2')} · %B {sig.get('pct_b')} · RVOL {sig.get('rvol')}",
+                              "signal": sig, "why": f"RSI2 {sig.get('rsi2')} · %B {sig.get('pct_b')} · RVOL {sig.get('rvol')}(가점)",
                               "atr_pct": sig.get("atr_pct")})
-        # 2) DIP_SWING — 장중 등급 신호(신중 모드 규칙: 00:00 이후)
+        # 3) DIP_SWING — 장중 등급 신호(신중 모드 규칙: 00:00 이후)
         if minutes_into >= 30:
             intraday = entry_signals.dip_intraday(DIP_UNIVERSE, thresholds=filters)
             for sig in intraday.get("signals") or []:
                 cands.append({"source": "DIP_SWING_INTRADAY", "ticker": sig.get("symbol"),
-                              "signal": sig, "why": f"5분봉 RSI2 {sig.get('rsi2')} · %B {sig.get('pct_b')} · RVOL {sig.get('rvol')}",
+                              "signal": sig,
+                              "why": (f"5분봉 RSI2 {sig.get('rsi2')} · %B {sig.get('pct_b')} · "
+                                      f"RVOL {sig.get('rvol')}(가점 {sig.get('rvol_bonus') or 0}) · 점수 {sig.get('score')}"),
                               "atr_pct": sig.get("atr_pct")})
-        # 3) BEAR ALPHA — VIX ≥ 24 + 확인 2개
+        # 4) BEAR ALPHA — VIX ≥ 24 + 확인 1개(가격구조 포함, 2026-11-18 완화)
+        structure = self._price_structure(market)
         gate = entry_signals.bear_alpha_gate(market.get("snapshot") or {},
-                                             entry_signals.news_sentiment_avg())
+                                             entry_signals.news_sentiment_avg(),
+                                             price_structure=structure)
         if gate.get("armed"):
             for tk in HEDGE_UNIVERSE:
                 cands.append({"source": "BEAR_ALPHA_HEDGE", "ticker": tk, "signal": gate,
-                              "why": f"VIX {gate.get('vix')} + 확인 {len(gate.get('confirmations') or [])}개",
-                              "atr_pct": ((market.get("techs") or {}).get(tk) or {}).get("atr_pct"),
+                              "why": (f"VIX {gate.get('vix')} + 확인 {len(gate.get('confirmations') or [])}개 "
+                                      f"({'; '.join(gate.get('confirmations') or [])})"),
+                              "atr_pct": ((market.get("techs") or {}).get(tk) or {}).get("atr_pct")
+                                         or self._atr_from_bars(tk),
                               "notional_cap": HEDGE_NOTIONAL_CAP})
-        # 4) NVDA 실적 반응일 갭 → SOXS (11-18 23:30, 사용자 승인)
+        # 5) NVDA 실적 반응일 갭 → SOXS (11-18 23:30, 사용자 승인)
         gap = self._gap_candidate(market, quotes)
         if gap.get("candidate"):
             cands.append(gap["candidate"])
         return cands
+
+    # ------------------------------------------------------------- C5 파일럿
+    def _c5_cfg(self) -> Dict[str, Any]:
+        return entry_signals.c5_config(self.policy.get("c5_pilot") or {})
+
+    def _c5_open(self, brackets: Dict[str, Any]) -> Optional[str]:
+        """오늘 C5 파일럿 포지션이 열려 있으면 그 티커를 돌려준다(방향 충돌 방지)."""
+        for tk, b in (brackets or {}).items():
+            if isinstance(b, dict) and b.get("entry_source") == "C5_OPEN30_DIRECTION" \
+                    and exit_rules.is_open(b):
+                return tk
+        return None
+
+    def _c5_done_today(self, st: Dict[str, Any], brackets: Dict[str, Any]) -> bool:
+        for e in st.get("entries") or []:
+            if (e.get("source") or "") == "C5_OPEN30_DIRECTION":
+                return True
+        for p in st.get("pending") or []:
+            if (p.get("source") or "") == "C5_OPEN30_DIRECTION":
+                return True
+        for tk, b in (brackets or {}).items():
+            if isinstance(b, dict) and b.get("entry_source") == "C5_OPEN30_DIRECTION" \
+                    and not b.get("closed"):
+                return True
+        return False
+
+    @staticmethod
+    def _last_daily_close(daily: Dict[str, Any], ticker: str) -> Optional[float]:
+        df = (daily or {}).get(ticker)
+        if df is None or not len(df):
+            return None
+        try:
+            return float(df["Close"].iloc[-1])
+        except Exception:
+            return None
+
+    def _atr_from_bars(self, ticker: str) -> Optional[float]:
+        """5분봉 ATR% — 일봉 ATR(20%대)을 장중 손절에 쓰지 않게 한다."""
+        try:
+            bars = entry_signals.fetch_intraday_bars([ticker])
+            return entry_signals.intraday_atr_pct(bars.get(ticker) or [])
+        except Exception:
+            return None
+
+    def _price_structure(self, market: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """숏 게이트의 가격구조 확인 — SOXL이 당일 세션 VWAP 아래인가."""
+        try:
+            bars = entry_signals.fetch_intraday_bars(["SOXL"])
+            return entry_signals.intraday_vwap_state(bars.get("SOXL") or [])
+        except Exception:
+            return None
+
+    def _c5_candidate(self, market: Dict[str, Any], st: Dict[str, Any],
+                      brackets: Dict[str, Any]) -> Dict[str, Any]:
+        """C5 파일럿 후보 — 개장 30분(10:00 ET) 방향 판정 → 1일 1회 진입, 15:40 ET 청산."""
+        cfg = self._c5_cfg()
+        clock = market["clock"]
+        session_date = str(clock.get("session_date") or "")
+        minutes_into = (session_time.session_minutes(session_time.kst_hhmm(clock))
+                        - session_time.session_minutes("23:30"))
+        window = cfg.get("entry_window_min") or [30, 60]
+        if not (int(window[0]) <= minutes_into <= int(window[1])):
+            return {"armed": False, "reason": f"C5 진입 창 밖(개장 {minutes_into}분)"}
+        if self._c5_done_today(st, brackets):
+            return {"armed": False, "reason": "C5 1일 1회 이미 집행"}
+        quotes = market.get("quotes") or {}
+        price = self.price_of(quotes, "SOXL")
+        prev_close = self._last_daily_close(market.get("daily") or {}, "SOXL")
+        if price is None or prev_close is None:
+            return {"armed": False, "reason": "C5 판정 가격 미확인(SOXL 전일 종가/현재가)"}
+        sig = entry_signals.c5_open30_signal(prev_close, price, None, session_date, config=cfg)
+        if not sig.get("direction"):
+            # 블랙아웃·가격 미확인 — 방향이 정해진 경우에만 ATR을 읽는다.
+            return {"armed": False, "detail": sig, "reason": sig.get("reason")}
+        tk = None
+        for cand_tk in sig.get("tickers") or []:
+            if self.position_qty(cand_tk, brackets) <= 0 and not self._has_pending(cand_tk, st):
+                tk = cand_tk
+                break
+        if not tk:
+            return {"armed": False, "detail": sig,
+                    "reason": f"C5 {sig.get('direction')} 티커가 모두 보유/대기 중"}
+        atr_pct = self._atr_from_bars(tk)
+        sig2 = entry_signals.c5_open30_signal(prev_close, price, atr_pct, session_date, config=cfg)
+        if not sig2.get("active"):
+            return {"armed": False, "detail": sig2, "reason": sig2.get("reason")}
+        return {"armed": True, "detail": sig2, "candidate": {
+            "source": "C5_OPEN30_DIRECTION", "ticker": tk, "signal": sig2,
+            "why": f"C5 {sig2.get('direction')} — {sig2.get('reason')} · 손절 {sig2.get('stop_pct')}%",
+            "atr_pct": atr_pct, "pilot": "C5",
+            "notional_cap": float(cfg.get("budget_usd") or 150.0),
+            "time_exit_kst": sig2.get("exit_kst"), "allow_opening_entry": True}}
+
+    def _c5_conflict(self, src: Optional[str], ticker: str,
+                     c5_open: Optional[str]) -> Optional[str]:
+        """C5 파일럿과 반대 방향 진입을 막는다(같은 계좌에서 롱·숏 동시 보유 방지)."""
+        if not c5_open or not src:
+            return None
+        cfg = self._c5_cfg()
+        shorts = {t.upper() for t in (cfg.get("short_tickers") or [])}
+        pilot_dir = "SHORT" if c5_open in shorts else "LONG"
+        if src == "BEAR_ALPHA_HEDGE":
+            cand_dir = "SHORT"
+        elif src in ("DIP_SWING_DAILY", "DIP_SWING_INTRADAY"):
+            cand_dir = "SHORT" if ticker in shorts else "LONG"
+        else:
+            return None
+        if pilot_dir == cand_dir:
+            return None
+        return f"C5 파일럿 {pilot_dir}({c5_open}) 보유 — 반대 방향 {src} 진입 차단"
 
     def _gap_candidate(self, market: Dict[str, Any], quotes: Dict[str, Any]) -> Dict[str, Any]:
         clock = market["clock"]
@@ -560,6 +683,7 @@ class AutonomousTrader:
 
         open_positions = [tk for tk, b in brackets.items()
                           if isinstance(b, dict) and exit_rules.is_open(b) and tk != "SGOV"]
+        c5_open = self._c5_open(brackets)
         vix = market.get("vix")
         vix_scale = execution_policy.vix_scale(vix, self.policy)
         risk_scale = float(params.get("risk_scale") or 1.0)
@@ -569,6 +693,10 @@ class AutonomousTrader:
         for cand in self.entry_candidates(market, st, brackets, params):
             tk = (cand.get("ticker") or "").upper()
             src = cand.get("source")
+            conflict = self._c5_conflict(src, tk, c5_open)
+            if conflict:
+                self._emit("ENTRY_SKIP", ticker=tk, source=src, reason=conflict)
+                continue
             if not execution_policy.allowed_ticker(tk, self.policy):
                 self._emit("ENTRY_SKIP", ticker=tk, source=src, reason="유니버스 밖")
                 continue
@@ -672,10 +800,15 @@ class AutonomousTrader:
                      "min_one_share": min_one}
 
     def _sl_pct(self, cand: Dict[str, Any], params: Optional[Dict[str, Any]] = None) -> float:
-        if cand.get("source") == "NVDA_EARNINGS_GAP_SOXS":
+        source = cand.get("source")
+        if source == "NVDA_EARNINGS_GAP_SOXS":
             return abs(float(cand.get("disaster_stop_pct") or -8.0))
         p = params or self._strategy_params()
+        spec = self._bracket_spec(source)
         atr = float(cand.get("atr_pct") or 6.0)
+        from_spec = bracket_specs.sl_pct(spec, atr)
+        if from_spec is not None:
+            return max(0.5, min(30.0, float(from_spec)))
         mult = float(p.get("initial_sl_atr_mult") or 0.75)
         lo = float(p.get("sl_min_pct") or 1.5)
         hi = float(p.get("sl_max_pct") or 15.0)
@@ -687,39 +820,70 @@ class AutonomousTrader:
             from core import strategy_evolver
             return strategy_evolver.load_params()
         except Exception:
-            return {"trail_atr_mult": 0.9, "initial_sl_atr_mult": 0.75, "be_after_atr": 1.0,
+            return {"trail_atr_mult": 1.5, "initial_sl_atr_mult": 0.75, "be_after_atr": 1.0,
                     "sl_min_pct": 1.5, "sl_max_pct": 15.0,
                     "max_hold_sessions": 3, "risk_scale": 1.0,
-                    "entry_filters": {"rsi2_max": 20.0, "pct_b_max": 0.15, "rvol_min": 1.0}}
+                    "entry_filters": {"rsi2_max": 20.0, "pct_b_max": 0.15, "rvol_min": 1.0,
+                                      "rvol_required": False}}
+
+    def _bracket_spec(self, source: Optional[str]) -> Dict[str, Any]:
+        """진입 신호 → 브래킷 규격(일봉/장중/C5 분리). config가 정본, 코드는 폴백."""
+        return bracket_specs.spec_for(source, self.policy.get("bracket_specs")
+                                      or ((self.policy.get("autonomous_execution") or {}).get("bracket_specs")))
 
     def _new_bracket(self, cand: Dict[str, Any], ticker: str, price: float, qty: int,
                      order_no: Any, source: str,
                      params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         p = params or self._strategy_params()
+        spec = self._bracket_spec(source)
         sl_pct = self._sl_pct(cand, p)
+        atr_pct = round(float(cand.get("atr_pct") or 6.0), 2)
+        tp_pct = bracket_specs.tp_pct(spec, atr_pct)
+        mode = spec.get("exit_mode") or "chandelier_v2"
         b: Dict[str, Any] = {
             "bought_qty": 0, "entry_price": round(price, 2), "planned_price": round(price, 2),
             "sl": round(price * (1 - sl_pct / 100), 2), "initial_sl_pct": round(sl_pct, 2),
             "breakeven_stop": round(price * 1.0034, 2), "sl_triggered": False, "closed": False,
-            "atr_pct_at_plan": round(float(cand.get("atr_pct") or 6.0), 2),
-            "sl_active_after_kst": "23:45",
+            "atr_pct_at_plan": atr_pct,
+            "sl_active_after_kst": spec.get("sl_active_after_kst") or "23:45",
             "highest_high": round(price, 2), "opened_at": _now_str(),
             "autonomous": True, "entry_source": source, "order_no": order_no,
             "pending_entry": True,
+            "bracket_class": spec.get("bracket_class"), "atr_basis": spec.get("atr_basis"),
+            "bracket_spec": spec.get("resolved_from"),
             "note": f"무인 집행 신호 {source} — {cand.get('why')}",
         }
-        if cand.get("time_exit_kst"):
-            b.update({"exit_mode": "time_exit", "force_exit_kst": cand["time_exit_kst"],
+        if mode == "swing_hold":
+            # 일봉 스윙 규격: 승인된 ATR×1.5 대칭 브래킷 + 3세션 (장중 트레일과 섞지 않는다)
+            b.update({"exit_mode": "swing_hold", "swing_hold": True,
+                      "bracket_version": "swing_daily_atr15",
+                      "tp": round(price * (1 + tp_pct / 100), 2) if tp_pct else None,
+                      "tp_pct_at_plan": tp_pct,
+                      "max_hold_sessions": int(spec.get("max_hold_sessions") or 3),
                       "tp1": None, "tp1_qty": 0, "tp2": None, "tp2_qty": 0, "runner_qty": 0,
-                      "note": f"{source} — {cand.get('time_exit_kst')} 종가 청산, 재난손절 {sl_pct:.1f}%"})
+                      "note": (f"{source} 일봉 스윙 — SL {sl_pct:.1f}% / TP {tp_pct or 0:.1f}% "
+                               f"(ATR {atr_pct}%×1.5), 최대 {spec.get('max_hold_sessions') or 3}세션")})
+        elif mode == "time_exit":
+            b.update({"exit_mode": "time_exit",
+                      "force_exit_kst": cand.get("time_exit_kst") or spec.get("time_exit_kst"),
+                      "tp1": None, "tp1_qty": 0, "tp2": None, "tp2_qty": 0, "runner_qty": 0,
+                      "note": (f"{source} — {cand.get('time_exit_kst') or spec.get('time_exit_kst')} 종가 청산, "
+                               f"손절 {sl_pct:.1f}% (ATR {atr_pct}%)")})
         else:
+            trail = spec.get("trail_atr_mult")
+            if trail is None:
+                trail = float(p.get("trail_atr_mult") or 1.5)
             b.update({"exit_mode": "chandelier_v2", "bracket_version": "chandelier_v2",
-                      "trail_atr_mult": float(p.get("trail_atr_mult") or 0.9),
-                      "be_after_atr": float(p.get("be_after_atr") or 1.0),
+                      "trail_atr_mult": float(trail),
+                      "be_after_atr": float(spec.get("be_after_atr") or p.get("be_after_atr") or 1.0),
                       "breakeven_pct": float(p.get("breakeven_pct") or 0.34),
-                      "max_hold_sessions": int(p.get("max_hold_sessions") or 3),
+                      "max_hold_sessions": int(spec.get("max_hold_sessions") or p.get("max_hold_sessions") or 3),
                       "tp1": None, "tp1_qty": 0, "tp2": None,
                       "tp2_qty": 0, "runner_qty": 0})
+            if spec.get("session_close_exit_kst"):
+                b["force_exit_kst"] = spec["session_close_exit_kst"]
+            b["note"] = (f"무인 집행 신호 {source} — {cand.get('why')} | "
+                         f"장중 트레일 {float(trail)}×ATR, SL {sl_pct:.1f}%")
         return b
 
     # ------------------------------------------------------------------ strategy
@@ -798,8 +962,10 @@ class AutonomousTrader:
                                                           "risk_scale", "defensive_mode", "entry_filters")},
             "positions": {tk: {"qty": exit_rules.remaining_qty(b), "entry": b.get("entry_price"),
                                "sl": b.get("sl"), "exit_mode": b.get("exit_mode") or b.get("bracket_version"),
+                               "bracket_class": b.get("bracket_class"), "trail_atr_mult": b.get("trail_atr_mult"),
                                "entry_source": b.get("entry_source")}
                           for tk, b in brackets.items() if isinstance(b, dict) and exit_rules.is_open(b)},
+            "c5_pilot": self._c5_status(st, brackets, clock),
             "ledger": {"equity_usd": equity, "cash_usd": cash},
             "next_gate": self._next_gate(clock, st),
             "elapsed_sec": round(time.time() - t0, 1),
@@ -811,6 +977,17 @@ class AutonomousTrader:
                           "evolution": evolution.get("decision"), "realized_today": status["realized_pnl_today_usd"],
                           "halted": status["halted"], "elapsed_sec": status["elapsed_sec"]})
         return status
+
+    def _c5_status(self, st: Dict[str, Any], brackets: Dict[str, Any],
+                   clock: Dict[str, Any]) -> Dict[str, Any]:
+        cfg = self._c5_cfg()
+        session_date = str(clock.get("session_date") or "")
+        bo = entry_signals.c5_blackout(session_date, cfg)
+        return {"enabled": bool(cfg.get("enabled", True)), "session_date": session_date,
+                "blackout": bo["blackout"], "blackout_reason": bo.get("reason"),
+                "open_ticker": self._c5_open(brackets), "done_today": self._c5_done_today(st, brackets),
+                "entry_window_min": cfg.get("entry_window_min"), "exit_kst": cfg.get("exit_kst"),
+                "sl_atr_mult": cfg.get("sl_atr_mult"), "budget_usd": cfg.get("budget_usd")}
 
     def _next_gate(self, clock: Dict[str, Any], st: Dict[str, Any]) -> str:
         if st.get("halted"):

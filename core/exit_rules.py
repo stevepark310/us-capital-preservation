@@ -8,11 +8,14 @@ Exit decision rules — shared by the 10-minute monitor and the autonomous trade
 규칙 3종
 --------
 1. `swing_exit_decision`  — DIP_SWING 오버나이트(사용자 승인 2026-11-14 21:29).
-   검증된 ATR×1.5 대칭 브래킷, 전량 청산, 최대 3세션.
-2. `chandelier_v2_exit`   — 신규 진입 기본값(2026-11-17 A/B). 샹들리에 0.9×ATR
-   트레일 + 초기손절 0.75×ATR + 본전 하한 + 3세션 시간청산, 부분익절 없음.
-3. `ladder_exit_decision` — 평단 기준 사다리(TP1/TP2/SL) + 실적 가드 강제청산.
-   개장 15분 손절 유예(`sl_active_after_kst`)와 05:40 강제청산을 그대로 지킨다.
+   검증된 ATR×1.5 대칭 브래킷, 전량 청산, 최대 3세션. **일봉 브래킷 전용**
+   (`bracket_class=DAILY_SWING`).
+2. `chandelier_v2_exit`   — 장중 진입 기본값(2026-11-17 A/B · 2026-11-18 트레일 상향).
+   샹들리에 트레일(브래킷의 `trail_atr_mult`, 신규분 1.5×ATR) + 초기손절 0.75×ATR +
+   본전 하한 + 세션 종가 청산(`force_exit_kst`, 05:40 KST) + 3세션 시간청산. 부분익절 없음.
+3. `ladder_exit_decision` — 평단 기준 사다리(TP1/TP2/SL) + 시간·실적 가드 청산.
+   개장 15분 손절 유예(`sl_active_after_kst`)와 강제청산을 그대로 지킨다. C5 파일럿의
+   15:40 ET 시간청산도 이 경로(`force_exit_kst`)를 쓴다.
 
 각 함수는 브래킷을 '읽고' 결정만 돌려준다. 상태 변경은 호출한 쪽이
 `decision["post"]`를 적용해 수행한다(테스트에서 부작용 없이 검증하기 위해서).
@@ -87,17 +90,21 @@ def swing_exit_decision(bracket: Dict[str, Any], price: float,
 
 def chandelier_v2_exit(bracket: Dict[str, Any], price: float,
                        clock: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """v2 청산 — 샹들리에 트레일(0.9ATR) + 초기손절 0.75ATR + 3세션 시간청산.
+    """v2 청산 — 샹들리에 트레일 + 초기손절 + 세션 종가 청산 + 시간청산.
 
     근거(2026-11-17 A/B, 2년 60분봉 39~51건): 고정 사다리(v1)는 SOXL ATR 27%에서
     손절이 2.5%로 클램프돼 39건 중 31건이 손절(-1.31%/건)이었다. 트레일 v2는
     SOXL +2.48%/건, TQQQ +0.70%/건으로 두 종목 모두 개선됐다. 부분익절 없이
     전량 1회 청산한다(계좌 1~2주 단위에서 분할은 수수료만 늘린다).
+
+    트레일 폭은 **브래킷에 등록된 값**을 쓴다(신규 장중 진입 1.5×ATR, 기존 0.9×ATR 유지).
+    장중 규격에 `force_exit_kst`가 있으면 그 시각에 세션 종가 청산 — 장중 브래킷이
+    다음 세션으로 넘어가 "3세션 방치"가 되는 것을 막는다(2026-11-18 구조 개선 ③).
     """
-    _roll_session(bracket, clock)
     entry = float(bracket.get("entry_price") or 0)
     if entry <= 0:
         return None
+    _roll_session(bracket, clock)
     atr_pct = float(bracket.get("atr_pct_at_plan") or (bracket.get("ladder_params") or {}).get("atr_pct") or 6.0)
     atr_abs = entry * atr_pct / 100.0
     k = float(bracket.get("trail_atr_mult", 0.9))
@@ -116,6 +123,11 @@ def chandelier_v2_exit(bracket: Dict[str, Any], price: float,
         return {"action": "SELL", "qty": qty, "stop": True, "close": True,
                 "reason": f"v2 STOP (${price:.2f} ≤ ${bracket['sl']:.2f})",
                 "post": {"sl_triggered": True, "closed": True}}
+    fex = bracket.get("force_exit_kst")
+    if fex and not bracket.get("force_exited") and time_reached(clock, fex):
+        return {"action": "SELL", "qty": qty, "stop": False, "close": True,
+                "reason": f"v2 SESSION EXIT ({fex} KST 종가 청산, 장중 브래킷)",
+                "post": {"force_exited": True, "closed": True}}
     if float(price) <= trail:
         return {"action": "SELL", "qty": qty, "stop": False, "close": True,
                 "reason": f"v2 TRAIL (${price:.2f} ≤ ${trail:.2f}, 최고 ${hh:.2f} − {k}×ATR)",
@@ -174,7 +186,11 @@ def ladder_exit_decision(bracket: Dict[str, Any], price: float,
 
 def decide(bracket: Dict[str, Any], price: float,
            clock: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """브래킷 종류를 보고 알맞은 규칙 하나만 적용한다."""
+    """브래킷 종류를 보고 알맞은 규칙 하나만 적용한다.
+
+    `bracket_class`(core/bracket_specs.py)가 규격의 정체를 남긴다:
+    DAILY_SWING → swing_hold, INTRADAY/HEDGE → chandelier_v2, PILOT_C5/HEDGE_EVENT → time_exit.
+    """
     if not is_open(bracket):
         return None
     if bracket.get("swing_hold"):

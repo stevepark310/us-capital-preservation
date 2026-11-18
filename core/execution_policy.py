@@ -9,8 +9,11 @@ Autonomy policy — 동훈님의 무인 집행 위임(2026-11-17 12:02)과 하�
 위임의 경계
 -----------
 - 위임된 것: 신호 판단 → 매수/매도 → 브래킷 등록·청산을 사용자 확인 없이 집행.
+- 2026-11-18 11:37 추가 승인(`C5 파일럿 + 구조 개선 3건`): ① 숏 게이트 확인 개수
+  2-of-2 → 1-of-1(VIX ≥ 24 하한은 고정) ② DIP의 RVOL 필수 → 가점 ③ 장중 트레일
+  0.9 → 1.5×ATR 및 일봉/장중 브래킷 규격 분리, C5 개장30분 방향 파일럿($150/일 1회).
 - 위임되지 않은 것: NVDA `levels_locked`(TP $173.0 / SL $150.0) 변경, 물타기,
-  스몰캡 급등주, BEAR ALPHA 게이트(VIX ≥ 24 + 확인 2개) 완화, 신규 종목 편입.
+  스몰캡 급등주, **VIX 하한 24.0 미만의 숏 허용**, 신규 종목 편입.
   이 네 가지는 정책 파일로도 켤 수 없게 코드에서 막는다.
 """
 
@@ -95,6 +98,9 @@ def load_policy(path: Optional[str] = None) -> Dict[str, Any]:
         block = cfg.get("autonomous_execution") or {}
         policy = _deep_merge(DEFAULTS, block)
         policy["cautious_mode"] = cfg.get("cautious_mode") or {}
+        policy["c5_pilot"] = block.get("c5_pilot") or {}
+        policy["bracket_specs"] = block.get("bracket_specs") or {}
+        policy["bear_alpha_gate"] = block.get("bear_alpha_gate") or {}
         policy["swing_approval"] = {
             "status": cfg.get("overnight_status"),
             "universe": cfg.get("universe"),
