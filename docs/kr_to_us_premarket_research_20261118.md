@@ -2,7 +2,7 @@
 
 - 작성: 2026-11-18 (KST)
 - 데이터 기준: 60분봉(프리장 포함) **681세션 2023-12-20 ~ 2026-11-17**, 일봉 **1,178세션 2021-11-19 ~ 2026-11-17**
-- 산출물: `docs/kr_us_premarket_research.json`(전체 1,512 백테스트·상관·회귀), `config/kr_signal_calibration.json`(모니터링용 계수)
+- 산출물: `docs/kr_us_premarket_research.json`(전체 2,328 백테스트·상관 378쌍·창별 β 35개), `config/kr_signal_calibration.json`(모니터링용 계수)
 - 재현: `python3 scripts/research/kr_us_premarket_data.py` → `python3 scripts/research/kr_us_premarket.py`
 - 실전 주문은 하지 않았다. 이 문서는 연구 결과이며, 프리장 실주문은 `config/premarket_policy.json`(`enabled: false`)으로 막혀 있다.
 
