@@ -237,7 +237,7 @@ def build() -> Dict:
     # ---- 5년 일봉 교차확인용(프리장 없음): 한국 D vs 미국 D 갭/장중
     daily = pd.DataFrame(index=sig.index)
     daily = daily.join(sig[["kospi_ret", "kosdaq_ret", "semis_ret", "semis_excess", "usdkrw_ret"]])
-    for t in US_TICKERS:
+    for t in US_TICKERS + ["SOXX"]:
         d = fetch(t, "1d", "5y")
         if not len(d):
             continue
