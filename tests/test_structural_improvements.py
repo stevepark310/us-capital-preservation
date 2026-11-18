@@ -117,7 +117,8 @@ def test_specs_split_daily_intraday_c5():
     c5 = bracket_specs.spec_for("C5_OPEN30_DIRECTION")
     assert daily["bracket_class"] == "DAILY_SWING" and daily["exit_mode"] == "swing_hold"
     assert daily["atr_basis"] == "daily" and daily["initial_sl_atr_mult"] == 1.5
-    assert intra["bracket_class"] == "INTRADAY" and intra["trail_atr_mult"] == 1.5
+    assert intra["bracket_class"] == "INTRADAY" and intra["trail_atr_mult"] == 0.9   # 장중은 0.9 유지
+    assert daily["initial_sl_atr_mult"] == 1.5 and daily["tp_atr_mult"] == 1.5          # 일봉만 1.5
     assert intra["session_close_exit_kst"] == "05:40"
     assert c5["bracket_class"] == "PILOT_C5" and c5["exit_mode"] == "time_exit"
     assert c5["initial_sl_atr_mult"] == 3.0
@@ -150,17 +151,25 @@ def test_daily_bracket_uses_symmetric_atr15_and_swing_exit(trader):
     assert b["max_hold_sessions"] == 3
 
 
-def test_intraday_bracket_uses_15atr_trail_and_session_exit(trader):
+def test_intraday_bracket_keeps_09_trail_and_session_exit(trader):
+    """일괄 1.5 상향은 5일/60일 모두 악화 → 장중 채널은 0.9×ATR 유지(2026-11-18 12:05 지시)."""
     cand = {"source": "DIP_SWING_INTRADAY", "atr_pct": 2.0, "why": "장중 DIP"}
-    b = trader._new_bracket(cand, "SOXL", 50.0, 3, None, "DIP_SWING_INTRADAY", {"trail_atr_mult": 1.5})
+    b = trader._new_bracket(cand, "SOXL", 50.0, 3, None, "DIP_SWING_INTRADAY", {"trail_atr_mult": 0.9})
     assert b["bracket_class"] == "INTRADAY" and b["exit_mode"] == "chandelier_v2"
-    assert b["trail_atr_mult"] == 1.5
+    assert b["trail_atr_mult"] == 0.9
     assert b["force_exit_kst"] == "05:40"
     assert b["initial_sl_pct"] == 1.5                          # 0.75×2.0 → 하한 1.5
 
 
+def test_intraday_trail_never_widens_beyond_09(trader):
+    """params가 흔들려도 장중 트레일은 0.9 기본값을 유지한다(샹들리에 v2 검증값)."""
+    cand = {"source": "DIP_SWING_INTRADAY", "atr_pct": 2.0, "why": "장중 DIP"}
+    default = trader._new_bracket(cand, "SOXL", 50.0, 3, None, "DIP_SWING_INTRADAY", {})
+    assert default["trail_atr_mult"] == strategy_evolver.BASE_PARAMS["trail_atr_mult"] == 0.9
+
+
 def test_wider_trail_holds_through_noise():
-    """1.5×ATR 트레일은 0.9×ATR이 끊기던 되돌림을 견딘다(11-17 SOXL 구간 재현)."""
+    """트레일 폭이 청산 시점을 바꾼다(0.9 청산 / 1.5 보유) — 장중 0.9는 의도된 값."""
     base = {"bought_qty": 1, "entry_price": 44.56, "sl": 42.0, "atr_pct_at_plan": 2.0,
             "be_after_atr": 1.0, "breakeven_pct": 0.34, "max_hold_sessions": 3,
             "sl_active_after_kst": "23:45", "closed": False, "exit_mode": "chandelier_v2"}
@@ -188,7 +197,7 @@ def test_intraday_session_close_exit():
     assert d and "SESSION EXIT" in d["reason"]
 
 
-def test_evolver_defaults_and_clamps_follow_widened_trail():
-    assert strategy_evolver.BASE_PARAMS["trail_atr_mult"] == 1.5
-    assert strategy_evolver.CLAMPS["trail_atr_mult"] == (1.20, 2.00)
+def test_evolver_defaults_keep_intraday_trail_and_rvol_bonus():
+    assert strategy_evolver.BASE_PARAMS["trail_atr_mult"] == 0.9
+    assert strategy_evolver.CLAMPS["trail_atr_mult"] == (0.60, 1.20)
     assert strategy_evolver.BASE_PARAMS["entry_filters"]["rvol_required"] is False

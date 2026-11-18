@@ -1,35 +1,100 @@
 {
   "id": "inflection-research-20261118",
-  "status": "REVIEW_IN_PROGRESS",
+  "status": "APPLIED_20261118",
   "given_at_kst": "2026-11-18 11:14",
   "given_by": "박동훈 (대표)",
   "quote": "종목 발굴이나 매수 매도를 하는 핵심 알고리즘이 지난 주 5거래일 동안 숏인지 롱인지 제대로 작동해서 장중 매수 매도를 지속 진행하여 데일리 수익을 창출했다면 어느정도 수익이 났는지 백테스트를 진행해봐 단위는 10분 단위로. 그리고 급락과 급등의 변곡점을 적절하게 찾았는지 확인해서 새로운 알고리즘과 로직을 검토하도록 모든 직원에게 지시해",
   "mandate": "10분 단위 5거래일 백테스트 결과를 근거로 ① 현행 엔진의 롱·숏 작동 여부와 데일리 손익 ② 급락·급등 변곡점 포착률과 미포착 사유 ③ 신규 롱·숏 알고리즘 후보 검토 — 10인 전원이 각자 담당 영역에서 검토 의견을 제출하고 매 10분 보고에 이행 상태를 남긴다.",
   "scope_note": "검토·보고 전용. 실전 매매 로직·설정·주문은 동훈님 승인 전까지 변경하지 않는다(core/autotrader.py, core/entry_signals.py, core/exit_rules.py, config/swing_approval.json diff 0줄).",
   "report_file": "docs/intraday_inflection_research_20261118.md",
-  "result_files": ["data/research_10m_5d_20261118.json", "data/research_10m_ab_20261118.json"],
+  "result_files": [
+    "data/research_10m_5d_20261118.json",
+    "data/research_10m_ab_20261118.json"
+  ],
   "measured_facts": {
-    "window": ["2026-11-11", "2026-11-12", "2026-11-13", "2026-11-16", "2026-11-17"],
+    "window": [
+      "2026-11-11",
+      "2026-11-12",
+      "2026-11-13",
+      "2026-11-16",
+      "2026-11-17"
+    ],
     "bar": "10분봉(5분봉 리샘플, 09:30~16:00 ET, 39봉/일)",
     "cost_round_trip_pct": 0.24,
     "budget_usd": 150.0,
-    "core_5d": {"trades": 10, "wins": 3, "win_pct": 30.0, "pnl_usd": -2.98, "pf": 0.61,
-                "mdd_usd": -8.18, "fee_usd": 2.89, "fee_share_pct": 15.9, "avg_pct": -0.379,
-                "legacy_budget_pnl_usd": -2.78, "slippage_12bp_pnl_usd": -8.76,
-                "per_day_usd": {"2026-11-11": -2.19, "2026-11-12": -1.15, "2026-11-13": -4.84,
-                                "2026-11-16": 2.25, "2026-11-17": 2.95}},
-    "inflection": {"major_legs": 24, "captured": 1, "capture_pct": 4.2,
-                   "opportunity_usd": 196.91, "captured_usd": 5.2,
-                   "miss_reasons": {"bear_gate_vix_lt_24": 12, "bear_gate_confirm_0of2": 3,
-                                    "dip_filter": 5, "session_limit_cooldown": 2,
-                                    "opening_blackout": 1, "captured": 1}},
-    "ab_60d": {"C1_vwap_reversion": {"n": 156, "pnl_usd": -56.49, "pf": 0.55, "fee_share_pct": 24.7},
-               "C2_ema_adx_trend": {"n": 15, "pnl_usd": 1.08, "pf": 1.07, "fee_share_pct": 18.8},
-               "C3_rsi2_reversal": {"n": 304, "pnl_usd": -93.56, "pf": 0.5, "fee_share_pct": 31.6},
-               "C4_donchian_breakout": {"n": 269, "pnl_usd": -92.21, "pf": 0.67, "fee_share_pct": 18.8},
-               "C5_open30_direction_daily": {"n": 118, "pnl_usd": 40.09, "pf": 1.2, "t_stat": 0.71,
-                                             "fee_share_pct": 9.4, "per_day_usd": 0.68}},
-    "ceiling_5d": {"oracle_10m_usd": 324.83, "perfect_daily_direction_usd": 21.66},
+    "core_5d": {
+      "trades": 10,
+      "wins": 3,
+      "win_pct": 30.0,
+      "pnl_usd": -2.98,
+      "pf": 0.61,
+      "mdd_usd": -8.18,
+      "fee_usd": 2.89,
+      "fee_share_pct": 15.9,
+      "avg_pct": -0.379,
+      "legacy_budget_pnl_usd": -2.78,
+      "slippage_12bp_pnl_usd": -8.76,
+      "per_day_usd": {
+        "2026-11-11": -2.19,
+        "2026-11-12": -1.15,
+        "2026-11-13": -4.84,
+        "2026-11-16": 2.25,
+        "2026-11-17": 2.95
+      }
+    },
+    "inflection": {
+      "major_legs": 24,
+      "captured": 1,
+      "capture_pct": 4.2,
+      "opportunity_usd": 196.91,
+      "captured_usd": 5.2,
+      "miss_reasons": {
+        "bear_gate_vix_lt_24": 12,
+        "bear_gate_confirm_0of2": 3,
+        "dip_filter": 5,
+        "session_limit_cooldown": 2,
+        "opening_blackout": 1,
+        "captured": 1
+      }
+    },
+    "ab_60d": {
+      "C1_vwap_reversion": {
+        "n": 156,
+        "pnl_usd": -56.49,
+        "pf": 0.55,
+        "fee_share_pct": 24.7
+      },
+      "C2_ema_adx_trend": {
+        "n": 15,
+        "pnl_usd": 1.08,
+        "pf": 1.07,
+        "fee_share_pct": 18.8
+      },
+      "C3_rsi2_reversal": {
+        "n": 304,
+        "pnl_usd": -93.56,
+        "pf": 0.5,
+        "fee_share_pct": 31.6
+      },
+      "C4_donchian_breakout": {
+        "n": 269,
+        "pnl_usd": -92.21,
+        "pf": 0.67,
+        "fee_share_pct": 18.8
+      },
+      "C5_open30_direction_daily": {
+        "n": 118,
+        "pnl_usd": 40.09,
+        "pf": 1.2,
+        "t_stat": 0.71,
+        "fee_share_pct": 9.4,
+        "per_day_usd": 0.68
+      }
+    },
+    "ceiling_5d": {
+      "oracle_10m_usd": 324.83,
+      "perfect_daily_direction_usd": 21.66
+    },
     "decision": "10분 롱숏 회전 4종 기각(60일 -$56~-$94, 파라미터 변형 전부 음수). C5 개장30분 방향 1일1회만 조건부 채택 후보(60일 +$40.09, 5일 +$0.10, t=0.71). 실전 반영은 사용자 승인 필요."
   },
   "agent_reviews": {
@@ -84,5 +149,67 @@
       "action": "승인 시 C5는 10:00 ET 진입·15:40 ET 청산·손절 3×ATR로 기존 9개 가드레일을 그대로 통과시켜 집행. 별도 예외 규칙을 만들지 않는다."
     }
   },
-  "consensus": "10분 단위 롱·숏 회전은 이 계좌(왕복 0.24%, $150/건)에서 성립하지 않는다. 변곡점 포착률은 4.2%(1/24)이며 손실 원인의 62.5%가 숏 게이트 미발동이다. 신규 로직은 C5(개장 30분 방향 1일 1회)만 조건부 후보로 남기고, 게이트·필터·트레일 3건은 승인 후 A/B로 검증한다."
+  "consensus": "10분 단위 롱·숏 회전은 이 계좌(왕복 0.24%, $150/건)에서 성립하지 않는다. 변곡점 포착률은 4.2%(1/24)이며 손실 원인의 62.5%가 숏 게이트 미발동이다. 신규 로직은 C5(개장 30분 방향 1일 1회)만 조건부 후보로 남기고, 게이트·필터·트레일 3건은 승인 후 A/B로 검증한다.",
+  "applied": {
+    "applied_at_kst": "2026-11-18 12:10",
+    "authorization": "동훈님 2026-11-18 11:37 선택 — C5 파일럿 + 구조 개선 3건 적용 (12:05 장중 트레일 0.9 유지 지시 반영)",
+    "report_file": "docs/c5_structural_changes_20261118.md",
+    "ab_files": [
+      "data/ab_20261118/before.json",
+      "data/ab_20261118/after_final.json",
+      "data/ab_20261118/struct_only_final.json"
+    ],
+    "summary": {
+      "c5_pilot": {
+        "entry": "C5_OPEN30_DIRECTION",
+        "judge_kst": "00:00",
+        "exit_kst": "05:40",
+        "sl_atr_mult": 3.0,
+        "budget_usd": 150.0,
+        "60d": {
+          "n": 58,
+          "pnl_usd": 14.64,
+          "win_pct": 46.6
+        },
+        "5d": {
+          "n": 5,
+          "pnl_usd": -7.81,
+          "win_pct": 40.0
+        },
+        "blackout_20261118": true,
+        "blackout_reason": "NVDA 실적 반응일"
+      },
+      "short_gate": {
+        "before": "2-of-2",
+        "after": "1-of-1",
+        "vix_floor": 24.0,
+        "armed_cycles_60d": 29,
+        "short_fills_60d": 3
+      },
+      "rvol": {
+        "before": "required",
+        "after": "bonus",
+        "measured_60d_delta_usd": -10.9,
+        "measured_5d_delta_usd": 2.34,
+        "revert": "entry_conditions.rvol_required=true"
+      },
+      "bracket_split": {
+        "intraday_trail_atr_mult": 0.9,
+        "daily_swing": "ATR×1.5 대칭 3세션",
+        "c5": "3×ATR · 05:40 청산",
+        "note": "일괄 1.5 상향은 5일 -$2.72→-$7.75, 60일 -$31.29→-$44.80로 악화 → 장중 0.9 유지"
+      },
+      "applied_vs_before": {
+        "5d": {
+          "before": -3.0,
+          "after": -11.74
+        },
+        "60d": {
+          "before": -27.21,
+          "after": -15.56
+        }
+      },
+      "tests": "107 passed"
+    }
+  }
 }

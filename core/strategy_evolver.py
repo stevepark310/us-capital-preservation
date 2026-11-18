@@ -14,7 +14,7 @@ Strategy Evolver — 손실은 줄이고 이익은 극대화하는 '검증된' �
 
 2. **방어 모드(표본 20건 이상, 즉시 적용)**
    최근 20거래 기대값 < -0.5%/건 이고 PF < 0.8 이면 진입 필터를 조인다
-   (RVOL ≥ 1.5를 **다시 필수로**, %B ≤ 0.10, 손절 1.0×ATR, 트레일 1.2×ATR).
+   (RVOL ≥ 1.5를 **다시 필수로**, %B ≤ 0.10, 손절 1.0×ATR, 트레일 0.7×ATR).
    손실 축소 방향의 변경은 게이트 없이 적용하되 로그에 근거를 남긴다.
 
 3. **파라미터 후보 교체(표본 20건 이상 + 4개 정량 기준 통과)**
@@ -44,14 +44,14 @@ LEDGER_PATH = os.path.join(DATA, "strategy_trade_ledger.json")
 
 # 안전 클램프 — 밖으로는 절대 나가지 않는다
 CLAMPS = {
-    "trail_atr_mult": (1.20, 2.00),      # 장중 트레일 1.5~2.0×ATR (2026-11-18 상향)
+    "trail_atr_mult": (0.60, 1.20),      # 장중 트레일은 0.9 유지(2026-11-18 12:05 지시)
     "initial_sl_atr_mult": (0.50, 1.00),
     "min_hold_sessions": (1, 3),
 }
 
 BASE_PARAMS: Dict[str, Any] = {
     "engine": "chandelier_v2",
-    "trail_atr_mult": 1.5,
+    "trail_atr_mult": 0.9,
     "initial_sl_atr_mult": 0.75,
     "sl_min_pct": 1.5,
     "sl_max_pct": 15.0,
@@ -62,8 +62,8 @@ BASE_PARAMS: Dict[str, Any] = {
     "defensive_mode": False,
     "entry_filters": {"rsi2_max": 20.0, "pct_b_max": 0.15, "rvol_min": 1.0,
                       "rvol_required": False},
-    "source": "config/swing_approval.json exit_v2_chandelier + 2026-11-18 구조 개선 ③(트레일 1.5×ATR·RVOL 가점)",
-    "updated_at_kst": "2026-11-18 11:37",
+    "source": "config/swing_approval.json exit_v2_chandelier + 2026-11-18 구조 개선 ②(RVOL 가점)·③(브래킷 분리, 장중 트레일 0.9 유지)",
+    "updated_at_kst": "2026-11-18 12:05",
 }
 
 GATE = {
@@ -260,19 +260,19 @@ def evaluate(market_ctx: Optional[Dict[str, Any]] = None, realized_session: floa
             defensive_now = True
     if defensive_now and not params.get("defensive_mode"):
         params.update({"defensive_mode": True,
-                       "trail_atr_mult": _clamp("trail_atr_mult", 1.2),
+                       "trail_atr_mult": _clamp("trail_atr_mult", 0.7),
                        "initial_sl_atr_mult": _clamp("initial_sl_atr_mult", 1.0),
                        "entry_filters": {"rsi2_max": 20.0, "pct_b_max": 0.10, "rvol_min": 1.5,
                                          "rvol_required": True}})
         decisions.append(f"DEFENSIVE_ON: 최근20 기대값 {r20.get('ev_pct')}%/건, PF {r20.get('pf')} "
-                         f"→ 진입 필터 강화(RVOL 1.5 필수·%B 0.10)·손절 1.0×ATR·트레일 1.2×ATR")
+                         f"→ 진입 필터 강화(RVOL 1.5 필수·%B 0.10)·손절 1.0×ATR·트레일 0.7×ATR")
         applied = True
     elif not defensive_now and params.get("defensive_mode"):
         params.update({"defensive_mode": False,
-                       "trail_atr_mult": _clamp("trail_atr_mult", 1.5),
+                       "trail_atr_mult": _clamp("trail_atr_mult", 0.9),
                        "initial_sl_atr_mult": _clamp("initial_sl_atr_mult", 0.75),
                        "entry_filters": dict(BASE_PARAMS["entry_filters"])})
-        decisions.append("DEFENSIVE_OFF: 최근20 성과 회복 → A/B 검증 기본값으로 복귀(트레일 1.5×ATR·RVOL 가점)")
+        decisions.append("DEFENSIVE_OFF: 최근20 성과 회복 → A/B 검증 기본값으로 복귀(트레일 0.9×ATR·RVOL 가점)")
         applied = True
 
     # ---- 3) 파라미터 후보 교체 (표본·4개 게이트)

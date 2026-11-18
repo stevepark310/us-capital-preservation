@@ -178,7 +178,7 @@
       "status": "APPLIED — 신규 진입분 기본 청산 규칙 (2026-11-17 A/B 검증 · 2026-11-18 트레일 상향)",
       "mode": "chandelier_v2",
       "params": {
-        "trail_atr_mult": 1.5,
+        "trail_atr_mult": 0.9,
         "initial_sl_atr_mult": 0.75,
         "sl_min_pct": 1.5,
         "sl_max_pct": 15.0,
@@ -186,12 +186,13 @@
         "max_hold_sessions": 3
       },
       "trail_change_20261118": {
-        "changed_at_kst": "2026-11-18 11:37",
-        "trail_atr_mult": "0.9 → 1.5 (장중 규격)",
-        "reason": "0.9×ATR 트레일은 5분봉 ATR 1.5~2.6%에서 1.4~2.3%로, 3~9% 스윙의 앞 1/3에서 끊었다(11-17 SOXL +7.7% 구간 중 +3.89%만 확보, 이후 %B 0.38로 재진입 불가). 1.5~2.0×ATR 구간에서 부호가 유지된다.",
-        "authorization": "동훈님 2026-11-18 11:37 선택 — 'C5 파일럿 + 구조 개선 3건 적용'",
+        "changed_at_kst": "2026-11-18 12:05",
+        "trail_atr_mult": "0.9 유지 — 장중 채널은 넓히지 않는다",
+        "measured": "일괄 0.9 → 1.5 적용 A/B: 5거래일 DIP_INTRADAY -$2.72 → -$7.75, 60일 -$31.29 → -$44.80 (RVOL 조건 고정·C5 제외 비교)",
+        "reason": "장중 채널은 5분봉 ATR 1.5~2.6%에서 0.9×ATR = 1.4~2.3%가 이미 스윙 크기에 맞고, 넓히면 3배 ETF의 장중 되돌림에서 손실만 커진다. 넓히는 것은 일봉 스윙에만 적용(아래 bracket_specs).",
+        "authorization": "동훈님 병행 연구 지시 2026-11-18 12:05 — 'DIP_INTRADAY는 기존 0.9 ATR 유지, DIP_SWING_DAILY만 1.5~2.0 ATR로 분리'",
         "scope": "신규 진입분만. 기존 브래킷은 등록된 trail_atr_mult을 그대로 쓴다.",
-        "bracket_specs": "autonomous_execution.bracket_specs — 일봉 스윙(ATR×1.5 대칭·3세션) / 장중(트레일 1.5×ATR·05:40 청산) / C5(손절 3×ATR·05:40 청산) 분리"
+        "bracket_specs": "autonomous_execution.bracket_specs — 일봉 스윙(ATR×1.5 대칭·3세션) / 장중(트레일 0.9×ATR·05:40 청산) / C5(손절 3×ATR·05:40 청산) 분리"
       },
       "param_change_20261118": {
         "changed_at_kst": "2026-11-18 10:30",
@@ -394,7 +395,7 @@
       "conflict_note": "HEDGE_NOTIONAL_CAP $60은 그대로 — SOXS·SQQQ 각 1주 규모(합 $120)로 제한되고, 세션 진입 3건·보유 4종목·현금 마지노선 $150이 동시에 걸린다. C5 인버스 파일럿은 별도 예산 $150을 쓴다."
     },
     "bracket_specs": {
-      "note": "진입 채널별 브래킷 규격 분리 (2026-11-18 구조 개선 ③). 정본은 core/bracket_specs.py와 같은 키 구조.",
+      "note": "진입 채널별 브래킷 규격 분리 (2026-11-18 구조 개선 ③, 장중 트레일 0.9 유지). 정본은 core/bracket_specs.py와 같은 키 구조.",
       "DIP_SWING_DAILY": {
         "bracket_class": "DAILY_SWING", "atr_basis": "daily", "exit_mode": "swing_hold",
         "initial_sl_atr_mult": 1.5, "sl_min_pct": 3.0, "sl_max_pct": 15.0,
@@ -405,14 +406,14 @@
       "DIP_SWING_INTRADAY": {
         "bracket_class": "INTRADAY", "atr_basis": "intraday", "exit_mode": "chandelier_v2",
         "initial_sl_atr_mult": 0.75, "sl_min_pct": 1.5, "sl_max_pct": 15.0,
-        "trail_atr_mult": 1.5, "be_after_atr": 1.0, "max_hold_sessions": 3,
+        "trail_atr_mult": 0.9, "be_after_atr": 1.0, "max_hold_sessions": 3,
         "session_close_exit_kst": "05:40", "sl_active_after_kst": "23:45",
-        "why": "장중 규격 — 5분봉 ATR 기준. 세션 종가 청산을 붙여 '장중' 브래킷이 다음 세션으로 넘어가지 않게 한다."
+        "why": "장중 규격 — 5분봉 ATR 기준, 트레일은 기존 0.9×ATR 유지(일괄 1.5는 5일/60일 모두 악화). 세션 종가 청산을 붙여 '장중' 브래킷이 다음 세션으로 넘어가지 않게 한다."
       },
       "BEAR_ALPHA_HEDGE": {
         "bracket_class": "INTRADAY", "atr_basis": "intraday", "exit_mode": "chandelier_v2",
         "initial_sl_atr_mult": 0.75, "sl_min_pct": 1.5, "sl_max_pct": 15.0,
-        "trail_atr_mult": 1.5, "be_after_atr": 1.0, "max_hold_sessions": 3,
+        "trail_atr_mult": 0.9, "be_after_atr": 1.0, "max_hold_sessions": 3,
         "session_close_exit_kst": "05:40", "sl_active_after_kst": "23:45"
       },
       "C5_OPEN30_DIRECTION": {
