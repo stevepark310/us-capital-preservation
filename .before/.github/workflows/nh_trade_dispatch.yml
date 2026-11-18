@@ -1,0 +1,94 @@
+name: NH Live Trade & Bracket Executor
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Execution mode (test_balance | buy | sell | monitor)"
+        required: true
+        default: "test_balance"
+        type: choice
+        options:
+          - test_balance
+          - buy
+          - sell
+          - monitor
+      ticker:
+        description: "Ticker symbol (for buy/sell)"
+        required: false
+        default: ""
+      qty:
+        description: "Quantity (for buy/sell)"
+        required: false
+        default: "1"
+      price:
+        description: "Limit price in USD (0 or empty for market/current)"
+        required: false
+        default: "0"
+
+permissions:
+  contents: write
+
+jobs:
+  execute-nh-trade:
+    runs-on: ubuntu-latest
+    env:
+      NH_APP_KEY: ${{ secrets.NH_APP_KEY }}
+      NH_APP_SECRET: ${{ secrets.NH_APP_SECRET }}
+      NH_ACT_NO: ${{ secrets.NH_ACT_NO }}
+      NH_IS_MOCK: "false"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --quiet yfinance pandas requests
+
+      - name: Run NH Trade / Monitor
+        run: |
+          python3 - << 'EOF'
+          import os, json
+          from execution.nh_trader import NHBroker
+
+          mode = "${{ github.event.inputs.mode }}"
+          ticker = "${{ github.event.inputs.ticker }}".strip().upper()
+          qty = int("${{ github.event.inputs.qty }}" or "0")
+          price = float("${{ github.event.inputs.price }}" or "0")
+
+          if not os.getenv("NH_APP_KEY") or not os.getenv("NH_APP_SECRET") or not os.getenv("NH_ACT_NO"):
+              raise SystemExit("ERROR: NH_APP_KEY, NH_APP_SECRET, NH_ACT_NO secrets must be set in GitHub Repository Secrets.")
+
+          if mode == "test_balance":
+              broker = NHBroker(dry_run=True)
+              print("Token issued:", bool(broker.access_token))
+              bal = broker.get_balance() if hasattr(broker, "get_balance") else broker._call_api("/gbstock/balance/v1/inquire", {"act_no": broker.act_no, "wtm_cur_knd_cd": "1"})
+              print(json.dumps(bal, ensure_ascii=False, indent=2))
+          elif mode in ("buy", "sell"):
+              if not ticker or qty <= 0:
+                  raise SystemExit("ERROR: ticker and positive qty required.")
+              broker = NHBroker(dry_run=False)
+              side = "BUY" if mode == "buy" else "SELL"
+              res = broker.place_order(ticker, side, qty, price) if hasattr(broker, "place_order") else {"error": "place_order not found"}
+              print(json.dumps(res, ensure_ascii=False, indent=2))
+          elif mode == "monitor":
+              import subprocess
+              subprocess.run(["python3", "scripts/monitor_and_exit.py"], check=True)
+          EOF
+
+      - name: Commit & push updated brackets/ledger if changed
+        if: github.event.inputs.mode == 'monitor'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/active_brackets.json data/live_portfolio.json || true
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(actions): sync brackets and ledger after live execution"
+            git push
+          fi

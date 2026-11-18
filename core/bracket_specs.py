@@ -20,10 +20,16 @@
 | entry_source            | class        | ATR 기준   | 손절                | 익절/청산                          |
 |-------------------------|--------------|-----------|---------------------|-----------------------------------|
 | DIP_SWING_DAILY         | DAILY_SWING  | 일봉 ATR%  | 1.5×ATR (3~15%)     | +1.5×ATR (3~20%) · 3세션 시간청산   |
-| DIP_SWING_INTRADAY      | INTRADAY     | 5분봉 ATR% | 0.75×ATR (1.5~15%)  | 트레일 1.5×ATR · 05:40 세션청산     |
-| BEAR_ALPHA_HEDGE        | INTRADAY     | 5분봉 ATR% | 0.75×ATR (1.5~15%)  | 트레일 1.5×ATR · 05:40 세션청산     |
+| DIP_SWING_INTRADAY      | INTRADAY     | 5분봉 ATR% | 0.75×ATR (1.5~15%)  | 트레일 0.9×ATR · 05:40 세션청산     |
+| BEAR_ALPHA_HEDGE        | INTRADAY     | 5분봉 ATR% | 0.75×ATR (1.5~15%)  | 트레일 0.9×ATR · 05:40 세션청산     |
 | C5_OPEN30_DIRECTION     | PILOT_C5     | 5분봉 ATR% | 3.0×ATR (2~15%)     | 05:40 시간청산(트레일 없음)         |
 | NVDA_EARNINGS_GAP_SOXS  | HEDGE_EVENT  | —          | 재난손절 8%         | 05:55 시간청산                      |
+
+**장중 트레일은 0.9×ATR을 유지한다(2026-11-18 12:05 지시).** 일괄 1.5×ATR로 올리면
+DIP_INTRADAY 기준선이 5거래일에 −$2.72 → −$7.75(60일 −$31.29 → −$44.80)로 악화됐다 —
+장중 채널은 5분봉 ATR 1.5~2.6%에서 0.9×ATR = 1.4~2.3%가 이미 스윙 크기에 맞다.
+넓히는 것은 **일봉 스윙 채널에만**(ATR×1.5 대칭 브래킷) 적용한다. 장중 값은
+`data/strategy_params.json trail_atr_mult`(0.9, 클램프 0.60~1.20)에서 온다.
 
 세션청산(`session_close_exit_kst`)은 장중 규격 전용이다 — 장중 브래킷이 다음 세션으로
 넘어가면 "장중"이라는 이름과 규격이 어긋난다. 기존에 등록된 브래킷은 자기 필드 값을
@@ -56,7 +62,7 @@ DEFAULT_SPECS: Dict[str, Dict[str, Any]] = {
         "initial_sl_atr_mult": 0.75,
         "sl_min_pct": 1.5,
         "sl_max_pct": 15.0,
-        "trail_atr_mult": 1.5,              # 0.9 → 1.5 (2026-11-18 구조 개선 ③)
+        "trail_atr_mult": 0.9,              # 2026-11-18 12:05 지시 — 장중은 0.9 유지
         "be_after_atr": 1.0,
         "max_hold_sessions": 3,
         "session_close_exit_kst": "05:40",
@@ -69,7 +75,7 @@ DEFAULT_SPECS: Dict[str, Dict[str, Any]] = {
         "initial_sl_atr_mult": 0.75,
         "sl_min_pct": 1.5,
         "sl_max_pct": 15.0,
-        "trail_atr_mult": 1.5,
+        "trail_atr_mult": 0.9,
         "be_after_atr": 1.0,
         "max_hold_sessions": 3,
         "session_close_exit_kst": "05:40",

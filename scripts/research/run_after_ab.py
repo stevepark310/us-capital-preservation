@@ -184,12 +184,19 @@ def simulate(days: List[str], panel: Dict[str, pd.DataFrame], panel5: Dict[str, 
              daily: Dict[str, pd.DataFrame], vix10: pd.Series, dxy10: pd.Series,
              sentiment: Optional[float], label: str,
              equity0: float = 883.5, cash0: float = 636.0,
-             force_exit: bool = True, cautious_force: bool = True) -> Dict[str, Any]:
+             force_exit: bool = True, cautious_force: bool = True,
+             use_c5: Optional[bool] = None, trail_override: Optional[float] = None,
+             rvol_required: bool = False) -> Dict[str, Any]:
     policy = execution_policy.load_policy()
     g = execution_policy.guardrails(policy)
     trader = AutonomousTrader(policy=policy, dry_run=True)
     params = trader._strategy_params()
+    if trail_override is not None:
+        params = dict(params, trail_atr_mult=float(trail_override))
+    c5_on = HAS_C5 if use_c5 is None else bool(use_c5 and HAS_C5)
     filters = dict(params.get("entry_filters") or {})
+    if rvol_required:
+        filters["rvol_required"] = True
     risk_scale = float(params.get("risk_scale", 1.0) or 1.0)
     c5_cfg = trader._c5_cfg() if HAS_C5 else {}
     reserve = float(g.get("cash_reserve_floor_usd", 150.0))
@@ -264,6 +271,7 @@ def simulate(days: List[str], panel: Dict[str, pd.DataFrame], panel5: Dict[str, 
                 trades.append({"date": day, "ticker": tk, "qty": qty, "entry": round(entry, 2),
                                "exit": round(px, 2), "pnl_usd": round(pnl, 2),
                                "ret_pct": round(pnl / (entry * qty) * 100, 3) if entry else 0.0,
+                               "notional_usd": round(entry * qty, 2), "fee_usd": round(fee, 2),
                                "source": b.get("entry_source"), "reason": d.get("reason"),
                                "entry_ts": b.get("filled_at_kst") or b.get("opened_at"),
                                "exit_ts": clock["now_kst"], "bracket_class": b.get("bracket_class")})
@@ -294,7 +302,7 @@ def simulate(days: List[str], panel: Dict[str, pd.DataFrame], panel5: Dict[str, 
 
             cands: List[Dict[str, Any]] = []
             # (0) C5 파일럿 — 개장 30분 창
-            if HAS_C5:
+            if c5_on:
                 win = c5_cfg.get("entry_window_min") or [30, 60]
                 if int(win[0]) <= dec - OPEN_MIN <= int(win[1]):
                     done = any((e.get("source") == "C5_OPEN30_DIRECTION") for e in entries_log
@@ -317,10 +325,12 @@ def simulate(days: List[str], panel: Dict[str, pd.DataFrame], panel5: Dict[str, 
                             else:
                                 tick = None
                                 for t in sig.get("tickers") or []:
-                                    if t not in brackets or not exit_rules.is_open(brackets[t]):
-                                        if not any(p.get("ticker") == t for p in []) and t not in cooldown:
-                                            tick = t
-                                            break
+                                    busy = t in brackets and exit_rules.is_open(brackets[t])
+                                    hot = (t in cooldown
+                                           and (ts - cooldown[t]).total_seconds() / 60.0 < COOLDOWN_MIN)
+                                    if not busy and not hot:
+                                        tick = t
+                                        break
                                 atr_t = atr_pct_of(bars_5m(panel5.get(tick or sig["tickers"][0]), ts)) \
                                     if sig.get("tickers") else None
                                 sig2 = entry_signals.c5_open30_signal(prev_close_soxl, price_now, atr_t,
@@ -461,6 +471,9 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--label", default="after")
     ap.add_argument("--out", default=os.path.join(DATA, "research_after_ab_20261118.json"))
+    ap.add_argument("--no-c5", action="store_true", help="C5 파일럿 제외(구조 개선만 측정)")
+    ap.add_argument("--trail", type=float, default=None, help="장중 트레일 ATR 배수 재정의")
+    ap.add_argument("--rvol-required", action="store_true", help="RVOL을 다시 필수로(② 제외)")
     args = ap.parse_args(argv)
 
     panel = L.panel(["SOXL", "TQQQ", "SOXS", "SQQQ", "^VIX", "QQQ"])
@@ -479,9 +492,13 @@ def main(argv=None) -> int:
     windows = {"5d": [d for d in all_days if d >= "2026-11-11"],
                "60d": all_days}
     out: Dict[str, Any] = {"label": args.label, "window_days": {k: len(v) for k, v in windows.items()},
-                           "sentiment_assumed": sentiment, "cost_round_trip_pct": RT_COST * 100}
+                           "sentiment_assumed": sentiment, "cost_round_trip_pct": RT_COST * 100,
+                           "use_c5": not args.no_c5, "trail_override": args.trail,
+                           "rvol_required": args.rvol_required}
     for name, days in windows.items():
-        r = simulate(days, panel, panel5, daily, vix10, dxy10, sentiment, args.label)
+        r = simulate(days, panel, panel5, daily, vix10, dxy10, sentiment, args.label,
+                     use_c5=not args.no_c5, trail_override=args.trail,
+                     rvol_required=args.rvol_required)
         out[name] = r
         st = r["stats"]
         print(f"[{args.label}/{name}] trades {st['n']} pnl ${st['pnl_usd']:+.2f} "

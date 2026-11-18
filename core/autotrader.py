@@ -591,7 +591,8 @@ class AutonomousTrader:
             return {"armed": False, "detail": sig, "reason": sig.get("reason")}
         tk = None
         for cand_tk in sig.get("tickers") or []:
-            if self.position_qty(cand_tk, brackets) <= 0 and not self._has_pending(cand_tk, st):
+            if self.position_qty(cand_tk, brackets) <= 0 and not self._has_pending(cand_tk, st) \
+                    and self._cooldown_ok(cand_tk, st):
                 tk = cand_tk
                 break
         if not tk:
@@ -871,6 +872,10 @@ class AutonomousTrader:
                                f"손절 {sl_pct:.1f}% (ATR {atr_pct}%)")})
         else:
             trail = spec.get("trail_atr_mult")
+            # 장중 클래스는 전략 엔진 파라미터(trail_atr_mult, 1.2~2.0 클램프)가 우선한다 —
+            # 자기점검(strategy_evolver)이 트레일을 조정할 여지를 남긴다.
+            if spec.get("bracket_class") == "INTRADAY" and p.get("trail_atr_mult"):
+                trail = float(p["trail_atr_mult"])
             if trail is None:
                 trail = float(p.get("trail_atr_mult") or 1.5)
             b.update({"exit_mode": "chandelier_v2", "bracket_version": "chandelier_v2",

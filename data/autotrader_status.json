@@ -1,9 +1,9 @@
 {
   "engine": "AUTONOMOUS_INTRADAY",
-  "generated_at_kst": "2026-11-18 10:40:17",
+  "generated_at_kst": "2026-11-18 11:49:19",
   "phase": "OFF_HOURS",
   "session_date": "2026-11-17",
-  "mode": "EXECUTE",
+  "mode": "DRY_RUN",
   "policy": {
     "enabled": true,
     "ask_before_trade": false,
@@ -123,7 +123,7 @@
     "decisions": [],
     "params": {
       "engine": "chandelier_v2",
-      "trail_atr_mult": 0.9,
+      "trail_atr_mult": 1.5,
       "initial_sl_atr_mult": 0.75,
       "sl_min_pct": 1.5,
       "sl_max_pct": 15.0,
@@ -135,10 +135,11 @@
       "entry_filters": {
         "rsi2_max": 20.0,
         "pct_b_max": 0.15,
-        "rvol_min": 1.0
+        "rvol_min": 1.0,
+        "rvol_required": false
       },
-      "source": "config/swing_approval.json exit_v2_chandelier (2026-11-17 A/B 검증)",
-      "updated_at_kst": "2026-11-18 10:30:00"
+      "source": "config/swing_approval.json exit_v2_chandelier + bracket_specs (2026-11-18 구조 개선 ③)",
+      "updated_at_kst": "2026-11-18 11:37:00"
     },
     "stats": {
       "n": 9,
@@ -171,14 +172,15 @@
     "reason": "표본 9건 < 최소 20건 — 파라미터 교체 보류(현행 유지)"
   },
   "strategy_params": {
-    "trail_atr_mult": 0.9,
+    "trail_atr_mult": 1.5,
     "initial_sl_atr_mult": 0.75,
     "risk_scale": 0.7,
     "defensive_mode": false,
     "entry_filters": {
       "rsi2_max": 20.0,
       "pct_b_max": 0.15,
-      "rvol_min": 1.0
+      "rvol_min": 1.0,
+      "rvol_required": false
     }
   },
   "positions": {
@@ -187,23 +189,40 @@
       "entry": 173.3,
       "sl": 150.0,
       "exit_mode": "fill_anchored_v2",
+      "bracket_class": null,
+      "trail_atr_mult": null,
       "entry_source": null
     }
+  },
+  "c5_pilot": {
+    "enabled": true,
+    "session_date": "2026-11-17",
+    "blackout": false,
+    "blackout_reason": null,
+    "open_ticker": null,
+    "done_today": false,
+    "entry_window_min": [
+      30,
+      60
+    ],
+    "exit_kst": "05:40",
+    "sl_atr_mult": 3.0,
+    "budget_usd": 150.0
   },
   "ledger": {
     "equity_usd": 883.5,
     "cash_usd": 636.01
   },
   "next_gate": "다음 정규장 2026-11-18 23:30 KST",
-  "elapsed_sec": 1.8,
+  "elapsed_sec": 1.4,
   "events": [
     {
-      "ts_kst": "2026-11-18 10:40:17",
+      "ts_kst": "2026-11-18 11:49:19",
       "kind": "EXITS_SKIPPED",
       "reason": "phase=OFF_HOURS — 주문 없음"
     },
     {
-      "ts_kst": "2026-11-18 10:40:17",
+      "ts_kst": "2026-11-18 11:49:19",
       "kind": "ENTRY_BLOCKED_GLOBAL",
       "reason": "세션 아님(OFF_HOURS)"
     }
