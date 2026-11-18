@@ -1,10 +1,10 @@
 {
   "title": "CUBE 10-Agent Quantitative Trading System (24/7)",
-  "generated_at": "2026-11-19 07:51:53",
+  "generated_at": "2026-11-19 08:01:39",
   "phase": "POST_MARKET",
   "phase_label": "시간외 세션",
   "next_open_kst": "2026-11-19 23:30 KST",
-  "hours_to_next_open": 15.64,
+  "hours_to_next_open": 15.48,
   "system_status": "OPERATIONAL",
   "agents_ok": 10,
   "agents_failed": [],
@@ -13,7 +13,7 @@
     "market": "Yahoo Finance (yfinance) — daily + 5m intraday",
     "macro_official": "FRED fredgraph.csv — T10Y3M/T10Y2Y/DGS2/DGS10/BAMLH0A0HYM2/NFCI/ICSA/UMCSENT (API 키 불필요, 6시간 캐시)",
     "leading_index": "CUBE-LEI 101.2 (LATE_CYCLE_SLOWDOWN) — Estrella & Mishkin (1998) · Stock & Watson (1989) · Gilchrist & Zakrajšek (2012) · Burns & Mitchell (1946) 기반 core/leading_indicators.py",
-    "news": "18/26 feeds, 252 items, health OK",
+    "news": "17/26 feeds, 243 items, health OK",
     "ledger": "data/daily_trading_calendar.json + data/live_portfolio.json (single FX source)",
     "backtest": "data/1y_backtest_report.json (hourly-path simulation)",
     "hardcoded_market_values": false
@@ -30,7 +30,7 @@
     "fx_rate": 1338.8,
     "realized_pnl_usd": 1.85,
     "unrealized_pnl_usd": -22.09,
-    "last_inquiry_time": "2026-11-19 07:51 KST"
+    "last_inquiry_time": "2026-11-19 08:01 KST"
   },
   "agents": [
     {
@@ -59,33 +59,33 @@
       "role": "RSS·뉴스 API 실시간 수집, 종목별 센티먼트 점수화, 매수·매도 브래킷 동적 보정",
       "description": "Yahoo/CNBC/MarketWatch/Nasdaq/CoinDesk/Google News RSS와 yfinance 뉴스 API를 1시간마다 수집해 종목 관련도·감성·최신성으로 점수화하고, 시장 내재 리스크 점수와 블렌딩해 종목별 익절·손절 폭을 산출합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-19 07:51:51",
+      "last_run": "2026-11-19 08:01:38",
       "confidence_score": 0.8,
       "report": {
-        "scan_timestamp": "2026-11-19 07:51:51",
+        "scan_timestamp": "2026-11-19 08:01:38",
         "phase": "POST_MARKET",
         "phase_label": "시간외 세션",
         "hourly_cadence": "EVERY_1_HOUR",
         "data_sources": {
-          "news_feeds_ok": "18/26",
-          "news_items": 252,
-          "items_last_24h": 245,
+          "news_feeds_ok": "17/26",
+          "news_items": 243,
+          "items_last_24h": 237,
           "source_health": "OK",
           "market_data": "Yahoo Finance 일봉·분봉 (core/market_snapshot)",
           "hardcoded_values": false
         },
-        "average_sentiment_score": 57.1,
+        "average_sentiment_score": 58.2,
         "overall_market_mood": "RISK_ON (반도체·기술주 우호)",
         "market_implied_anchor": {
-          "score": 54.5,
+          "score": 50.1,
           "components": {
-            "nasdaq_fut_pct": 0.67,
-            "vix": 23.54,
-            "vix_change_pct": -7.54,
-            "btc_change_pct": -2.98,
-            "soxl_pct": -0.8,
-            "soxs_pct": 0.62,
-            "semi_long_short_spread": -1.41
+            "nasdaq_fut_pct": 0.37,
+            "vix": 24.56,
+            "vix_change_pct": -3.53,
+            "btc_change_pct": -4.02,
+            "soxl_pct": 0.39,
+            "soxs_pct": -0.63,
+            "semi_long_short_spread": 1.03
           },
           "label": "NEUTRAL"
         },
@@ -99,7 +99,7 @@
         "ticker_reports": {
           "SOXL": {
             "name": "디렉시온 반도체 3배 레버리지 (SOXL)",
-            "sentiment_score": 45.3,
+            "sentiment_score": 55.4,
             "sentiment_grade": "NEUTRAL (중립)",
             "breaking_news": [
               "[TradingKey] Nasdaq Drops 0.74% to Near Seven-Month Intraday Low, Dow Falls Over 800 Points as Chip Stocks Sell Off - TradingKey",
@@ -113,23 +113,23 @@
               "summary": "소셜 버즈는 수집하지 않습니다(연동 없음). 대신 실제 옵션 미결제약정과 뉴스 플로우로 대체합니다."
             },
             "news_flow": {
-              "headline_count": 7,
-              "weighted_sentiment": -2.83,
-              "news_only_score": 34.0,
-              "market_implied_score": 54.5
+              "headline_count": 10,
+              "weighted_sentiment": 1.86,
+              "news_only_score": 61.8,
+              "market_implied_score": 50.1
             },
             "dynamic_exit_adjustment": {
               "action": "DEFENSIVE (목표 축소·손절 타이트)",
-              "tp1": "+7.0% ($52.09) · ATR 24.13% 기준",
-              "tp2": "+12.0% ($54.52)",
+              "tp1": "+7.0% ($52.71) · ATR 23.84% 기준",
+              "tp2": "+12.0% ($55.17)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
-              "sl": "-5.0% ($46.25) · 본전스탑 $48.85",
-              "rationale": "뉴스 점수 34.0 + 시장 내재 54.5 (NQ 0.67%, VIX 23.54) → 종합 45.3. 최근 헤드라인: Nasdaq Drops 0.74% to Near Seven-Month Intraday Low, Dow Falls Over 80"
+              "sl": "-5.0% ($46.8) · 본전스탑 $49.43",
+              "rationale": "뉴스 점수 61.8 + 시장 내재 50.1 (NQ 0.37%, VIX 24.56) → 종합 55.4. 최근 헤드라인: Nasdaq Drops 0.74% to Near Seven-Month Intraday Low, Dow Falls Over 80"
             }
           },
           "TQQQ": {
             "name": "프로셰어즈 나스닥100 3배 레버리지 (TQQQ)",
-            "sentiment_score": 66.6,
+            "sentiment_score": 64.4,
             "sentiment_grade": "MODERATE_BULLISH (우호적)",
             "breaking_news": [
               "[Yahoo Finance] Stock Market Today: Nasdaq, S&P 500 Futures Rise as Nvidia Shares Jump After Strong Earnings Report; Anthropic IPO on Deck - Yahoo Finance",
@@ -143,23 +143,23 @@
               "summary": "소셜 버즈는 수집하지 않습니다(연동 없음). 대신 실제 옵션 미결제약정과 뉴스 플로우로 대체합니다."
             },
             "news_flow": {
-              "headline_count": 12,
-              "weighted_sentiment": 13.77,
-              "news_only_score": 84.8,
-              "market_implied_score": 54.5
+              "headline_count": 15,
+              "weighted_sentiment": 15.28,
+              "news_only_score": 85.9,
+              "market_implied_score": 50.1
             },
             "dynamic_exit_adjustment": {
               "action": "STANDARD_STAGED (표준 3단계)",
-              "tp1": "+3.65% ($54.67) · ATR 8.1% 기준",
-              "tp2": "+7.69% ($56.8)",
+              "tp1": "+3.67% ($54.36) · ATR 8.15% 기준",
+              "tp2": "+7.74% ($56.5)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
-              "sl": "-4.46% ($50.39) · 본전스탑 $52.92",
-              "rationale": "뉴스 점수 84.8 + 시장 내재 54.5 (NQ 0.67%, VIX 23.54) → 종합 66.6. 최근 헤드라인: Stock Market Today: Nasdaq, S&P 500 Futures Rise as Nvidia Shares Jump"
+              "sl": "-4.48% ($50.09) · 본전스탑 $52.62",
+              "rationale": "뉴스 점수 85.9 + 시장 내재 50.1 (NQ 0.37%, VIX 24.56) → 종합 64.4. 최근 헤드라인: Stock Market Today: Nasdaq, S&P 500 Futures Rise as Nvidia Shares Jump"
             }
           },
           "NVDA": {
             "name": "엔비디아 (NVIDIA)",
-            "sentiment_score": 62.2,
+            "sentiment_score": 60.6,
             "sentiment_grade": "MODERATE_BULLISH (우호적)",
             "breaking_news": [
               "[Quartz] Stock futures rise as Nvidia gains on an earnings beat and a solid outlook - Quartz",
@@ -173,23 +173,23 @@
               "summary": "소셜 버즈는 수집하지 않습니다(연동 없음). 대신 실제 옵션 미결제약정과 뉴스 플로우로 대체합니다."
             },
             "news_flow": {
-              "headline_count": 65,
-              "weighted_sentiment": 3.52,
-              "news_only_score": 68.5,
-              "market_implied_score": 54.5
+              "headline_count": 85,
+              "weighted_sentiment": 3.76,
+              "news_only_score": 69.3,
+              "market_implied_score": 50.1
             },
             "dynamic_exit_adjustment": {
               "action": "STANDARD_STAGED (표준 3단계)",
-              "tp1": "+2.85% ($156.56) · ATR 6.34% 기준",
-              "tp2": "+6.02% ($161.38)",
+              "tp1": "+2.88% ($155.31) · ATR 6.41% 기준",
+              "tp2": "+6.09% ($160.15)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
-              "sl": "-3.49% ($146.91) · 본전스탑 $152.74",
-              "rationale": "뉴스 점수 68.5 + 시장 내재 54.5 (NQ 0.67%, VIX 23.54) → 종합 62.2. 최근 헤드라인: Stock futures rise as Nvidia gains on an earnings beat and a solid out"
+              "sl": "-3.53% ($145.63) · 본전스탑 $151.47",
+              "rationale": "뉴스 점수 69.3 + 시장 내재 50.1 (NQ 0.37%, VIX 24.56) → 종합 60.6. 최근 헤드라인: Stock futures rise as Nvidia gains on an earnings beat and a solid out"
             }
           },
           "TSLA": {
             "name": "테슬라 (Tesla)",
-            "sentiment_score": 54.2,
+            "sentiment_score": 52.5,
             "sentiment_grade": "NEUTRAL (중립)",
             "breaking_news": [
               "[Stocktwits] Skydance’s Ellison Welcomes Musk Investment While Committing To Airing Documentary Critical Of Tesla CEO",
@@ -203,23 +203,23 @@
               "summary": "소셜 버즈는 수집하지 않습니다(연동 없음). 대신 실제 옵션 미결제약정과 뉴스 플로우로 대체합니다."
             },
             "news_flow": {
-              "headline_count": 7,
+              "headline_count": 8,
               "weighted_sentiment": 0.53,
               "news_only_score": 54.1,
-              "market_implied_score": 54.5
+              "market_implied_score": 50.1
             },
             "dynamic_exit_adjustment": {
               "action": "DEFENSIVE (목표 축소·손절 타이트)",
-              "tp1": "+1.83% ($392.53) · ATR 4.06% 기준",
-              "tp2": "+3.86% ($400.36)",
+              "tp1": "+1.83% ($390.74) · ATR 4.07% 기준",
+              "tp2": "+3.87% ($398.57)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
-              "sl": "-2.23% ($376.88) · 본전스탑 $386.79",
-              "rationale": "뉴스 점수 54.1 + 시장 내재 54.5 (NQ 0.67%, VIX 23.54) → 종합 54.2. 최근 헤드라인: Skydance’s Ellison Welcomes Musk Investment While Committing To Airing"
+              "sl": "-2.24% ($375.12) · 본전스탑 $385.02",
+              "rationale": "뉴스 점수 54.1 + 시장 내재 50.1 (NQ 0.37%, VIX 24.56) → 종합 52.5. 최근 헤드라인: Skydance’s Ellison Welcomes Musk Investment While Committing To Airing"
             }
           },
           "SGOV": {
             "name": "아이셰어즈 0-3개월 초단기 국채 (SGOV)",
-            "sentiment_score": 59.5,
+            "sentiment_score": 58.6,
             "sentiment_grade": "NEUTRAL (중립)",
             "breaking_news": [
               "[BeInCrypto] US Treasury’s $6 Billion Bond Move Raises Red Flags for Bitcoin - BeInCrypto"
@@ -232,29 +232,22 @@
             },
             "news_flow": {
               "headline_count": 1,
-              "weighted_sentiment": 1.64,
+              "weighted_sentiment": 1.63,
               "news_only_score": 60.7,
-              "market_implied_score": 54.5
+              "market_implied_score": 50.1
             },
             "dynamic_exit_adjustment": {
               "action": "DEFENSIVE (목표 축소·손절 타이트)",
-              "tp1": "+1.0% ($101.6) · ATR 0.03% 기준",
-              "tp2": "+2.2% ($102.8)",
+              "tp1": "+1.0% ($101.61) · ATR 0.03% 기준",
+              "tp2": "+2.2% ($102.81)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
-              "sl": "-1.2% ($99.38) · 본전스탑 $100.93",
-              "rationale": "뉴스 점수 60.7 + 시장 내재 54.5 (NQ 0.67%, VIX 23.54) → 종합 59.5. 최근 헤드라인: US Treasury’s $6 Billion Bond Move Raises Red Flags for Bitcoin - BeIn"
+              "sl": "-1.2% ($99.39) · 본전스탑 $100.94",
+              "rationale": "뉴스 점수 60.7 + 시장 내재 50.1 (NQ 0.37%, VIX 24.56) → 종합 58.6. 최근 헤드라인: US Treasury’s $6 Billion Bond Move Raises Red Flags for Bitcoin - BeIn"
             }
           }
         },
         "macro_news_flow": {
           "FED_RATES": [
-            {
-              "title": "CRCL Stock Outlook Ahead of the Fed’s FOMC Minutes Today - Cryptonews.net",
-              "source": "Cryptonews.net",
-              "published": "2026-11-18T22:45:58+00:00",
-              "link": "https://news.google.com/rss/articles/CBMiWEFVX3lxTFBrd001aGlzd0JfSndSM0RXQ3dpUGxZRmFHTkN0MDFIb2ZfWER1SElhNkk4Y3dXRXBacENLN0pmU01Dd2k2cUhZN0VZZkxINVZmWmVRLWp3NlY?oc=5",
-              "sentiment": 0.0
-            },
             {
               "title": "Crypto Hits Extreme Fear as December Rate Hike Looms - Coinpedia",
               "source": "Coinpedia",
@@ -263,18 +256,25 @@
               "sentiment": -3.99
             },
             {
-              "title": "Federal Reserve policymakers concerned about financial system risks, minutes show - The Business Times",
-              "source": "The Business Times",
-              "published": "2026-11-18T22:20:00+00:00",
-              "link": "https://news.google.com/rss/articles/CBMi4AFBVV95cUxOQVI1LVVoeHJ0SVhCdkluZ2tiSnA5NmcxcVlkR2FCQVVVdW1tUEktbXNZcXdOMXR4U1c2X0pONDk1NW5YWEt6SWhKRndUQkRfekk1Y1FtTS03YTZPWlgySmRyNnFaWE8xRFZhTU1tMEVsQWRYTUhkOW9Db3g3V3RaWjcxSThKUV9sa29CSkxWVmg3SDBsbUlyVHlDSjhvYktmNHZRbUVwaC1ub2xRSDhlNTdwaWRINlhGMUx1NkVxQ2Raa0NFLTJsM2tTYi1rek5QaDJmdnktMzJBYzlSNkVhWg?oc=5",
-              "sentiment": 0.0
+              "title": "Fed officials expect more rate hikes, worry about AI impact on inflation, minutes show",
+              "source": "CNBC Top News",
+              "published": "2026-11-18T19:41:59+00:00",
+              "link": "https://www.cnbc.com/2026/11/18/fed-minutes-october-2026.html",
+              "sentiment": -2.24
             },
             {
-              "title": "Federal Reserve Minutes: Fed Officials Weigh 50 BPS Rate Hike Amid Inflation Concerns - Cryptonews.net",
-              "source": "Cryptonews.net",
-              "published": "2026-11-18T22:16:37+00:00",
-              "link": "https://news.google.com/rss/articles/CBMiWEFVX3lxTE1HZ2ducnpBekpULUNSQVFPWnRMcjVGWE9vTEdqVmxoelk2WndoS21KODVEaXp2Z0hBSk1OaXJGTG5Mekg4aTNIZjFGbGEtRUZPdGM5VmgyWDI?oc=5",
-              "sentiment": -3.36
+              "title": "Bitcoin, stocks wobble as Fed’s Waller talks of ‘shock’ 50-point rate hike",
+              "source": "Cointelegraph",
+              "published": "2026-11-18T16:34:20+00:00",
+              "link": "https://cointelegraph.com/markets/bitcoin-stocks-wobble-waller-talks-shock-50-point-rate-hike?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+              "sentiment": -2.17
+            },
+            {
+              "title": "Fed Official Waller Warns of a 50-Basis-Point Rate Hike: Risks Increase for Bitcoin - Kriptofoni",
+              "source": "Kriptofoni",
+              "published": "2026-11-18T16:27:00+00:00",
+              "link": "https://news.google.com/rss/articles/CBMiswFBVV95cUxOb2pSMFFucFJnR003aEY0RzBtTUtURml4Mjc4S2c3UnNIWGlLeHpWZUw0MkhuQk11V01kY3hMdjljQUVSVXk3ZTU0NFc0Q2VqOXRUSW5rZEVuNURSckt4WlIwcDdRb1NJS25fWVNEWFJ2N0hIb3l0YkhpZk9yb1pYdFNUU3FQenk4R0FrV1BlOWJadGdzVWRsc3psNlAydmNRaERpQ3ZraDc2WTUzVm1RRnRQWQ?oc=5",
+              "sentiment": -4.41
             }
           ],
           "TARIFF_TRADE": [
@@ -307,9 +307,30 @@
               "published": "2026-11-18T19:33:14+00:00",
               "link": "https://news.google.com/rss/articles/CBMirgFBVV95cUxQaVY2eUVic2wxX1lBM0VoUk5JNXQxUDQ5eG9Uajk0Vm0wRGNvN1o2Ny1xbF9fNmYzT3NXMFY5N2hKOXJSVVJ0Y0piaGZDYTctNW85ak00elVpR0E0QzFkcHRqcERneEo0N19MUWIwTHpZWVJrUGE0YlZ5RzY3MlJVcGFjeDNNQkpjOXgzekZwR21yRlF0d001NFg3T3JiNDY3bUNvYURZckoxa3JmdEE?oc=5",
               "sentiment": 1.26
+            },
+            {
+              "title": "Bitcoin in turmoil: Strategy sees its STRC collapse, a new warning signal - Cointribune",
+              "source": "Cointribune",
+              "published": "2026-11-18T17:35:00+00:00",
+              "link": "https://news.google.com/rss/articles/CBMipgFBVV95cUxOaDBESHRrbGRiMTdTZlBDZUJidW5wSi10anpMSTRiNHV0dzluaEcxdTg1TGJsQllrdnFDMnotal9Uc25xdjRzcElua2E0ZFcyaElZeDlweWFpTllUY2hxZGxCUzhkNXVyc1pIcWxZbXNkQzBNaEJLTU9tc2ZNNUZmTlI0SW8xbG9nVC1IcFEydFhsOFU2VkpXNldGUVhZWk5BM01aMFBR?oc=5",
+              "sentiment": -2.1
+            },
+            {
+              "title": "Polymarket US takes rapid-fire crypto trading format to oil, natural gas",
+              "source": "Cointelegraph",
+              "published": "2026-11-18T17:00:00+00:00",
+              "link": "https://cointelegraph.com/news/polymarket-us-takes-rapid-fire-crypto-trading-format-oil-natural-gas?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+              "sentiment": 0.0
             }
           ],
           "CRYPTO": [
+            {
+              "title": "Crypto Market Today, Nov. 18: Bitcoin's 12% Weekly Plunge Has Triggered a Rare Signal With a Surprising History",
+              "source": "Motley Fool",
+              "published": "2026-11-18T22:45:02+00:00",
+              "link": "https://www.fool.com/coverage/stock-market-today/2026/11/18/crypto-market-today-nov-18-bitcoin-s-12-weekly-plunge-has-triggered-a-rare-signal-with-a-surprising-history/",
+              "sentiment": -2.24
+            },
             {
               "title": "Analyst warns Anthropic IPO is pulling money out of Bitcoin",
               "source": "TheStreet",
@@ -318,25 +339,18 @@
               "sentiment": -1.4
             },
             {
-              "title": "CRCL Stock Outlook Ahead of the Fed’s FOMC Minutes Today - Cryptonews.net",
-              "source": "Cryptonews.net",
-              "published": "2026-11-18T22:45:58+00:00",
-              "link": "https://news.google.com/rss/articles/CBMiWEFVX3lxTFBrd001aGlzd0JfSndSM0RXQ3dpUGxZRmFHTkN0MDFIb2ZfWER1SElhNkk4Y3dXRXBacENLN0pmU01Dd2k2cUhZN0VZZkxINVZmWmVRLWp3NlY?oc=5",
+              "title": "Payward, the owner of crypto exchange Kraken, is buying its CEO’s venture capital business, Tribe",
+              "source": "CoinDesk",
+              "published": "2026-11-18T22:30:00+00:00",
+              "link": "https://www.coindesk.com/business/2026/11/18/payward-the-owner-of-crypto-exchange-kraken-is-buying-its-ceo-s-venture-capital-business-tribe",
               "sentiment": 0.0
             },
             {
-              "title": "Crypto Hits Extreme Fear as December Rate Hike Looms - Coinpedia",
-              "source": "Coinpedia",
-              "published": "2026-11-18T22:28:21+00:00",
-              "link": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPWHVGWGM0dE1xN0dQVXMwQVpyUmM4bFRvWVlpekZoeUNzbGVtb0QxNVREaHF4VUhlWENnYXBhdm5QYjhRNVhpYzk5OW9GLXNjZjQ3ZTIxQXA3LTJQZ2F2WjZqSnhENERvbW1BVThDUWRtR0s1VDE3QjVUSkJkeENVSkJ6Mi1WNW_SAYwBQVVfeXFMT1FqMlI1N092dFhxazh4OHBwS1dockExbmdoNjMtb280OG9DNGZyTEZBNUx3T2JJc3RoSm9naEVEZV9DTkhhRHI5YlhtcEJNR1J4QjRPN3ZTUmRJcWZYZjFFSVdqVnp3WGl3Y0l1MXZTQTE3LWNlT2lhT1RzX2JFMkZzbXpYNWE4aDFFazk?oc=5",
-              "sentiment": -3.99
-            },
-            {
-              "title": "Crypto Market Today, Nov. 18: Bitcoin's 12% Weekly Plunge Has Triggered a Rare Signal With a Surprising History - The Motley Fool",
-              "source": "The Motley Fool",
-              "published": "2026-11-18T22:25:02+00:00",
-              "link": "https://news.google.com/rss/articles/CBMi_AFBVV95cUxQNm0wSG9oR01TLXJDZXVjTkp3d0w4dXdxY0lBRUtPeW5sRlZOVnI2NU1RWHhkNXlyZVRrTHY5SURyQkhlVkZDOGlDeEdBVzZZeTRIRjdjOE8wYTBsQjRoN0lhYm1iNHdVYlhIQkl3R1VVZDlySHlrUW16ZW9NYVEzZFdGVmFVaF8zdmtFNW03Ymwwb3hIWjVBMUt1NXctcUJ4TWZLczdtcFlQUzYzV1FSaGZsTTY4c0VPeGhsMWR3WFlhbTEzRGlKb1pYTXhfWmQ3Y1JkSzN1RGpRcTRSNUhwMXZBVTFrREhiaEQ3WnhfSS1zZzN2RVJJLUdNbzU?oc=5",
-              "sentiment": -2.52
+              "title": "Crypto hot issues: Hacking, Nvidia, interest rates put digital asset market under triple headwinds - 디지털투데이",
+              "source": "디지털투데이",
+              "published": "2026-11-18T22:30:00+00:00",
+              "link": "https://news.google.com/rss/articles/CBMiywFBVV95cUxNRVhtWEcza2s0OGo3ZWs2Z0dZbGEtVmxOamJkajlRcDc2cEk1MGhtd00xSlRzS0VTcmNQQjJzaWhRd1pVS2Q0bFZBalpOSkVhM3N2b1ZWNEczbW83aktQX2pvOWx1NjM1RDRsYzQyZHN6Q1BLb2pCNmFaSEh2cFNiZWMzWGNQYm5DMlZaaFg0SV9tWlFkaTczS2xab2Y5UFNZVDlBejl0THgtMjJPQVdDalRGZDF1X0hqRGtDalkwdTd0RUpLdXhpMkVtcw?oc=5",
+              "sentiment": 0.0
             }
           ],
           "AI_CAPEX": [
@@ -346,13 +360,6 @@
               "published": "2026-11-18T22:16:00+00:00",
               "link": "https://finance.yahoo.com/video/the-data-center-bottlenecks-that-mavria-aims-to-solve-221600157.html",
               "sentiment": 0.0
-            },
-            {
-              "title": "Fed October Minutes: AI Infrastructure Buildout Pushes Up Inflation, Data Center Financing Risks Rise - TradingKey",
-              "source": "TradingKey",
-              "published": "2026-11-18T19:33:25+00:00",
-              "link": "https://news.google.com/rss/articles/CBMi4wFBVV95cUxOTFFtTXRmTmpvMi1vdHlnS2RmWkhYSFl0SFg4TWkwZ2V2TlFFeU1lQllKRHlpNjlMR3RNbWVCTHlpa0pDZlJDNTg5eEUyb0M0UWt2b2J3bjduZlNCRWVjdkRKamJXRTcwbWZ2MUdraGI4N2laY1RHalQtSm5SaWRzNkFkMUduelZJYjlKZTJBc3ktT3JVWmtWQ3B6M2ZYOS1qc2hGX19FcFJ2WURPTHdwZ0YzLThlWTBvRU52R3hYS2hFYktGa1FwdXVGQlJiWUxwSi1ZRFdqMzNReW1rNWItLWprdw?oc=5",
-              "sentiment": 0.42
             },
             {
               "title": "“Is the Investment Boom Cooling?” Southeast Asian Data Center Stocks Plunge as U.S. Export Controls and Local Environmental Rules Fuel AI Infrastructure Bubble Fears - https://economy.ac/",
@@ -367,27 +374,13 @@
           "BONDS_FED": {
             "label": "채권·연준 (국채/금리/FOMC)",
             "proxy": "TLT / IEF / SHY · 10Y-3M 스프레드",
-            "sentiment_score": 3.0,
+            "sentiment_score": 9.1,
             "grade": "STRONG_BEARISH (강한 악재)",
-            "headline_count": 65,
+            "headline_count": 20,
             "positive": 0,
             "negative": 0,
-            "weighted_sentiment": -94.25,
+            "weighted_sentiment": -26.84,
             "top_headlines": [
-              {
-                "title": "Gold plunges to 14-month low, silver tumbles as Fed rate hike bets intensify - Kitco AM Report - Kitco",
-                "source": "Kitco",
-                "published": "2026-11-18T14:06:27+00:00",
-                "link": "https://news.google.com/rss/articles/CBMivgFBVV95cUxNQ1lPTzhpcGxNNEc1UnNNUl95N0tVaWhyM21jaHlsY1BkWFlKM25DclBGZXBoaDFZaWJNbzNubU9FZTV4UzgzMW52Tm1TUkVkRVRfbjlrekhKVmxzcWdHT19zTXJpbjdiaGNDTU5XenB2bWo2aXd1cHh4emdfR0xmaVU2MmtZdjB0akt3MHhnSXNUeGNVemRCZHVWN3lmS0h4Mm9QbGVBdHlUUndrSVpDVDV0VDl6RmFyYjJENkRB?oc=5",
-                "sentiment": -11.97
-              },
-              {
-                "title": "FOMC minutes show ‘close call’ over possible rate hike - ABA Banking Journal",
-                "source": "ABA Banking Journal",
-                "published": "2026-11-18T20:33:34+00:00",
-                "link": "https://news.google.com/rss/articles/CBMilwFBVV95cUxNTm54NW9DRWM1eTV2Y3B4UFQtS1I3RXE1SS1RWm1MR2xwYXBNdDdteUVJdzZIV0ZCM1VMSGZwclhPTC11S2RldDB2Z2ZFYkpHRTh2YUdVT2xZQnY4VUxYUTloMFBua2J5VFNNYlBkWEw1UG9ZLURrcmxIaFF0NWFrTzJrR2xUQlR6b1Exck8zaFlWcy1ZWDVv?oc=5",
-                "sentiment": -4.41
-              },
               {
                 "title": "Crypto Hits Extreme Fear as December Rate Hike Looms - Coinpedia",
                 "source": "Coinpedia",
@@ -401,18 +394,32 @@
                 "published": "2026-11-18T16:27:00+00:00",
                 "link": "https://news.google.com/rss/articles/CBMiswFBVV95cUxOb2pSMFFucFJnR003aEY0RzBtTUtURml4Mjc4S2c3UnNIWGlLeHpWZUw0MkhuQk11V01kY3hMdjljQUVSVXk3ZTU0NFc0Q2VqOXRUSW5rZEVuNURSckt4WlIwcDdRb1NJS25fWVNEWFJ2N0hIb3l0YkhpZk9yb1pYdFNUU3FQenk4R0FrV1BlOWJadGdzVWRsc3psNlAydmNRaERpQ3ZraDc2WTUzVm1RRnRQWQ?oc=5",
                 "sentiment": -4.41
+              },
+              {
+                "title": "Is the Bitcoin Bear Market Back? Fed Hike Fears Deepen BTC Price Drop - CoinMarketCap",
+                "source": "CoinMarketCap",
+                "published": "2026-11-18T22:02:37+00:00",
+                "link": "https://news.google.com/rss/articles/CBMiuAFBVV95cUxNTDBILWY5TXhuaDc3RlpzclJoWl9EN3hicFBOY3Z3YzI1aHdKZ0QtNmJDZ3BGdHI0cktNdE5JUS1LLUhNQWlVRTk3UFZRMW5Jdk4wZXp5YnFUMm42a0paNm5rRWFlZlNNWVhSdFRMMkJNeXdqeldJemp4UmI4RTJGdjU1blhwWW1VeWx3dlkxcUpQYm1nSFc3cmlTWWVNcTV1WXVZU1hrN3BSMDRtXzVpZzNqS3ZNNjB0?oc=5",
+                "sentiment": -3.36
+              },
+              {
+                "title": "Futures Mixed; Nvidia Tops, Fed's Waller Warns Of 'Shock' Rate Hike - Investor's Business Daily",
+                "source": "Investor's Business Daily",
+                "published": "2026-11-18T13:15:00+00:00",
+                "link": "https://news.google.com/rss/articles/CBMiswFBVV95cUxPM2s3XzVKLXc1azMwV2VhVlhPalU1a2UxbDY5aW9XejYxRDlwbHhvdkc2aVhYd1ZLaGx2ZU5nVm1KWWhXd2FXeTMyZDQycXU4Z0RPMEZ6MUo2Z0p1dHV5anBMZmNIQ0M3WExTbUJzd08wRVAxdzNmMGgyU1ZWRXlQYWpudmhDREhneU9BVkt2WDZHaWtmZldHQmx6N3QzQlh1UTBSYnoxR28tZTlBeDR5WnB0Zw?oc=5",
+                "sentiment": -4.41
               }
             ]
           },
           "FX": {
             "label": "외환 (달러/원/엔/유로)",
             "proxy": "DXY / USD-KRW / USD-JPY",
-            "sentiment_score": 19.0,
+            "sentiment_score": 22.9,
             "grade": "STRONG_BEARISH (강한 악재)",
-            "headline_count": 7,
+            "headline_count": 6,
             "positive": 0,
             "negative": 0,
-            "weighted_sentiment": -9.77,
+            "weighted_sentiment": -7.12,
             "top_headlines": [
               {
                 "title": "Gold and silver sink to 14-month lows as hawkish Fed commentary boosts dollar",
@@ -422,18 +429,18 @@
                 "sentiment": -2.52
               },
               {
+                "title": "Crypto Market Today, Nov. 18: Bitcoin's 12% Weekly Plunge Has Triggered a Rare Signal With a Surprising History",
+                "source": "Motley Fool",
+                "published": "2026-11-18T22:45:02+00:00",
+                "link": "https://www.fool.com/coverage/stock-market-today/2026/11/18/crypto-market-today-nov-18-bitcoin-s-12-weekly-plunge-has-triggered-a-rare-signal-with-a-surprising-history/",
+                "sentiment": -2.24
+              },
+              {
                 "title": "KOSPI drops below 5,000 as semiconductor stocks plunge; Hynix falls below 1.1 million won - 재경일보",
                 "source": "재경일보",
                 "published": "2026-11-17T09:50:08+00:00",
                 "link": "https://news.google.com/rss/articles/CBMiYkFVX3lxTFBpSFhlSFk1eEZHcE92RHNmUTBMQlZaWWViNXUxOHFPdWY0a2FPN0FNQzYwYTQ3LTBtNkhnS0tjN2k1X1BNOHIwekd3d212TkFmb0E5dUsxdFUzUWFMS3hEc2l3?oc=5",
                 "sentiment": -8.82
-              },
-              {
-                "title": "Gold drops to 14-month low as dollar, yields rise on hawkish Fed rhetoric - CNBC",
-                "source": "CNBC",
-                "published": "2026-11-18T03:21:00+00:00",
-                "link": "https://news.google.com/rss/articles/CBMiogFBVV95cUxOTXRXUlc4TVVGam9kXzJabE84a2tVS2g4dEUyUE9KbUhaNnVlU1VDaGdZX0RkZHJYaDhKdzVnVkdzVS1TOGF3RjlrVnBUOW5yUVpWa3p3dGR6XzNKZWp6R2c5VXdSR1BmQjJrUlFLZXNkWjNQS2lvcFQyX3RTWHJjQlFOX3dtRlhzSDU2Q01oZWtfVFpIbUF0X0V3WkZreTZGLVHSAacBQVVfeXFMT1BQel9WZ3VlTGtfVFBmR1V6OTRMWEhjQVVYejNzYUFZaWpGRU4xTUxVbjJmQnZSZHVmamI1VGVhekpQYkdIdEI1anpqLS1QM0lBM2x2eXMtbGVjSi1vYmN3em1tRjQ0ZVVyNFN5RVNJaFhGRG5rSlloT3FHOXZyQndBNEVzUTVMOWNDWDZpN3pHa3EtWkdMRWVRTGg1bUlRN0liMVkxNVE?oc=5",
-                "sentiment": -3.78
               },
               {
                 "title": "U.S. banks build multibillion-dollar Bitcoin ETF positions as outflows pressure market - Traders Union",
@@ -447,12 +454,12 @@
           "CRYPTO": {
             "label": "크립토 (비트코인/이더/알트)",
             "proxy": "BTC-USD / ETH-USD · IBIT",
-            "sentiment_score": 36.5,
-            "grade": "BEARISH (부정적)",
-            "headline_count": 62,
+            "sentiment_score": 17.5,
+            "grade": "STRONG_BEARISH (강한 악재)",
+            "headline_count": 77,
             "positive": 0,
             "negative": 0,
-            "weighted_sentiment": -2.22,
+            "weighted_sentiment": -11.16,
             "top_headlines": [
               {
                 "title": "Bullish Stock Jumps On Earnings, Revenue Gains. Board Approves $300 Mil Buyback Plan.",
@@ -497,21 +504,57 @@
         "weekend_block": {
           "is_weekend": false,
           "crypto_24_7": {
-            "btc": 62961.3008,
-            "btc_change_pct": -2.98,
-            "eth": 1760.67,
-            "eth_change_pct": -3.42,
+            "btc": 62285.2109,
+            "btc_change_pct": -4.02,
+            "eth": 1758.76,
+            "eth_change_pct": -3.52,
             "note": "주말에도 실제 거래되는 유일한 위험자산 프록시"
           },
           "fx_open": {
-            "usd_krw": 1332.28,
-            "usd_jpy": 159.359
+            "usd_krw": 1332.54,
+            "usd_jpy": 159.31
           },
           "next_open": "2026-11-19 23:30 KST",
-          "hours_to_open": 15.64,
+          "hours_to_open": 15.48,
           "source_note": "주말에는 지수·주식 선물이 휴장이므로 마지막 금요일 종가와 크립토/외환만 신규 데이터입니다."
         },
         "top_headlines": [
+          {
+            "title": "The stock market is being rocked by the biggest shake-up in a generation as tech falls behind",
+            "source": "MarketWatch",
+            "published": "2026-11-18T22:53:00+00:00",
+            "link": "https://www.marketwatch.com/story/the-stock-market-is-being-rocked-by-the-biggest-shake-up-in-a-generation-as-tech-falls-behind-66c1f281?mod=mw_rss_topstories",
+            "tickers": [
+              "TQQQ"
+            ],
+            "sentiment": -1.96
+          },
+          {
+            "title": "Palo Alto Networks’ stock gets a fresh AI-fueled boost from earnings",
+            "source": "MarketWatch",
+            "published": "2026-11-18T22:53:00+00:00",
+            "link": "https://www.marketwatch.com/story/palo-alto-networks-stock-soars-as-earnings-show-ai-has-upped-the-stakes-for-cybersecurity-308e34b8?mod=mw_rss_topstories",
+            "tickers": [],
+            "sentiment": 0.42
+          },
+          {
+            "title": "Harmonic Drive Systems Inc. GAAP EPS of ¥31.54, revenue of ¥36.12B",
+            "source": "Seeking Alpha",
+            "published": "2026-11-18T17:55:16-05:00",
+            "link": "https://seekingalpha.com/news/4674486-harmonic-drive-systems-inc-gaap-eps-of-3154-revenue-of-3612b?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
+            "tickers": [],
+            "sentiment": 0.0
+          },
+          {
+            "title": "Bill Ackman Rips into Nvidia Board Over Jensen Huang Exit: ‘They Couldn’t Stand the Heat’ - Benzinga",
+            "source": "Benzinga",
+            "published": "2026-11-18T22:53:51+00:00",
+            "link": "https://news.google.com/rss/articles/CBMi1AFBVV95cUxNSFVwQzM4dEN4M1BWVWotOWdFRE8xTHAyNmY0UlpYYVZoamxpUXl2Uk04LW12VHRNQ2c5ZmtWZmlqMzRiUmVyYTJlaWpUcDBDTlF5UHJmcWRLZ2RyVkFhNjFZQ2hMWVFnNGNwenBldWdHWnFjcDhNZjJRUGpXZ01MNmIzaGpHWVJQbjdGeEZUNUxtOExiT1hjRUVFV2ZyQ1hUcnM2RWthMm1qaHZuX3JjQzR0NnA0Y2YyV0RCbTItYmdaWmhkdVNtS2ZCa3hKTk0wRzZUZw?oc=5",
+            "tickers": [
+              "NVDA"
+            ],
+            "sentiment": 0.0
+          },
           {
             "title": "Gold and silver sink to 14-month lows as hawkish Fed commentary boosts dollar",
             "source": "Seeking Alpha",
@@ -537,66 +580,6 @@
             "sentiment": 0.0
           },
           {
-            "title": "Dow Jones Futures: Anthropic IPO Prices High, Palo Alto, Everpure Rally After Nvidia, Target, UnitedHealth Drive Market",
-            "source": "Investor's Business Daily",
-            "published": "2026-11-18T22:44:59+00:00",
-            "link": "https://www.investors.com/market-trend/stock-market-today/dow-jones-futures-anthropic-ipo-prices-palo-alto-everpure-nvidia-target-unitedhealth-fed-waller-shock/?src=A00220&yptr=yahoo",
-            "tickers": [
-              "NVDA"
-            ],
-            "sentiment": 1.54
-          },
-          {
-            "title": "Analyst warns Anthropic IPO is pulling money out of Bitcoin",
-            "source": "TheStreet",
-            "published": "2026-11-18T22:45:57+00:00",
-            "link": "https://www.thestreet.com/crypto/markets/analyst-warns-anthropic-ipo-is-pulling-money-out-of-bitcoin",
-            "tickers": [],
-            "sentiment": -1.4
-          },
-          {
-            "title": "Sanofi wins approval of venglustat for Gaucher disease",
-            "source": "Seeking Alpha",
-            "published": "2026-11-18T17:43:50-05:00",
-            "link": "https://seekingalpha.com/news/4674476-sanofi-wins-approval-venglustat-gaucher-disease?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
-            "tickers": [],
-            "sentiment": 1.26
-          },
-          {
-            "title": "Moody’s cuts Nvidia credit outlook to stable after CEO Jensen Huang exits",
-            "source": "Investing.com",
-            "published": "2026-11-18T22:44:05+00:00",
-            "link": "https://www.investing.com/news/stock-market-news/moodys-cuts-nvidia-credit-outlook-to-stable-after-ceo-jensen-huang-exits-5037292",
-            "tickers": [
-              "NVDA"
-            ],
-            "sentiment": -1.12
-          },
-          {
-            "title": "Fed minutes: Higher interest rates needed in December as inflation worries mount - PinalCentral.com",
-            "source": "PinalCentral.com",
-            "published": "2026-11-18T22:45:25+00:00",
-            "link": "https://news.google.com/rss/articles/CBMijwJBVV95cUxQcHJ6S1hSd2NkWElIVWJNRnJJajZON1AwRmJuVENkX05ZYzhtd0s5ZTBBTVhqbml5SkZmWDZTQjl0Vzh5N3YzLTNsLUxEU25CN2NCQmdrWHFtSV9vMDV0bXB1M3AwWFJYaGstV2J5eUpFZ09VblZ5eHhGWVI0c3U1Q2FCSDZ3TVdTbnJUZGdibHJQN0F5SzZKMmlLWVQyUGltanJ6d2pIXzBHYkxwMDZOb1c2OXN4dUxJMGRyVWZWWUdDZjR3eDdJYXA2WF9YZnlxbVVXQkw0VDZIWjFzRFRBME93NVAyVXAzODZVR2x3SUtFcnlsTjhRb3ZCQXNKWTh2Z0RkWElaOU84ZjV5UjNz?oc=5",
-            "tickers": [],
-            "sentiment": -1.05
-          },
-          {
-            "title": "Palo Alto Networks’ stock gets a fresh AI-fueled boost from earnings",
-            "source": "MarketWatch",
-            "published": "2026-11-18T22:48:00+00:00",
-            "link": "https://www.marketwatch.com/story/palo-alto-networks-stock-soars-as-earnings-show-ai-has-upped-the-stakes-for-cybersecurity-308e34b8?mod=mw_rss_topstories",
-            "tickers": [],
-            "sentiment": 0.42
-          },
-          {
-            "title": "Anthropic IPO to mint thousands of millionaires",
-            "source": "Investing.com",
-            "published": "2026-11-18T22:43:18+00:00",
-            "link": "https://www.investing.com/news/stock-market-news/anthropic-ipo-to-mint-thousands-ofmillionaires-5036941",
-            "tickers": [],
-            "sentiment": 0.0
-          },
-          {
             "title": "RETO Eco-Solutions reports 1H results",
             "source": "Seeking Alpha",
             "published": "2026-11-18T17:47:18-05:00",
@@ -605,15 +588,41 @@
             "sentiment": 0.0
           },
           {
-            "title": "Innovation Beverage Group GAAP EPS of -$0.91, revenue of $1.8M",
-            "source": "Seeking Alpha",
-            "published": "2026-11-18T17:44:11-05:00",
-            "link": "https://seekingalpha.com/news/4674482-innovation-beverage-group-gaap-eps-of-0_91-revenue-of-1_8m?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
+            "title": "How the Anthropic IPO stacks up against SpaceX",
+            "source": "Investing.com",
+            "published": "2026-11-18T22:42:29+00:00",
+            "link": "https://www.investing.com/news/stock-market-news/how-theanthropic-ipo-stacks-up-against-spacex-5036604",
             "tickers": [],
-            "sentiment": 0.0
+            "sentiment": 2.24
+          },
+          {
+            "title": "Crypto Market Today, Nov. 18: Bitcoin's 12% Weekly Plunge Has Triggered a Rare Signal With a Surprising History",
+            "source": "Motley Fool",
+            "published": "2026-11-18T22:45:02+00:00",
+            "link": "https://www.fool.com/coverage/stock-market-today/2026/11/18/crypto-market-today-nov-18-bitcoin-s-12-weekly-plunge-has-triggered-a-rare-signal-with-a-surprising-history/",
+            "tickers": [],
+            "sentiment": -2.24
+          },
+          {
+            "title": "Invesco QQQ Is 14% Below Its October Record. Here's Where I Think It Will Be in 2030.",
+            "source": "Motley Fool",
+            "published": "2026-11-18T22:43:01+00:00",
+            "link": "https://www.fool.com/investing/2026/11/18/invesco-qqq-is-14-below-its-october-record-here-s-where-i-think-it-will-be-in-2030/",
+            "tickers": [
+              "TQQQ"
+            ],
+            "sentiment": 1.89
+          },
+          {
+            "title": "Surge in software patches likely behind recent tech outages, experts say",
+            "source": "Investing.com",
+            "published": "2026-11-18T22:42:49+00:00",
+            "link": "https://www.investing.com/news/stock-market-news/patching-in-the-ai-age-may-underlie-some-of-the-major-tech-outages-experts-say-5036726",
+            "tickers": [],
+            "sentiment": 1.68
           }
         ],
-        "key_takeaway": "뉴스 252건(24시간 내 245건) 수집. 시장 내재 리스크 점수 54.5/100 (NEUTRAL), 종목 평균 센티먼트 57.1/100 → RISK_ON (반도체·기술주 우호). NVDA 62.2점, SOXL 45.3점."
+        "key_takeaway": "뉴스 243건(24시간 내 237건) 수집. 시장 내재 리스크 점수 50.1/100 (NEUTRAL), 종목 평균 센티먼트 58.2/100 → RISK_ON (반도체·기술주 우호). NVDA 60.6점, SOXL 55.4점."
       }
     },
     {
@@ -643,25 +652,25 @@
       "role": "실측 OHLCV 기반 변동성 돌파·과매도 반등·갭 시나리오 산출 — 주식 외 채권(TLT·IEF)·환율(DXY·원/달러·엔/달러)·코인(BTC·ETH) 포함",
       "description": "일봉 실데이터로 ATR·RSI2·볼린저 %B·RVOL·EMA를 계산해 래리 윌리엄스 돌파 기준가와 과매도 반등 진입 점수를 산출하고, 채권·환율·코인 15개 심볼의 추세·변동성·지지저항을 별도 블록으로 보고합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-19 07:51:51",
+      "last_run": "2026-11-19 08:01:38",
       "confidence_score": 0.9,
       "report": {
         "phase": "POST_MARKET",
         "levels": {
           "SOXL": {
-            "close": 48.68,
+            "close": 49.26,
             "bar_date": "2026-11-18",
-            "atr_pct": 24.13,
-            "rsi14": 34.3,
-            "rsi2": 13.1,
-            "pct_b": 0.24,
-            "rvol": 0.87,
-            "ema20": 69.81,
+            "atr_pct": 23.84,
+            "rsi14": 34.5,
+            "rsi2": 18.3,
+            "pct_b": 0.25,
+            "rvol": 1.03,
+            "ema20": 69.86,
             "above_ema20": false,
             "breakout_trigger": 53.92,
-            "breakout_pct": 10.76,
+            "breakout_pct": 9.46,
             "breakdown_trigger": 43.82,
-            "entry_score": 6.0,
+            "entry_score": 7.1,
             "entry_signal": "NO_TRADE",
             "entry_components": {
               "oversold": 12.0,
@@ -669,7 +678,7 @@
               "volume": 0.0,
               "trend": 0.0,
               "breakout_prox": 0.0,
-              "context": 0.0
+              "context": 2.1599999999999997
             },
             "pivots": {
               "week_high": 69.73,
@@ -684,27 +693,27 @@
             "gap_plan": null
           },
           "TQQQ": {
-            "close": 52.74,
+            "close": 52.44,
             "bar_date": "2026-11-18",
-            "atr_pct": 8.1,
-            "rsi14": 36.3,
-            "rsi2": 34.1,
-            "pct_b": 0.21,
-            "rvol": 0.86,
-            "ema20": 60.16,
+            "atr_pct": 8.15,
+            "rsi14": 35.7,
+            "rsi2": 27.4,
+            "pct_b": 0.2,
+            "rvol": 1.05,
+            "ema20": 60.13,
             "above_ema20": false,
             "breakout_trigger": 53.97,
-            "breakout_pct": 2.33,
+            "breakout_pct": 2.92,
             "breakdown_trigger": 49.75,
-            "entry_score": 3.3,
+            "entry_score": 8.9,
             "entry_signal": "NO_TRADE",
             "entry_components": {
-              "oversold": 0.0,
+              "oversold": 12.0,
               "rebound": 0.0,
               "volume": 0.0,
               "trend": 0.0,
               "breakout_prox": 0.0,
-              "context": 6.639999999999998
+              "context": 5.7600000000000025
             },
             "pivots": {
               "week_high": 61.77,
@@ -719,27 +728,27 @@
             "gap_plan": null
           },
           "NVDA": {
-            "close": 152.22,
+            "close": 150.96,
             "bar_date": "2026-11-18",
-            "atr_pct": 6.34,
-            "rsi14": 21.5,
-            "rsi2": 2.6,
-            "pct_b": 0.1,
-            "rvol": 1.0,
-            "ema20": 183.2,
+            "atr_pct": 6.41,
+            "rsi14": 21.1,
+            "rsi2": 2.2,
+            "pct_b": 0.09,
+            "rvol": 1.45,
+            "ema20": 183.08,
             "above_ema20": false,
-            "breakout_trigger": 163.62,
-            "breakout_pct": 7.49,
-            "breakdown_trigger": 146.43,
-            "entry_score": 12.4,
+            "breakout_trigger": 163.84,
+            "breakout_pct": 8.53,
+            "breakdown_trigger": 145.75,
+            "entry_score": 15.1,
             "entry_signal": "NO_TRADE",
             "entry_components": {
               "oversold": 20.0,
               "rebound": 0.0,
-              "volume": 0.0,
+              "volume": 6.0,
               "trend": 0.0,
               "breakout_prox": 0.0,
-              "context": 4.880000000000002
+              "context": 4.240000000000001
             },
             "pivots": {
               "week_high": 179.92,
@@ -754,19 +763,19 @@
             "gap_plan": null
           },
           "TSLA": {
-            "close": 385.48,
+            "close": 383.72,
             "bar_date": "2026-11-18",
-            "atr_pct": 4.06,
-            "rsi14": 51.8,
-            "rsi2": 64.4,
-            "pct_b": 0.49,
-            "rvol": 0.43,
-            "ema20": 382.78,
+            "atr_pct": 4.07,
+            "rsi14": 51.1,
+            "rsi2": 57.0,
+            "pct_b": 0.46,
+            "rvol": 0.69,
+            "ema20": 382.61,
             "above_ema20": true,
             "breakout_trigger": 390.64,
-            "breakout_pct": 1.34,
+            "breakout_pct": 1.8,
             "breakdown_trigger": 372.91,
-            "entry_score": 12.8,
+            "entry_score": 12.5,
             "entry_signal": "NO_TRADE",
             "entry_components": {
               "oversold": 0.0,
@@ -774,7 +783,7 @@
               "volume": 0.0,
               "trend": 10.0,
               "breakout_prox": 8.0,
-              "context": 1.6800000000000013
+              "context": 1.0
             },
             "pivots": {
               "week_high": 404.4,
@@ -789,19 +798,19 @@
             "gap_plan": null
           },
           "SOXS": {
-            "close": 59.13,
+            "close": 58.4,
             "bar_date": "2026-11-18",
-            "atr_pct": 14.39,
-            "rsi14": 55.6,
-            "rsi2": 82.3,
-            "pct_b": 0.63,
-            "rvol": 0.7,
-            "ema20": 53.36,
+            "atr_pct": 14.57,
+            "rsi14": 55.1,
+            "rsi2": 72.7,
+            "pct_b": 0.61,
+            "rvol": 0.81,
+            "ema20": 53.29,
             "above_ema20": true,
             "breakout_trigger": 59.33,
-            "breakout_pct": 0.34,
+            "breakout_pct": 1.59,
             "breakdown_trigger": 52.12,
-            "entry_score": 15.0,
+            "entry_score": 16.1,
             "entry_signal": "NO_TRADE",
             "entry_components": {
               "oversold": 0.0,
@@ -809,7 +818,7 @@
               "volume": 0.0,
               "trend": 10.0,
               "breakout_prox": 8.0,
-              "context": 0.0
+              "context": 2.1599999999999997
             },
             "pivots": {
               "week_high": 68.77,
@@ -824,19 +833,19 @@
             "gap_plan": null
           },
           "SQQQ": {
-            "close": 46.12,
+            "close": 46.35,
             "bar_date": "2026-11-18",
-            "atr_pct": 6.32,
-            "rsi14": 59.8,
-            "rsi2": 62.6,
-            "pct_b": 0.76,
-            "rvol": 0.76,
-            "ema20": 42.4,
+            "atr_pct": 6.29,
+            "rsi14": 60.4,
+            "rsi2": 68.7,
+            "pct_b": 0.78,
+            "rvol": 0.93,
+            "ema20": 42.43,
             "above_ema20": true,
             "breakout_trigger": 47.06,
-            "breakout_pct": 2.04,
+            "breakout_pct": 1.53,
             "breakdown_trigger": 44.62,
-            "entry_score": 18.3,
+            "entry_score": 17.9,
             "entry_signal": "NO_TRADE",
             "entry_components": {
               "oversold": 0.0,
@@ -844,7 +853,7 @@
               "volume": 0.0,
               "trend": 10.0,
               "breakout_prox": 8.0,
-              "context": 6.639999999999998
+              "context": 5.7600000000000025
             },
             "pivots": {
               "week_high": 46.41,
@@ -862,185 +871,185 @@
         "cross_asset_levels": {
           "TLT": {
             "group": "BOND",
-            "close": 80.18,
+            "close": 80.22,
             "bar_date": "2026-11-18",
             "atr_pct": 0.94,
             "realized_vol_20d_pct": 12.2,
-            "rsi14": 47.2,
-            "rsi2": 84.2,
+            "rsi14": 47.6,
+            "rsi2": 84.9,
             "above_ema20": false,
             "ema20_slope_pct": -0.65,
             "trend": "DOWNTREND",
-            "ret_5d_pct": -0.91,
-            "ret_20d_pct": -0.07,
-            "pct_b": 0.26,
-            "rvol": 0.83,
+            "ret_5d_pct": -0.87,
+            "ret_20d_pct": -0.02,
+            "pct_b": 0.27,
+            "rvol": 1.16,
             "support_pivot": 78.23,
             "resistance_pivot": 81.4,
             "atr_band": [
-              79.43,
-              80.93
+              79.47,
+              80.97
             ]
           },
           "IEF": {
             "group": "BOND",
-            "close": 90.66,
+            "close": 90.67,
             "bar_date": "2026-11-18",
             "atr_pct": 0.52,
             "realized_vol_20d_pct": 7.3,
-            "rsi14": 48.2,
-            "rsi2": 82.4,
+            "rsi14": 48.4,
+            "rsi2": 82.8,
             "above_ema20": false,
             "ema20_slope_pct": -0.32,
             "trend": "DOWNTREND",
-            "ret_5d_pct": -0.31,
-            "ret_20d_pct": 0.48,
-            "pct_b": 0.31,
-            "rvol": 0.41,
+            "ret_5d_pct": -0.3,
+            "ret_20d_pct": 0.49,
+            "pct_b": 0.32,
+            "rvol": 0.73,
             "support_pivot": 89.32,
             "resistance_pivot": 91.39,
             "atr_band": [
-              90.19,
-              91.13
+              90.2,
+              91.14
             ]
           },
           "SHY": {
             "group": "BOND",
-            "close": 81.33,
+            "close": 81.34,
             "bar_date": "2026-11-18",
             "atr_pct": 0.16,
             "realized_vol_20d_pct": 2.4,
-            "rsi14": 47.9,
-            "rsi2": 82.5,
+            "rsi14": 48.4,
+            "rsi2": 84.3,
             "above_ema20": false,
             "ema20_slope_pct": -0.09,
             "trend": "DOWNTREND",
-            "ret_5d_pct": 0.02,
-            "ret_20d_pct": 0.05,
-            "pct_b": 0.33,
-            "rvol": 0.5,
+            "ret_5d_pct": 0.04,
+            "ret_20d_pct": 0.06,
+            "pct_b": 0.34,
+            "rvol": 0.74,
             "support_pivot": 80.99,
             "resistance_pivot": 81.49,
             "atr_band": [
-              81.2,
-              81.46
+              81.21,
+              81.47
             ]
           },
           "HYG": {
             "group": "BOND",
-            "close": 76.67,
+            "close": 76.65,
             "bar_date": "2026-11-18",
             "atr_pct": 0.38,
             "realized_vol_20d_pct": 5.3,
-            "rsi14": 38.9,
-            "rsi2": 24.0,
+            "rsi14": 38.6,
+            "rsi2": 17.1,
             "above_ema20": false,
             "ema20_slope_pct": -0.27,
             "trend": "DOWNTREND",
-            "ret_5d_pct": -0.89,
-            "ret_20d_pct": -0.41,
-            "pct_b": 0.09,
-            "rvol": 0.51,
+            "ret_5d_pct": -0.9,
+            "ret_20d_pct": -0.43,
+            "pct_b": 0.08,
+            "rvol": 0.73,
             "support_pivot": 76.72,
             "resistance_pivot": 77.35,
             "atr_band": [
-              76.38,
-              76.96
+              76.36,
+              76.94
             ]
           },
           "LQD": {
             "group": "BOND",
-            "close": 103.12,
+            "close": 103.15,
             "bar_date": "2026-11-18",
             "atr_pct": 0.54,
             "realized_vol_20d_pct": 7.2,
-            "rsi14": 44.0,
-            "rsi2": 74.4,
+            "rsi14": 44.4,
+            "rsi2": 75.8,
             "above_ema20": false,
-            "ema20_slope_pct": -0.4,
+            "ema20_slope_pct": -0.39,
             "trend": "DOWNTREND",
-            "ret_5d_pct": -0.81,
-            "ret_20d_pct": -0.09,
-            "pct_b": 0.21,
-            "rvol": 0.55,
+            "ret_5d_pct": -0.78,
+            "ret_20d_pct": -0.06,
+            "pct_b": 0.22,
+            "rvol": 0.88,
             "support_pivot": 102.08,
             "resistance_pivot": 104.21,
             "atr_band": [
-              102.56,
-              103.68
+              102.59,
+              103.71
             ]
           },
           "DX-Y.NYB": {
             "group": "FX",
-            "close": 103.77,
+            "close": 103.78,
             "bar_date": "2026-11-18",
             "atr_pct": 0.5,
             "realized_vol_20d_pct": 5.4,
             "rsi14": 69.2,
-            "rsi2": 91.7,
+            "rsi2": 91.9,
             "above_ema20": true,
             "ema20_slope_pct": 0.6,
             "trend": "UPTREND",
-            "ret_5d_pct": 0.83,
-            "ret_20d_pct": 1.95,
-            "pct_b": 0.97,
+            "ret_5d_pct": 0.84,
+            "ret_20d_pct": 1.96,
+            "pct_b": 0.98,
             "rvol": null,
             "support_pivot": 102.12,
             "resistance_pivot": 104.07,
             "atr_band": [
-              103.25,
-              104.29
+              103.26,
+              104.3
             ]
           },
           "KRW=X": {
             "group": "FX",
-            "close": 1332.28,
+            "close": 1332.54,
             "bar_date": "2026-11-18",
             "atr_pct": 1.02,
             "realized_vol_20d_pct": 10.4,
-            "rsi14": 44.7,
-            "rsi2": 22.7,
+            "rsi14": 44.8,
+            "rsi2": 23.7,
             "above_ema20": false,
             "ema20_slope_pct": -0.22,
             "trend": "DOWNTREND",
-            "ret_5d_pct": -0.72,
-            "ret_20d_pct": 0.63,
+            "ret_5d_pct": -0.7,
+            "ret_20d_pct": 0.65,
             "pct_b": 0.4,
             "rvol": null,
             "support_pivot": 1319.75,
             "resistance_pivot": 1355.18,
             "atr_band": [
-              1318.69,
-              1345.87
+              1318.95,
+              1346.13
             ]
           },
           "JPY=X": {
             "group": "FX",
-            "close": 159.36,
+            "close": 159.31,
             "bar_date": "2026-11-18",
-            "atr_pct": 0.59,
+            "atr_pct": 0.58,
             "realized_vol_20d_pct": 6.1,
-            "rsi14": 58.5,
-            "rsi2": 25.5,
+            "rsi14": 58.0,
+            "rsi2": 23.0,
             "above_ema20": true,
-            "ema20_slope_pct": 0.42,
+            "ema20_slope_pct": 0.41,
             "trend": "UPTREND",
-            "ret_5d_pct": 0.41,
-            "ret_20d_pct": 0.69,
-            "pct_b": 0.78,
+            "ret_5d_pct": 0.38,
+            "ret_20d_pct": 0.66,
+            "pct_b": 0.77,
             "rvol": null,
             "support_pivot": 158.42,
             "resistance_pivot": 160.75,
             "atr_band": [
-              158.42,
-              160.3
+              158.39,
+              160.23
             ]
           },
           "EURUSD=X": {
             "group": "FX",
             "close": 1.1,
             "bar_date": "2026-11-18",
-            "atr_pct": 0.66,
+            "atr_pct": 0.64,
             "realized_vol_20d_pct": 5.6,
             "rsi14": 28.3,
             "rsi2": 2.3,
@@ -1082,177 +1091,177 @@
           },
           "BTC-USD": {
             "group": "CRYPTO",
-            "close": 62961.3,
+            "close": 62285.21,
             "bar_date": "2026-11-18",
-            "atr_pct": 4.09,
-            "realized_vol_20d_pct": 39.9,
-            "rsi14": 21.8,
-            "rsi2": 6.5,
+            "atr_pct": 4.15,
+            "realized_vol_20d_pct": 40.7,
+            "rsi14": 21.1,
+            "rsi2": 5.1,
             "above_ema20": false,
-            "ema20_slope_pct": -6.0,
+            "ema20_slope_pct": -6.08,
             "trend": "DOWNTREND",
-            "ret_5d_pct": -7.75,
-            "ret_20d_pct": -19.05,
-            "pct_b": 0.06,
-            "rvol": 0.98,
+            "ret_5d_pct": -8.74,
+            "ret_20d_pct": -19.92,
+            "pct_b": 0.04,
+            "rvol": 1.0,
             "support_pivot": 65222.0,
             "resistance_pivot": 73707.61,
             "atr_band": [
-              60386.18,
-              65536.42
+              59700.37,
+              64870.05
             ]
           },
           "ETH-USD": {
             "group": "CRYPTO",
-            "close": 1760.67,
+            "close": 1758.76,
             "bar_date": "2026-11-18",
-            "atr_pct": 5.74,
-            "realized_vol_20d_pct": 56.3,
+            "atr_pct": 5.75,
+            "realized_vol_20d_pct": 56.4,
             "rsi14": 24.0,
-            "rsi2": 11.3,
+            "rsi2": 11.1,
             "above_ema20": false,
-            "ema20_slope_pct": -7.08,
+            "ema20_slope_pct": -7.09,
             "trend": "DOWNTREND",
-            "ret_5d_pct": -8.66,
-            "ret_20d_pct": -21.73,
-            "pct_b": 0.1,
-            "rvol": 0.89,
+            "ret_5d_pct": -8.76,
+            "ret_20d_pct": -21.82,
+            "pct_b": 0.09,
+            "rvol": 0.87,
             "support_pivot": 1800.71,
             "resistance_pivot": 2151.31,
             "atr_band": [
-              1659.61,
-              1861.73
+              1657.63,
+              1859.89
             ]
           },
           "SOL-USD": {
             "group": "CRYPTO",
-            "close": 73.62,
+            "close": 72.62,
             "bar_date": "2026-11-18",
-            "atr_pct": 5.83,
-            "realized_vol_20d_pct": 55.7,
-            "rsi14": 28.0,
-            "rsi2": 46.5,
+            "atr_pct": 5.91,
+            "realized_vol_20d_pct": 56.1,
+            "rsi14": 27.1,
+            "rsi2": 38.1,
             "above_ema20": false,
-            "ema20_slope_pct": -7.75,
+            "ema20_slope_pct": -7.85,
             "trend": "DOWNTREND",
-            "ret_5d_pct": -5.73,
-            "ret_20d_pct": -22.91,
-            "pct_b": 0.18,
-            "rvol": 0.83,
+            "ret_5d_pct": -7.01,
+            "ret_20d_pct": -23.95,
+            "pct_b": 0.15,
+            "rvol": 0.8,
             "support_pivot": 73.4,
             "resistance_pivot": 86.66,
             "atr_band": [
-              69.33,
-              77.91
+              68.33,
+              76.91
             ]
           },
           "XRP-USD": {
             "group": "CRYPTO",
-            "close": 0.98,
+            "close": 0.96,
             "bar_date": "2026-11-18",
-            "atr_pct": 5.46,
-            "realized_vol_20d_pct": 57.4,
-            "rsi14": 30.3,
-            "rsi2": 52.6,
+            "atr_pct": 5.6,
+            "realized_vol_20d_pct": 57.5,
+            "rsi14": 29.2,
+            "rsi2": 38.0,
             "above_ema20": false,
-            "ema20_slope_pct": -7.06,
+            "ema20_slope_pct": -7.19,
             "trend": "DOWNTREND",
-            "ret_5d_pct": -3.34,
-            "ret_20d_pct": -20.99,
-            "pct_b": 0.22,
-            "rvol": 0.86,
+            "ret_5d_pct": -4.93,
+            "ret_20d_pct": -22.28,
+            "pct_b": 0.19,
+            "rvol": 0.85,
             "support_pivot": 0.95,
             "resistance_pivot": 1.13,
             "atr_band": [
-              0.93,
-              1.03
+              0.91,
+              1.01
             ]
           },
           "IBIT": {
             "group": "CRYPTO",
-            "close": 35.6,
+            "close": 35.36,
             "bar_date": "2026-11-18",
-            "atr_pct": 3.9,
-            "realized_vol_20d_pct": 39.1,
-            "rsi14": 21.5,
-            "rsi2": 1.1,
+            "atr_pct": 3.93,
+            "realized_vol_20d_pct": 39.2,
+            "rsi14": 21.1,
+            "rsi2": 1.0,
             "above_ema20": false,
-            "ema20_slope_pct": -6.21,
+            "ema20_slope_pct": -6.26,
             "trend": "DOWNTREND",
-            "ret_5d_pct": -15.71,
-            "ret_20d_pct": -25.57,
-            "pct_b": -0.01,
-            "rvol": 0.91,
+            "ret_5d_pct": -16.29,
+            "ret_20d_pct": -26.09,
+            "pct_b": -0.03,
+            "rvol": 1.22,
             "support_pivot": 37.39,
             "resistance_pivot": 41.6,
             "atr_band": [
-              34.21,
-              36.99
+              33.97,
+              36.75
             ]
           }
         },
         "cross_asset_summary": {
           "bonds": {
             "tlt": {
-              "close": 80.18,
+              "close": 80.22,
               "trend": "DOWNTREND",
-              "rsi14": 47.2,
+              "rsi14": 47.6,
               "atr_pct": 0.94,
-              "ret_20d_pct": -0.07
+              "ret_20d_pct": -0.02
             },
             "ief": {
-              "close": 90.66,
+              "close": 90.67,
               "trend": "DOWNTREND",
-              "rsi14": 48.2,
+              "rsi14": 48.4,
               "atr_pct": 0.52
             },
             "shy": {
-              "close": 81.33,
+              "close": 81.34,
               "trend": "DOWNTREND",
               "atr_pct": 0.16
             },
-            "hyg_lqd_credit_momentum_20d_pp": -0.32,
-            "reading_ko": "TLT DOWNTREND (RSI14 47.2, ATR 0.94%, 20일 -0.07%), HYG-LQD 20일 상대 -0.32%p"
+            "hyg_lqd_credit_momentum_20d_pp": -0.37,
+            "reading_ko": "TLT DOWNTREND (RSI14 47.6, ATR 0.94%, 20일 -0.02%), HYG-LQD 20일 상대 -0.37%p"
           },
           "fx": {
             "dxy": {
-              "close": 103.77,
+              "close": 103.78,
               "trend": "UPTREND",
               "rsi14": 69.2,
               "atr_pct": 0.5
             },
             "usd_krw": {
-              "close": 1332.28,
+              "close": 1332.54,
               "trend": "DOWNTREND",
-              "rsi14": 44.7,
+              "rsi14": 44.8,
               "atr_pct": 1.02,
-              "ret_5d_pct": -0.72
+              "ret_5d_pct": -0.7
             },
-            "reading_ko": "DXY UPTREND, 원/달러 DOWNTREND (RSI14 44.7, 5일 -0.72%)"
+            "reading_ko": "DXY UPTREND, 원/달러 DOWNTREND (RSI14 44.8, 5일 -0.7%)"
           },
           "crypto": {
             "btc": {
-              "close": 62961.3,
+              "close": 62285.21,
               "trend": "DOWNTREND",
-              "rsi14": 21.8,
-              "atr_pct": 4.09,
-              "realized_vol_20d_pct": 39.9,
-              "ret_20d_pct": -19.05
+              "rsi14": 21.1,
+              "atr_pct": 4.15,
+              "realized_vol_20d_pct": 40.7,
+              "ret_20d_pct": -19.92
             },
             "eth": {
-              "close": 1760.67,
+              "close": 1758.76,
               "trend": "DOWNTREND",
               "rsi14": 24.0,
-              "atr_pct": 5.74
+              "atr_pct": 5.75
             },
-            "btc_eth_relative_20d_pp": 2.68,
-            "reading_ko": "BTC DOWNTREND (RSI14 21.8, 실현변동성 39.9%, 20일 -19.05%), ETH DOWNTREND"
+            "btc_eth_relative_20d_pp": 1.9,
+            "reading_ko": "BTC DOWNTREND (RSI14 21.1, 실현변동성 40.7%, 20일 -19.92%), ETH DOWNTREND"
           }
         },
         "actionable_symbols": [],
         "best_setup": {
           "symbol": "SQQQ",
-          "score": 18.3,
+          "score": 17.9,
           "signal": "NO_TRADE"
         },
         "dip_swing_watchlist": {
@@ -1262,42 +1271,42 @@
             {
               "symbol": "SOXL",
               "date": "2026-11-18",
-              "close": 48.68,
-              "atr_pct": 24.13,
-              "validated_tp": 66.29,
-              "validated_sl": 31.06,
-              "validated_tp_pct": 36.19,
-              "validated_sl_pct": 36.19,
+              "close": 49.26,
+              "atr_pct": 23.84,
+              "validated_tp": 66.88,
+              "validated_sl": 31.64,
+              "validated_tp_pct": 35.77,
+              "validated_sl_pct": 35.77,
               "max_hold_sessions": 3,
               "reference_intraday_plan": {
-                "tp1": 52.08,
-                "tp2": 54.52,
-                "sl": 46.24
+                "tp1": 52.71,
+                "tp2": 55.17,
+                "sl": 46.8
               },
-              "rsi2": 13.1,
-              "pct_b": 0.24,
-              "rvol": 0.87,
-              "why_not": "%B 0.24>0.15 또는 RVOL 0.87<1.0(필수)"
+              "rsi2": 18.3,
+              "pct_b": 0.247,
+              "rvol": 1.03,
+              "why_not": "%B 0.25>0.15"
             },
             {
               "symbol": "TQQQ",
               "date": "2026-11-18",
-              "close": 52.74,
-              "atr_pct": 8.1,
-              "validated_tp": 59.15,
-              "validated_sl": 46.33,
-              "validated_tp_pct": 12.15,
-              "validated_sl_pct": 12.15,
+              "close": 52.44,
+              "atr_pct": 8.15,
+              "validated_tp": 58.85,
+              "validated_sl": 46.03,
+              "validated_tp_pct": 12.22,
+              "validated_sl_pct": 12.22,
               "max_hold_sessions": 3,
               "reference_intraday_plan": {
-                "tp1": 54.66,
-                "tp2": 56.8,
-                "sl": 50.39
+                "tp1": 54.36,
+                "tp2": 56.5,
+                "sl": 50.09
               },
-              "rsi2": 34.1,
-              "pct_b": 0.21,
-              "rvol": 0.86,
-              "why_not": "RSI2 34>20 또는 %B 0.21>0.15 또는 RVOL 0.86<1.0(필수)"
+              "rsi2": 27.4,
+              "pct_b": 0.201,
+              "rvol": 1.05,
+              "why_not": "RSI2 27>20 또는 %B 0.20>0.15"
             }
           ],
           "overnight_approval": {
@@ -1318,7 +1327,7 @@
             "risk_per_trade_pct": 2.0,
             "max_positions": 2,
             "position_cap_pct": 25.0,
-            "as_of_kst": "2026-11-19 07:51:51",
+            "as_of_kst": "2026-11-19 08:01:38",
             "params_consistent": true,
             "param_checks": {
               "rsi2_max": true,
@@ -1355,7 +1364,7 @@
           "last_backtest": "Engine A 승률 42.1% / 손익비 1.39 — 유동성 부족으로 실전 제외"
         },
         "weekend_plan": null,
-        "key_takeaway": "현재 진입 신호 없음. 최고 점수 SQQQ(18.3점, NO_TRADE). SOXL RSI2 13.1 · %B 0.24 · 돌파 기준 $53.92. [크로스애셋] TLT DOWNTREND (RSI14 47.2, ATR 0.94%, 20일 -0.07%), HYG-LQD 20일 상대 -0.32%p / BTC DOWNTREND (RSI14 21.8, 실현변동성 39.9%, 20일 -19.05%), ETH DOWNTREND"
+        "key_takeaway": "현재 진입 신호 없음. 최고 점수 SQQQ(17.9점, NO_TRADE). SOXL RSI2 18.3 · %B 0.25 · 돌파 기준 $53.92. [크로스애셋] TLT DOWNTREND (RSI14 47.6, ATR 0.94%, 20일 -0.02%), HYG-LQD 20일 상대 -0.37%p / BTC DOWNTREND (RSI14 21.1, 실현변동성 40.7%, 20일 -19.92%), ETH DOWNTREND"
       }
     },
     {
@@ -1384,7 +1393,7 @@
       "role": "실적 D-day 캘린더와 갭 유발 이벤트 관리",
       "description": "Yahoo Finance 실적 캘린더를 KST로 변환해 D-day를 계산하고, FOMC·CPI 등 공식 일정과 결합해 이벤트 전후 포지션 규칙을 제시합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-19 07:51:51",
+      "last_run": "2026-11-19 08:01:38",
       "confidence_score": 0.9,
       "report": {
         "phase": "POST_MARKET",
@@ -1469,14 +1478,14 @@
         ],
         "headline_catalysts": [
           {
+            "title": "Palo Alto Networks’ stock gets a fresh AI-fueled boost from earnings",
+            "source": "MarketWatch",
+            "published": "2026-11-18T22:53:00+00:00"
+          },
+          {
             "title": "Sanofi wins approval of venglustat for Gaucher disease",
             "source": "Seeking Alpha",
             "published": "2026-11-18T17:43:50-05:00"
-          },
-          {
-            "title": "Palo Alto Networks’ stock gets a fresh AI-fueled boost from earnings",
-            "source": "MarketWatch",
-            "published": "2026-11-18T22:48:00+00:00"
           },
           {
             "title": "ZTO Express (ZTO) Q3 2026 Earnings Call Transcript",
@@ -1504,9 +1513,9 @@
             "published": "2026-11-18T22:05:02+00:00"
           },
           {
-            "title": "Semiconductor investor sentiment has recovered somewhat due to strong earnings from semiconductor ma.. - 매일경제",
-            "source": "매일경제",
-            "published": "2026-11-18T21:44:13+00:00"
+            "title": "Wall Street ends mixed after Nvidia earnings, Fed minutes - Reuters",
+            "source": "Reuters",
+            "published": "2026-11-18T21:46:43+00:00"
           }
         ],
         "next_major_event": "AVGO 2026-12-10 06:00 KST",
@@ -1539,22 +1548,22 @@
       "role": "경기선행지표(CUBE-LEI·침체확률)·미국 국채 커브·환율·코인 4대 영역 정량 분석 및 리스크 레짐 판정",
       "description": "Estrella & Mishkin(1998)·Stock & Watson(1989)·Gilchrist & Zakrajšek(2012)·Burns & Mitchell(1946) 방법론으로 CUBE-LEI와 12개월 침체확률을 실측 산출하고, 국채 커브(2Y/5Y/10Y/30Y)·크레딧(HY OAS)·환율(DXY·원/달러)·코인(BTC/ETH)을 4대 영역으로 보고합니다. VIX 22·DXY 104.5 초과 시 레버리지를 제한합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-19 07:51:51",
+      "last_run": "2026-11-19 08:01:38",
       "confidence_score": 0.94,
       "report": {
         "phase": "POST_MARKET",
         "job_scope": "코인 · 미국 국채/채권 · 환율 · 경기선행지표 4대 영역 상시 감시",
-        "vix_level": 23.54,
-        "vix_change_pct": -7.54,
-        "dxy": 103.768,
-        "dxy_change_pct": 0.27,
+        "vix_level": 24.56,
+        "vix_change_pct": -3.53,
+        "dxy": 103.778,
+        "dxy_change_pct": 0.28,
         "macro_regime": "BEAR_VOLATILE",
         "regime_diagnostics": {
-          "spy_price": 732.4201049804688,
-          "spy_200dma": 732.5570498657227,
+          "spy_price": 730.2000122070312,
+          "spy_200dma": 732.5459494018555,
           "trend_status": "BEARISH",
-          "vix_current": 23.540000915527344,
-          "vix_20dma": 20.35550003051758,
+          "vix_current": 24.559999465942383,
+          "vix_20dma": 20.40649995803833,
           "volatility_state": "ELEVATED",
           "regime": "BEAR_VOLATILE"
         },
@@ -1637,7 +1646,7 @@
             "metric": "HY OAS level + HYG/IEF 상대강도 (GZ 2012 EBP의 공개데이터 프록시 — EBP 아님)",
             "hy_oas_bp": 343.0,
             "hy_oas_z_5y": 1.11,
-            "hyg_ief_rel_63d_pct": -1.12,
+            "hyg_ief_rel_63d_pct": -1.15,
             "gz_proxy_z": 0.86,
             "level": "NORMAL",
             "level_thresholds_bp": {
@@ -1646,7 +1655,7 @@
               "STRESS": "500-700",
               "CRISIS": ">700"
             },
-            "reading_ko": "HY OAS 343.0bp(z 1.11) · HYG-IEF 63일 상대 -1.12%p → NORMAL"
+            "reading_ko": "HY OAS 343.0bp(z 1.11) · HYG-IEF 63일 상대 -1.15%p → NORMAL"
           },
           "components": [
             {
@@ -1915,69 +1924,69 @@
         },
         "bond_market": {
           "yields_pct": {
-            "3m": 4.143,
+            "3m": 4.145,
             "2y": 4.83,
-            "5y": 4.879,
+            "5y": 4.884,
             "10y": 5.12,
-            "30y": 5.413
+            "30y": 5.412
           },
           "curve_bp": {
             "10y3m": 77.0,
             "10y2y": 30.0,
-            "30y10y": 29.3,
-            "5y10y": 24.1
+            "30y10y": 29.2,
+            "5y10y": 23.6
           },
           "curve_shape": "STEEP (정상 우상향)",
           "curve_source": "FRED T10Y3M",
-          "term_premium_proxy_bp": 29.3,
+          "term_premium_proxy_bp": 29.2,
           "etfs": {
             "TLT": {
-              "last": 80.18,
-              "chg_pct": 0.79,
-              "ret_20d": -0.07,
-              "ret_63d": -2.62,
+              "last": 80.22,
+              "chg_pct": 0.84,
+              "ret_20d": -0.02,
+              "ret_63d": -2.57,
               "duration_years": 16.8
             },
             "IEF": {
-              "last": 90.66,
-              "chg_pct": 0.28,
-              "ret_20d": 0.48,
-              "ret_63d": -2.52,
+              "last": 90.67,
+              "chg_pct": 0.29,
+              "ret_20d": 0.49,
+              "ret_63d": -2.51,
               "duration_years": 7.2
             },
             "SHY": {
-              "last": 81.3301,
-              "chg_pct": 0.01,
-              "ret_20d": 0.05,
-              "ret_63d": -0.84,
+              "last": 81.34,
+              "chg_pct": 0.02,
+              "ret_20d": 0.06,
+              "ret_63d": -0.83,
               "duration_years": 1.8
             },
             "SGOV": {
-              "last": 100.5916,
-              "chg_pct": 0.0,
-              "ret_20d": -0.03,
-              "ret_63d": 0.0,
+              "last": 100.6,
+              "chg_pct": 0.01,
+              "ret_20d": -0.02,
+              "ret_63d": 0.01,
               "duration_years": 0.1
             },
             "TIP": {
-              "last": 104.985,
-              "chg_pct": 0.15,
-              "ret_20d": -0.54,
-              "ret_63d": -2.36,
+              "last": 104.9,
+              "chg_pct": 0.07,
+              "ret_20d": -0.62,
+              "ret_63d": -2.44,
               "duration_years": 4.6
             },
             "HYG": {
-              "last": 76.665,
-              "chg_pct": 0.05,
-              "ret_20d": -0.41,
-              "ret_63d": -3.64,
+              "last": 76.65,
+              "chg_pct": 0.03,
+              "ret_20d": -0.43,
+              "ret_63d": -3.66,
               "duration_years": 3.1
             },
             "LQD": {
-              "last": 103.12,
-              "chg_pct": 0.37,
-              "ret_20d": -0.09,
-              "ret_63d": -2.77,
+              "last": 103.15,
+              "chg_pct": 0.4,
+              "ret_20d": -0.06,
+              "ret_63d": -2.74,
               "duration_years": 8.4
             }
           },
@@ -1990,22 +1999,22 @@
             "HYG": -0.31
           },
           "inflation_breakeven_proxy": {
-            "tip_minus_ief_63d_pct": 0.16,
+            "tip_minus_ief_63d_pct": 0.07,
             "note": "TIP(물가연동채) 63일 수익률 - IEF(명목 7-10Y) 63일 수익률: (+)면 기대인플레 상승 우위"
           },
           "tlt_technical": {
-            "close": 80.18,
+            "close": 80.22,
             "atr_pct": 0.94,
-            "rsi14": 47.2,
+            "rsi14": 47.6,
             "above_ema20": false,
-            "ret_20d_pct": -0.07,
+            "ret_20d_pct": -0.02,
             "realized_vol_20d_pct": 12.2
           },
           "credit": {
             "metric": "HY OAS level + HYG/IEF 상대강도 (GZ 2012 EBP의 공개데이터 프록시 — EBP 아님)",
             "hy_oas_bp": 343.0,
             "hy_oas_z_5y": 1.11,
-            "hyg_ief_rel_63d_pct": -1.12,
+            "hyg_ief_rel_63d_pct": -1.15,
             "gz_proxy_z": 0.86,
             "level": "NORMAL",
             "level_thresholds_bp": {
@@ -2014,26 +2023,26 @@
               "STRESS": "500-700",
               "CRISIS": ">700"
             },
-            "reading_ko": "HY OAS 343.0bp(z 1.11) · HYG-IEF 63일 상대 -1.12%p → NORMAL"
+            "reading_ko": "HY OAS 343.0bp(z 1.11) · HYG-IEF 63일 상대 -1.15%p → NORMAL"
           },
-          "read_ko": "2Y 4.83% / 10Y 5.12% / 30Y 5.413%, 10Y-3M 77.0bp(STEEP (정상 우상향))"
+          "read_ko": "2Y 4.83% / 10Y 5.12% / 30Y 5.412%, 10Y-3M 77.0bp(STEEP (정상 우상향))"
         },
         "fx_market": {
           "dxy": {
-            "last": 103.768,
-            "chg_pct": 0.27,
-            "ret_20d": 1.95
+            "last": 103.778,
+            "chg_pct": 0.28,
+            "ret_20d": 1.96
           },
           "usd_krw": {
-            "last": 1332.28,
-            "chg_pct": -0.25,
-            "ret_5d": -0.72,
-            "ret_20d": 0.63
+            "last": 1332.54,
+            "chg_pct": -0.23,
+            "ret_5d": -0.7,
+            "ret_20d": 0.65
           },
           "usd_jpy": {
-            "last": 159.359,
-            "chg_pct": -0.1,
-            "ret_20d": 0.69
+            "last": 159.31,
+            "chg_pct": -0.13,
+            "ret_20d": 0.66
           },
           "eur_usd": {
             "last": 1.0977,
@@ -2047,51 +2056,51 @@
           },
           "dollar_regime": "NEUTRAL_DOLLAR",
           "krw_regime": "KRW_STABLE",
-          "read_ko": "USD/KRW 1332.28 (20일 0.63%), DXY 103.768 (0.27%)",
+          "read_ko": "USD/KRW 1332.54 (20일 0.65%), DXY 103.778 (0.28%)",
           "legacy_fx_block": {
-            "usd_krw": 1332.28,
-            "usd_jpy": 159.359,
+            "usd_krw": 1332.54,
+            "usd_jpy": 159.31,
             "eur_usd": 1.0977
           }
         },
         "crypto_market": {
           "btc": {
-            "last": 62961.3008,
-            "chg_pct": -2.98,
-            "ret_7d": -14.88,
-            "ret_30d": -23.08
+            "last": 62285.2109,
+            "chg_pct": -4.02,
+            "ret_7d": -15.79,
+            "ret_30d": -23.91
           },
           "eth": {
-            "last": 1760.67,
-            "chg_pct": -3.42,
-            "ret_7d": -14.36,
-            "ret_30d": -26.79
+            "last": 1758.76,
+            "chg_pct": -3.52,
+            "ret_7d": -14.45,
+            "ret_30d": -26.87
           },
           "sol": {
-            "last": 73.62,
-            "chg_pct": -1.98,
-            "ret_7d": -11.64,
-            "ret_30d": -29.84
+            "last": 72.62,
+            "chg_pct": -3.31,
+            "ret_7d": -12.84,
+            "ret_30d": -30.79
           },
           "xrp": {
-            "last": 0.9757,
-            "chg_pct": -0.73,
-            "ret_7d": -7.33,
-            "ret_30d": -25.1
+            "last": 0.9597,
+            "chg_pct": -2.36,
+            "ret_7d": -8.85,
+            "ret_30d": -26.33
           },
           "ibit": {
-            "last": 35.605,
-            "chg_pct": -1.48,
-            "ret_20d": -25.57
+            "last": 35.36,
+            "chg_pct": -2.16,
+            "ret_20d": -26.09
           },
           "coin": {
-            "last": 112.63,
-            "chg_pct": -2.08,
-            "ret_20d": -36.4
+            "last": 110.51,
+            "chg_pct": -3.92,
+            "ret_20d": -37.59
           },
-          "weekend_return_pct": -7.75,
-          "risk_on_proxy_score": 36.5,
-          "read_ko": "BTC $62,961 (24h -2.98%, 7d -14.88%), ETH $1,761 (-3.42%)"
+          "weekend_return_pct": -8.74,
+          "risk_on_proxy_score": 34.9,
+          "read_ko": "BTC $62,285 (24h -4.02%, 7d -15.79%), ETH $1,759 (-3.52%)"
         },
         "global_indices": {
           "hang_seng": {
@@ -2103,27 +2112,27 @@
             "change_pct": -1.34
           },
           "dax_40": {
-            "level": 25736.2402,
-            "change_pct": -1.19
+            "level": 26045.3691,
+            "change_pct": -2.08
           },
           "nasdaq_fut": {
-            "level": 27255.75,
-            "change_pct": 0.67
+            "level": 27175.0,
+            "change_pct": 0.37
           },
           "sp500_fut": {
-            "level": 7367.25,
-            "change_pct": 0.11
+            "level": 7340.25,
+            "change_pct": -0.25
           }
         },
         "commodities": {
-          "wti": 81.78,
-          "brent": 88.49,
-          "gold": 3741.3,
-          "copper": 5.687
+          "wti": 81.89,
+          "brent": 88.68,
+          "gold": 3727.8,
+          "copper": 5.6625
         },
         "risk_off_triggers": [
-          "VIX 23.54 ≥ 22 (공포 국면)",
-          "BTC 7일 -14.88% 급락 (리스크오프 선행 신호)"
+          "VIX 24.56 ≥ 22 (공포 국면)",
+          "BTC 7일 -15.79% 급락 (리스크오프 선행 신호)"
         ],
         "safe_for_leverage": false,
         "handoff_to_agents": {
@@ -2141,7 +2150,7 @@
           "fx_regime": "KRW_STABLE",
           "crypto_weekend_alert": true
         },
-        "key_takeaway": "CUBE-LEI 101.2 (후기 사이클 둔화), 12개월 침체확률 10.9%. 국채 10Y 5.12% / 2Y 4.83% (10Y-3M 77.0bp), HY OAS 343.0bp(NORMAL). DXY 103.77, 원/달러 1332.28원, BTC $62,961(7일 -14.88%). 레짐 BEAR_VOLATILE, 레버리지 제한(상한계수 0.7), 트리거 2개."
+        "key_takeaway": "CUBE-LEI 101.2 (후기 사이클 둔화), 12개월 침체확률 10.9%. 국채 10Y 5.12% / 2Y 4.83% (10Y-3M 77.0bp), HY OAS 343.0bp(NORMAL). DXY 103.78, 원/달러 1332.54원, BTC $62,285(7일 -15.79%). 레짐 BEAR_VOLATILE, 레버리지 제한(상한계수 0.7), 트리거 2개."
       }
     },
     {
@@ -2170,12 +2179,12 @@
       "role": "실제 옵션 체인 기반 Put/Call·감마월·맥스페인 산출",
       "description": "QQQ·NVDA 옵션 체인의 미결제약정과 거래량으로 기관 포지셔닝을 측정합니다. 소셜 버즈 데이터는 연동되어 있지 않아 사용하지 않습니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-19 07:51:51",
+      "last_run": "2026-11-19 08:01:38",
       "confidence_score": 0.9,
       "report": {
         "phase": "POST_MARKET",
         "expiry_used": "2026-11-18",
-        "data_as_of": "2026-11-19 07:51:51",
+        "data_as_of": "2026-11-19T07:51:51.547248",
         "stale_note": "주말·휴장일에는 마지막 금요일 체인 값입니다.",
         "chains": {
           "QQQ": {
@@ -2228,44 +2237,44 @@
         "institutional_bias": "PUT_HEAVY (하방 헤지 우위)",
         "credit_flow": {
           "metric": "HYG/LQD 상대강도 · HY OAS 수준(GZ 2012 프록시) · HYG RVOL",
-          "hyg_ret_20d_pct": -0.41,
-          "lqd_ret_20d_pct": -0.09,
-          "hyg_vs_lqd_20d_pp": -0.32,
-          "hyg_rvol": 0.51,
-          "hyg_last": 76.665,
-          "lqd_last": 103.12,
+          "hyg_ret_20d_pct": -0.43,
+          "lqd_ret_20d_pct": -0.06,
+          "hyg_vs_lqd_20d_pp": -0.37,
+          "hyg_rvol": 0.73,
+          "hyg_last": 76.65,
+          "lqd_last": 103.15,
           "hy_oas_bp": 343.0,
           "hy_oas_z_5y": 1.11,
           "credit_level": "NORMAL",
           "gz_proxy_z": 0.86,
           "interpretation": "투자등급 우위 = 신용 리스크오프(안전자산 선호)",
-          "reading_ko": "HY OAS 343.0bp(NORMAL), HYG-LQD 20일 -0.32%p → 투자등급 우위 = 신용 리스크오프(안전자산 선호)"
+          "reading_ko": "HY OAS 343.0bp(NORMAL), HYG-LQD 20일 -0.37%p → 투자등급 우위 = 신용 리스크오프(안전자산 선호)"
         },
         "duration_flow": {
           "metric": "TLT 20일 수익률·RVOL·ATR(듀레이션 리스크) vs IEF",
-          "tlt_ret_20d_pct": -0.07,
-          "ief_ret_20d_pct": 0.48,
-          "tlt_rvol": 0.83,
+          "tlt_ret_20d_pct": -0.02,
+          "ief_ret_20d_pct": 0.49,
+          "tlt_rvol": 1.16,
           "tlt_atr_pct": 0.94,
-          "tlt_last": 80.18,
-          "ief_last": 90.66,
+          "tlt_last": 80.22,
+          "ief_last": 90.67,
           "long_duration_demand": "OUTFLOW (장듀레이션 회피)",
-          "reading_ko": "TLT 20일 -0.07% (IEF 0.48%, RVOL 0.83) → OUTFLOW (장듀레이션 회피)"
+          "reading_ko": "TLT 20일 -0.02% (IEF 0.49%, RVOL 1.16) → OUTFLOW (장듀레이션 회피)"
         },
         "crypto_institutional_flow": {
           "metric": "IBIT 20거래일 수익률 - BTC 20거래일 수익률(현물 ETF 수요 프록시) · IBIT/COIN RVOL",
-          "ibit_last": 35.605,
-          "ibit_rvol": 0.91,
-          "ibit_ret_20d_pct": -25.57,
-          "coin_last": 112.63,
-          "coin_chg_pct": -2.08,
-          "btc_last": 62961.3008,
-          "btc_ret_20d_pct": -19.05,
-          "btc_ret_30d_pct_ref": -23.08,
-          "ibit_minus_btc_pp": -6.52,
+          "ibit_last": 35.36,
+          "ibit_rvol": 1.22,
+          "ibit_ret_20d_pct": -26.09,
+          "coin_last": 110.51,
+          "coin_chg_pct": -3.92,
+          "btc_last": 62285.2109,
+          "btc_ret_20d_pct": -19.92,
+          "btc_ret_30d_pct_ref": -23.91,
+          "ibit_minus_btc_pp": -6.17,
           "institutional_demand": "ETF_REDEMPTION_PRESSURE (기관 환매 우위)",
           "note": "IBIT-NAV 괴리 데이터는 무료 소스에 없어 가격 상대성과로 대체했습니다(지표명에 '프록시' 표기).",
-          "reading_ko": "IBIT 20일 -25.57% vs BTC 20일 -19.05% (차이 -6.52%p) → ETF_REDEMPTION_PRESSURE (기관 환매 우위)"
+          "reading_ko": "IBIT 20일 -26.09% vs BTC 20일 -19.92% (차이 -6.17%p) → ETF_REDEMPTION_PRESSURE (기관 환매 우위)"
         },
         "superinvestor_13f": {
           "available": true,
@@ -3116,7 +3125,7 @@
           "candidate_policy": "13F 매집 종목의 DIP_SWING 신호는 '제안'으로만 올립니다. 신규 종목 편입은 사용자 승인 항목이라 자동 주문 대상이 아닙니다.",
           "reading_ko": "Q3 13F 원문 5인 · 현금화 압력 85.4/100(현금 확보 우위) · 섹터 최우호 소비·플랫폼 성장 100.0 / 최비호 기타 92.9"
         },
-        "key_takeaway": "QQQ Put/Call OI 1.3 · 거래량비 1.06 → PUT_HEAVY (하방 헤지 우위). NVDA 감마월 $180.0 (OI 33968), 맥스페인 $160.0. [신용] HY OAS 343.0bp(NORMAL), HYG-LQD 20일 -0.32%p → 투자등급 우위 = 신용 리스크오프(안전자산 선호) [듀레이션] TLT 20일 -0.07% (IEF 0.48%, RVOL 0.83) → OUTFLOW (장듀레이션 회피) [크립토] IBIT 20일 -25.57% vs BTC 20일 -19.05% (차이 -6.52%p) → ETF_REDEMPTION_PRESSURE (기관 환매 우위) [13F 2026Q3] Q3 13F 원문 5인 · 현금화 압력 85.4/100(현금 확보 우위) · 섹터 최우호 소비·플랫폼 성장 100.0 / 최비호 기타 92.9. 소비·플랫폼 성장 순매수 100.0 · 가치·주택 —. 감시종목 DIP 신호 GLD(1.1/-0.094). 신규 종목 편입은 제안 전용."
+        "key_takeaway": "QQQ Put/Call OI 1.3 · 거래량비 1.06 → PUT_HEAVY (하방 헤지 우위). NVDA 감마월 $180.0 (OI 33968), 맥스페인 $160.0. [신용] HY OAS 343.0bp(NORMAL), HYG-LQD 20일 -0.37%p → 투자등급 우위 = 신용 리스크오프(안전자산 선호) [듀레이션] TLT 20일 -0.02% (IEF 0.49%, RVOL 1.16) → OUTFLOW (장듀레이션 회피) [크립토] IBIT 20일 -26.09% vs BTC 20일 -19.92% (차이 -6.17%p) → ETF_REDEMPTION_PRESSURE (기관 환매 우위) [13F 2026Q3] Q3 13F 원문 5인 · 현금화 압력 85.4/100(현금 확보 우위) · 섹터 최우호 소비·플랫폼 성장 100.0 / 최비호 기타 92.9. 소비·플랫폼 성장 순매수 100.0 · 가치·주택 —. 감시종목 DIP 신호 GLD(1.1/-0.094). 신규 종목 편입은 제안 전용."
       }
     },
     {
@@ -3145,14 +3154,14 @@
       "role": "10대 단기 시나리오의 ATR 단위 재정규화 + 주말·월요일 개장 시나리오 설계",
       "description": "래리 윌리엄스 돌파, 볼린저 회귀, VWAP 추종 등 10개 시나리오를 실측 ATR로 재정규화하고, 주말에는 갭업/갭다운/보합 3개 개장 시나리오를 브래킷과 함께 산출합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-19 07:51:53",
+      "last_run": "2026-11-19 08:01:38",
       "confidence_score": 0.9,
       "report": {
         "phase": "POST_MARKET",
         "total_scenarios": 10,
         "atr_basis": {
-          "SOXL_atr_pct": 24.13,
-          "TQQQ_atr_pct": 8.1
+          "SOXL_atr_pct": 23.84,
+          "TQQQ_atr_pct": 8.15
         },
         "scenarios": [
           {
@@ -3164,7 +3173,7 @@
               "TQQQ"
             ],
             "entry_rule": "Price >= Open + 0.5 × (Prev_High - Prev_Low)",
-            "exit_rule": "TP1 +10.86% (0.45ATR) / TP2 +22.92% / SL -13.27% / 당일 종가 청산",
+            "exit_rule": "TP1 +10.73% (0.45ATR) / TP2 +22.65% / SL -13.11% / 당일 종가 청산",
             "validated": {
               "PF": 0.59,
               "verdict": "REJECTED — 시간봉 백테스트 총수익 -41.6%, PF 0.59"
@@ -3183,7 +3192,7 @@
               "NVDA"
             ],
             "entry_rule": "개장 첫 30분 고가 돌파 + RVOL ≥ 1.5",
-            "exit_rule": "TP +14.48% / SL -9.65%",
+            "exit_rule": "TP +14.3% / SL -9.54%",
             "validated": {
               "PF": null,
               "verdict": "미검증 (구 수치 폐기 — 시간봉 백테스트 대상 아님)"
@@ -3240,7 +3249,7 @@
               "TSLA"
             ],
             "entry_rule": "EPS 5%+ 상회 + 첫 15분 양봉",
-            "exit_rule": "TP +19.3% / SL -12.06%",
+            "exit_rule": "TP +19.07% / SL -11.92%",
             "validated": {
               "PF": null,
               "verdict": "미검증 (구 수치 폐기 — 시간봉 백테스트 대상 아님)"
@@ -3278,7 +3287,7 @@
               "TQQQ",
               "SGOV"
             ],
-            "entry_rule": "실현변동성 역가중 (SOXL 238.7% / TQQQ 105.0%)",
+            "entry_rule": "실현변동성 역가중 (SOXL 238.9% / TQQQ 104.8%)",
             "exit_rule": "일일 리밸런스",
             "validated": {
               "PF": null,
@@ -3395,7 +3404,7 @@
           ],
           "reading_ko": "국면 LATE_CYCLE_SLOWDOWN(CUBE-LEI 101.2), 침체확률 10.9% → 레버리지 상한 계수 0.7, 종목당 상한 17.5%. 최우선 시나리오 SCENARIO_01(21.6%)."
         },
-        "key_takeaway": "ATR 기준 재정규화 완료(SOXL 24.13%). 현재 검증상 유효 전략: SCENARIO_10. 정규장 시나리오 유지. CUBE-LEI LATE_CYCLE_SLOWDOWN → 레버리지 상한 0.7·종목 상한 17.5%."
+        "key_takeaway": "ATR 기준 재정규화 완료(SOXL 23.84%). 현재 검증상 유효 전략: SCENARIO_10. 정규장 시나리오 유지. CUBE-LEI LATE_CYCLE_SLOWDOWN → 레버리지 상한 0.7·종목 상한 17.5%."
       }
     },
     {
@@ -3424,13 +3433,13 @@
       "role": "시간봉 경로 기반 개선 전/후 성과 검증",
       "description": "core/backtest_lab의 시간봉(60m) 백테스트 결과를 읽어 개선 전·후, DIP_SWING, 하락장 숏 엔진 민감도를 실측 수치로 보고합니다. 왕복 0.24% 마찰 반영.",
       "status": "COMPLETED",
-      "last_run": "2026-11-19 07:51:53",
+      "last_run": "2026-11-19 08:01:38",
       "confidence_score": 0.95,
       "report": {
         "phase": "POST_MARKET",
         "report_path": "data/1y_backtest_report.json",
         "report_generated_at_kst": "2026-11-14 14:05:31",
-        "report_age_hours": 113.8,
+        "report_age_hours": 113.9,
         "is_simulation": true,
         "friction": "왕복 0.24% (NH 0.09% + 슬리피지 0.15%)",
         "fill_model": "시가/트리거 체결 + 슬리피지. 진입 봉에서는 봉 종가가 목표가를 넘긴 경우에만 익절 인정, 손절은 저가 터치 인정. 같은 봉에서 손절·목표가가 동시에 닿으면 손절 우선(보수적). 러너는 당일 종가 강제 청산(당일 회전 원칙).",
@@ -4051,7 +4060,7 @@
       "role": "실측 백테스트 승인/폐기 + 환노출·단기채 캐리·코인 주말 갭 리스크 평가",
       "description": "손익비(PF) 1.3 이상·샤프 0.8 이상·MDD 15% 이내·거래 20회 이상을 동시에 만족하는 전략만 승인합니다. 추가로 USD/KRW 환노출 민감도, SGOV 단기채 캐리 vs 현금 기회비용, BTC 주말 변동→월요일 나스닥 갭 회귀를 실측값으로 산출해 Agent 9·10의 포지션 태세와 사이징에 넘깁니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-19 07:51:53",
+      "last_run": "2026-11-19 08:01:38",
       "confidence_score": 0.92,
       "report": {
         "phase": "POST_MARKET",
@@ -4125,7 +4134,7 @@
           "risk_per_trade_pct": 2.0,
           "max_positions": 2,
           "position_cap_pct": 25.0,
-          "as_of_kst": "2026-11-19 07:51:53"
+          "as_of_kst": "2026-11-19 08:01:38"
         },
         "approval_note": "1개 전략 승인. 최우선 DIP_SWING. 오버나이트 보유(DIP_SWING) 승인 완료 (2026-11-14 21:29 KST·사용자 승인).",
         "fx_exposure": {
@@ -4145,7 +4154,7 @@
             "bar_date": "2026-11-18"
           },
           "regime": "KRW_STABLE",
-          "krw_20d_change_pct": 0.63,
+          "krw_20d_change_pct": 0.65,
           "daily_var_95_krw": 12771,
           "hedge_note": "USD 자산을 보유하는 것 자체가 원화 약세 방어선입니다. 원/달러가 10원 오르면 평가금이 약 8786원 늘어납니다(계좌 기준).",
           "measured_not_estimated": true
@@ -4153,21 +4162,21 @@
         "sgov_vs_cash": {
           "cash_usd": 426.63,
           "fx_rate": 1338.8,
-          "sgov_price_return_63d_pct": 0.002,
+          "sgov_price_return_63d_pct": 0.01,
           "sgov_price_return_note": "종가 기준 가격수익률(월분배금 제외) — 총수익 아님",
-          "t_bill_3m_discount_pct": 4.143,
-          "t_bill_3m_coupon_equiv_pct": 4.187,
+          "t_bill_3m_discount_pct": 4.145,
+          "t_bill_3m_coupon_equiv_pct": 4.189,
           "yield_basis": "^IRX 3개월 할인율 → 쿠폰등가 환산 (SGOV 총수익률 아님)",
           "annual_yield_pct": 4.19,
-          "annual_interest_usd": 17.86,
+          "annual_interest_usd": 17.87,
           "monthly_interest_usd": 1.49,
           "daily_interest_usd": 0.049,
-          "annual_interest_krw": 23915,
-          "opportunity_cost_if_cash_sits_idle_krw_per_month": 1993,
+          "annual_interest_krw": 23926,
+          "opportunity_cost_if_cash_sits_idle_krw_per_month": 1994,
           "net_of_fee_note": "SGOV 운용보수 0.07%를 빼면 실질 캐리 ≈ 4.12%/년",
           "annual_yield_net_pct": 4.12,
-          "sgov_etf_ret_20d_pct": -0.03,
-          "reading_ko": "3개월 T-bill 쿠폰등가 4.19%(보수 차감 4.12%) — 현금 $426.63를 SGOV에 파킹하면 월 $1.49(1,993원)/연 $17.86의 무위험 이자. 방치 시 그만큼 기회비용."
+          "sgov_etf_ret_20d_pct": -0.02,
+          "reading_ko": "3개월 T-bill 쿠폰등가 4.19%(보수 차감 4.12%) — 현금 $426.63를 SGOV에 파킹하면 월 $1.49(1,994원)/연 $17.87의 무위험 이자. 방치 시 그만큼 기회비용."
         },
         "crypto_weekend_gap_risk": {
           "available": true,
@@ -4176,16 +4185,16 @@
           "alpha_pct": 0.2,
           "r_squared": 0.137,
           "correlation": 0.37,
-          "weekend_btc_ret_now_pct": -7.75,
-          "implied_monday_qqq_gap_pct": -0.88,
+          "weekend_btc_ret_now_pct": -8.74,
+          "implied_monday_qqq_gap_pct": -1.02,
           "observed_max_gap_pct": 2.32,
           "note": "BTC 주말 수익률 → 다음 월요일 QQQ 시가 갭의 단순 OLS 회귀(일봉 실측). 표본이 1년 내외이므로 통계적 신뢰도는 제한적이며, 방향성 경보용으로만 사용합니다.",
-          "reading_ko": "BTC 주말 -7.75% → 월요일 나스닥 갭 추정 -0.88% (β 0.1398, R² 0.137, n=45주)"
+          "reading_ko": "BTC 주말 -8.74% → 월요일 나스닥 갭 추정 -1.02% (β 0.1398, R² 0.137, n=45주)"
         },
         "cross_market_summary": {
           "fx": "USD 자산을 보유하는 것 자체가 원화 약세 방어선입니다. 원/달러가 10원 오르면 평가금이 약 8786원 늘어납니다(계좌 기준).",
-          "carry": "3개월 T-bill 쿠폰등가 4.19%(보수 차감 4.12%) — 현금 $426.63를 SGOV에 파킹하면 월 $1.49(1,993원)/연 $17.86의 무위험 이자. 방치 시 그만큼 기회비용.",
-          "crypto_gap": "BTC 주말 -7.75% → 월요일 나스닥 갭 추정 -0.88% (β 0.1398, R² 0.137, n=45주)"
+          "carry": "3개월 T-bill 쿠폰등가 4.19%(보수 차감 4.12%) — 현금 $426.63를 SGOV에 파킹하면 월 $1.49(1,994원)/연 $17.87의 무위험 이자. 방치 시 그만큼 기회비용.",
+          "crypto_gap": "BTC 주말 -8.74% → 월요일 나스닥 갭 추정 -1.02% (β 0.1398, R² 0.137, n=45주)"
         },
         "key_takeaway": "승인 1개 / 폐기 2개. 최우선 DIP_SWING (PF 1.98, MDD -6.63%) | 환노출: 10원당 8786원 | SGOV 캐리: 4.19%/년 | 코인주말→월요일갭 β None"
       }
@@ -4216,53 +4225,53 @@
       "role": "주식·채권·외환·코인·경기선행지표 5축 신호 융합 → 시장 포지션 태세와 목표 비중 결정",
       "description": "주식(센티먼트·모멘텀)·채권(금리차·크레딧)·외환(달러·원화)·코인(리스크온 프록시)·경기선행지표(CUBE-LEI·침체확률)를 -100~+100 신호로 정규화해 RISK_ON / CAUTIOUS_ROTATION / DEFENSIVE_TBILL / BEAR_HEDGE 중 하나를 결정하고, 국면 계수로 레버리지·현금 비중을 조정합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-19 07:51:53",
+      "last_run": "2026-11-19 08:01:38",
       "confidence_score": 0.9,
       "report": {
         "phase": "POST_MARKET",
         "regime": "BEAR_VOLATILE",
-        "vix": 23.54,
+        "vix": 24.56,
         "approved_strategies": [
           "DIP_SWING"
         ],
         "execution_mode": "DIP_SWING",
         "five_axis": {
           "equity": {
-            "score": -22.5,
+            "score": -24.8,
             "components": {
-              "sentiment": 14.2,
-              "entry_score": -53.4,
-              "vix": -28.3
+              "sentiment": 16.4,
+              "entry_score": -54.2,
+              "vix": -36.5
             },
-            "vix": 23.54,
-            "sentiment_avg": 57.1
+            "vix": 24.56,
+            "sentiment_avg": 58.2
           },
           "bond": {
-            "score": 14.2,
+            "score": 14.3,
             "components": {
               "curve_10y3m": 38.5,
               "credit_oas": 4.7,
-              "tlt_momentum": -0.7
+              "tlt_momentum": -0.2
             },
             "curve_10y3m_bp": 77.0,
             "hy_oas_bp": 343.0,
             "credit_level": "NORMAL"
           },
           "fx": {
-            "score": -17.6,
+            "score": -17.8,
             "components": {
-              "dxy": -22.6,
-              "usd_krw_20d": -12.6
+              "dxy": -22.7,
+              "usd_krw_20d": -13.0
             },
-            "dxy": 103.768,
-            "krw": 1332.28,
+            "dxy": 103.778,
+            "krw": 1332.54,
             "krw_regime": "KRW_STABLE"
           },
           "crypto": {
-            "score": -27.0,
-            "risk_on_proxy": 36.5,
-            "weekend_return_pct": -7.75,
-            "btc_7d_pct": -14.88
+            "score": -30.2,
+            "risk_on_proxy": 34.9,
+            "weekend_return_pct": -8.74,
+            "btc_7d_pct": -15.79
           },
           "cycle": {
             "score": 14.4,
@@ -4275,7 +4284,7 @@
             "recession_prob_pct": 10.9
           }
         },
-        "composite_score": -7.7,
+        "composite_score": -8.8,
         "market_stance": "CAUTIOUS_ROTATION",
         "stance_target": {
           "equity_gross": 0.4,
@@ -4286,30 +4295,29 @@
           "preserved": true,
           "vix_trigger": 24.0,
           "confirmations_required": 2,
-          "confirmations_now": [],
+          "confirmations_now": [
+            "VIX 24.56 ≥ 24"
+          ],
           "armed": false
         },
         "lei_leverage_factor": 0.7,
         "target_portfolio_weights": {
-          "SOXL": 0.156,
-          "TQQQ": 0.191,
-          "NVDA": 0.0,
-          "SGOV": 0.652
+          "SGOV": 0.8,
+          "SOXL": 0.1,
+          "TQQQ": 0.1
         },
         "target_alloc_usd": {
-          "SOXL": 137.06,
-          "TQQQ": 167.81,
-          "NVDA": 0.0,
-          "SGOV": 572.85
+          "SGOV": 702.88,
+          "SOXL": 87.86,
+          "TQQQ": 87.86
         },
         "fx_rate": 1338.8,
         "target_alloc_krw": {
-          "SOXL": 183496,
-          "TQQQ": 224664,
-          "NVDA": 0,
-          "SGOV": 766932
+          "SGOV": 941016,
+          "SOXL": 117627,
+          "TQQQ": 117627
         },
-        "regime_note": "승인 전략 최고 PF 1.98·국면계수 0.7·태세 CAUTIOUS_ROTATION → 총노출 35%, 센티먼트 틸트 적용",
+        "regime_note": "고변동성/검증 미통과 → 현금·SGOV 80% 방어",
         "smart_money_13f_context": {
           "available": true,
           "quarter": "2026Q3",
@@ -4318,7 +4326,7 @@
           "applied_to_stance": false,
           "note_ko": "13F 현금화 신호는 태세·비중에 자동 반영하지 않습니다(분기 1회 표본 — A/B에서 정보가치 0)."
         },
-        "key_takeaway": "승인 전략 최고 PF 1.98·국면계수 0.7·태세 CAUTIOUS_ROTATION → 총노출 35%, 센티먼트 틸트 적용. 태세 CAUTIOUS_ROTATION (5축 복합 -8: 주식 -22 / 채권 +14 / 환율 -18 / 코인 -27 / 사이클 +14). 목표 비중 SOXL 16% / TQQQ 19% / SGOV 65% (총 879 USD 기준)."
+        "key_takeaway": "고변동성/검증 미통과 → 현금·SGOV 80% 방어. 태세 CAUTIOUS_ROTATION (5축 복합 -9: 주식 -25 / 채권 +14 / 환율 -18 / 코인 -30 / 사이클 +14). 목표 비중 SOXL 10% / TQQQ 10% / SGOV 80% (총 879 USD 기준)."
       }
     },
     {
@@ -4347,7 +4355,7 @@
       "role": "실전 원장 정합성·브래킷 재산정·개장 대기 주문 계획",
       "description": "실전 원장과 활성 브래킷을 검증하고, 체결가 기준으로 매도 브래킷을 재산정하며, 다음 개장(23:30 KST) 대기 계획과 현금 배분을 보고합니다. 주문 집행은 시장 개장 시 별도 확인 절차를 따릅니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-19 07:51:53",
+      "last_run": "2026-11-19 08:01:38",
       "confidence_score": 0.94,
       "report": {
         "phase": "POST_MARKET",
@@ -4367,7 +4375,7 @@
           "cash_pct": 48.6,
           "win_rate_pct": 55.6,
           "trades": 9,
-          "as_of": "2026-11-19 07:51 KST"
+          "as_of": "2026-11-19 08:01 KST"
         },
         "consistency_check": {
           "status": "CONSISTENT",
@@ -4390,14 +4398,14 @@
               "tp2": 56.48,
               "sl": 47.91,
               "breakeven": 50.6,
-              "atr_pct": 24.13
+              "atr_pct": 23.84
             },
             "levels_locked": false,
             "diff_note": [
               "2주 포지션: TP1 1주 + 러너 1주"
             ],
             "status": "NO_POSITION",
-            "last_price": 48.6767,
+            "last_price": 49.26,
             "pnl_usd": null
           },
           {
@@ -4411,18 +4419,18 @@
               "sl": 52.87
             },
             "recomputed": {
-              "tp1": 55.97,
-              "tp2": 58.15,
-              "sl": 51.59,
+              "tp1": 55.98,
+              "tp2": 58.18,
+              "sl": 51.58,
               "breakeven": 54.18,
-              "atr_pct": 8.1
+              "atr_pct": 8.15
             },
             "levels_locked": false,
             "diff_note": [
               "2주 포지션: TP1 1주 + 러너 1주"
             ],
             "status": "NO_POSITION",
-            "last_price": 52.7375,
+            "last_price": 52.44,
             "pnl_usd": null
           },
           {
@@ -4436,16 +4444,16 @@
               "sl": 150.0
             },
             "recomputed": {
-              "tp1": 178.24,
-              "tp2": 183.73,
+              "tp1": 178.29,
+              "tp2": 183.85,
               "sl": 150.0,
               "breakeven": 173.89,
-              "atr_pct": 6.34
+              "atr_pct": 6.41
             },
             "levels_locked": true,
             "diff_note": "사용자 지정 레벨: 평단 $173 본전 회수 매도 대기 · 종가 $150 마지노선. 자동 브래킷 재산정이 임의로 변경하지 않습니다.",
             "status": "HOLDING",
-            "last_price": 152.22,
+            "last_price": 150.96,
             "pnl_usd": -22.15
           },
           {
@@ -4471,13 +4479,13 @@
           {
             "ticker": "SOXL",
             "action": "WAIT_FOR_DIP_TRIGGER",
-            "condition": "%B 0.24>0.15 또는 RVOL 0.87<1.0(필수)",
-            "validated_tp": 66.29,
-            "validated_sl": 31.06,
-            "tp_pct": 36.19,
-            "sl_pct": 36.19,
+            "condition": "%B 0.25>0.15",
+            "validated_tp": 66.88,
+            "validated_sl": 31.64,
+            "tp_pct": 35.77,
+            "sl_pct": 35.77,
             "qty": 1,
-            "cost_usd": 48.68,
+            "cost_usd": 49.26,
             "risk_usd": 17.62,
             "risk_pct": 2.01,
             "bracket_rule": "진입 시점 ATR×1.5 대칭 TP/SL · 최대 3세션 시간청산",
@@ -4487,13 +4495,13 @@
           {
             "ticker": "TQQQ",
             "action": "WAIT_FOR_DIP_TRIGGER",
-            "condition": "RSI2 34>20 또는 %B 0.21>0.15 또는 RVOL 0.86<1.0(필수)",
-            "validated_tp": 59.15,
-            "validated_sl": 46.33,
-            "tp_pct": 12.15,
-            "sl_pct": 12.15,
+            "condition": "RSI2 27>20 또는 %B 0.20>0.15",
+            "validated_tp": 58.85,
+            "validated_sl": 46.03,
+            "tp_pct": 12.22,
+            "sl_pct": 12.22,
             "qty": 1,
-            "cost_usd": 52.74,
+            "cost_usd": 52.44,
             "risk_usd": 6.41,
             "risk_pct": 0.73,
             "bracket_rule": "진입 시점 ATR×1.5 대칭 TP/SL · 최대 3세션 시간청산",
@@ -4504,18 +4512,18 @@
             "ticker": "SOXL",
             "action": "WATCH_BREAKOUT",
             "trigger": 58.47,
-            "target_weight": 0.156,
-            "size_guide_usd": 137.06,
-            "bracket": "ATR 24.13% 기준 (core/exit_planner 재산정)",
+            "target_weight": 0.1,
+            "size_guide_usd": 87.86,
+            "bracket": "ATR 23.84% 기준 (core/exit_planner 재산정)",
             "status": "PLANNED (장중 회전 병행 · 개장 후 신호 확인)"
           },
           {
             "ticker": "TQQQ",
             "action": "WATCH_BREAKOUT",
             "trigger": 57.69,
-            "target_weight": 0.191,
-            "size_guide_usd": 167.81,
-            "bracket": "ATR 8.1% 기준 (core/exit_planner 재산정)",
+            "target_weight": 0.1,
+            "size_guide_usd": 87.86,
+            "bracket": "ATR 8.15% 기준 (core/exit_planner 재산정)",
             "status": "PLANNED (장중 회전 병행 · 개장 후 신호 확인)"
           }
         ],
@@ -4528,42 +4536,42 @@
             {
               "symbol": "SOXL",
               "date": "2026-11-18",
-              "close": 48.68,
-              "atr_pct": 24.13,
-              "validated_tp": 66.29,
-              "validated_sl": 31.06,
-              "validated_tp_pct": 36.19,
-              "validated_sl_pct": 36.19,
+              "close": 49.26,
+              "atr_pct": 23.84,
+              "validated_tp": 66.88,
+              "validated_sl": 31.64,
+              "validated_tp_pct": 35.77,
+              "validated_sl_pct": 35.77,
               "max_hold_sessions": 3,
               "reference_intraday_plan": {
-                "tp1": 52.08,
-                "tp2": 54.52,
-                "sl": 46.24
+                "tp1": 52.71,
+                "tp2": 55.17,
+                "sl": 46.8
               },
-              "rsi2": 13.1,
-              "pct_b": 0.24,
-              "rvol": 0.87,
-              "why_not": "%B 0.24>0.15 또는 RVOL 0.87<1.0(필수)"
+              "rsi2": 18.3,
+              "pct_b": 0.247,
+              "rvol": 1.03,
+              "why_not": "%B 0.25>0.15"
             },
             {
               "symbol": "TQQQ",
               "date": "2026-11-18",
-              "close": 52.74,
-              "atr_pct": 8.1,
-              "validated_tp": 59.15,
-              "validated_sl": 46.33,
-              "validated_tp_pct": 12.15,
-              "validated_sl_pct": 12.15,
+              "close": 52.44,
+              "atr_pct": 8.15,
+              "validated_tp": 58.85,
+              "validated_sl": 46.03,
+              "validated_tp_pct": 12.22,
+              "validated_sl_pct": 12.22,
               "max_hold_sessions": 3,
               "reference_intraday_plan": {
-                "tp1": 54.66,
-                "tp2": 56.8,
-                "sl": 50.39
+                "tp1": 54.36,
+                "tp2": 56.5,
+                "sl": 50.09
               },
-              "rsi2": 34.1,
-              "pct_b": 0.21,
-              "rvol": 0.86,
-              "why_not": "RSI2 34>20 또는 %B 0.21>0.15 또는 RVOL 0.86<1.0(필수)"
+              "rsi2": 27.4,
+              "pct_b": 0.201,
+              "rvol": 1.05,
+              "why_not": "RSI2 27>20 또는 %B 0.20>0.15"
             }
           ],
           "overnight_approval": {
@@ -4584,7 +4592,7 @@
             "risk_per_trade_pct": 2.0,
             "max_positions": 2,
             "position_cap_pct": 25.0,
-            "as_of_kst": "2026-11-19 07:51:53"
+            "as_of_kst": "2026-11-19 08:01:39"
           },
           "policy": "오버나이트 보유는 config/swing_approval.json의 사용자 승인(2026-11-14 21:29)으로 활성화됨. DIP_SWING은 장중 회전 매매와 병행하며 대체하지 않습니다."
         },
@@ -4615,53 +4623,53 @@
           "sgov_carry": {
             "cash_usd": 426.63,
             "fx_rate": 1338.8,
-            "sgov_price_return_63d_pct": 0.002,
+            "sgov_price_return_63d_pct": 0.01,
             "sgov_price_return_note": "종가 기준 가격수익률(월분배금 제외) — 총수익 아님",
-            "t_bill_3m_discount_pct": 4.143,
-            "t_bill_3m_coupon_equiv_pct": 4.187,
+            "t_bill_3m_discount_pct": 4.145,
+            "t_bill_3m_coupon_equiv_pct": 4.189,
             "yield_basis": "^IRX 3개월 할인율 → 쿠폰등가 환산 (SGOV 총수익률 아님)",
             "annual_yield_pct": 4.19,
-            "annual_interest_usd": 17.86,
+            "annual_interest_usd": 17.87,
             "monthly_interest_usd": 1.49,
             "daily_interest_usd": 0.049,
-            "annual_interest_krw": 23915,
-            "opportunity_cost_if_cash_sits_idle_krw_per_month": 1993,
+            "annual_interest_krw": 23926,
+            "opportunity_cost_if_cash_sits_idle_krw_per_month": 1994,
             "net_of_fee_note": "SGOV 운용보수 0.07%를 빼면 실질 캐리 ≈ 4.12%/년",
             "annual_yield_net_pct": 4.12,
-            "sgov_etf_ret_20d_pct": -0.03,
-            "reading_ko": "3개월 T-bill 쿠폰등가 4.19%(보수 차감 4.12%) — 현금 $426.63를 SGOV에 파킹하면 월 $1.49(1,993원)/연 $17.86의 무위험 이자. 방치 시 그만큼 기회비용."
+            "sgov_etf_ret_20d_pct": -0.02,
+            "reading_ko": "3개월 T-bill 쿠폰등가 4.19%(보수 차감 4.12%) — 현금 $426.63를 SGOV에 파킹하면 월 $1.49(1,994원)/연 $17.87의 무위험 이자. 방치 시 그만큼 기회비용."
           },
           "cash_usd": 426.63,
           "cash_krw": 571172,
-          "proposal": "미배치 현금 $426.63 중 장중 회전 대기분을 제외한 버퍼를 SGOV(또는 유동성 필요 시 SHY)로 파킹 — 실측 연환산 4.19% 적용 시 월 $1.49 약 1993원 (무위험·원금보존, 주문은 개장 후 집행)",
+          "proposal": "미배치 현금 $426.63 중 장중 회전 대기분을 제외한 버퍼를 SGOV(또는 유동성 필요 시 SHY)로 파킹 — 실측 연환산 4.19% 적용 시 월 $1.49 약 1994원 (무위험·원금보존, 주문은 개장 후 집행)",
           "note": "파킹은 제안이며 자동 집행하지 않습니다. 기존 SGOV 보유분은 CARRY_PARKING으로 유지됩니다."
         },
         "fx_commentary": {
-          "usd_krw": 1332.28,
+          "usd_krw": 1332.54,
           "regime": "KRW_STABLE",
           "per_10won_krw": 8786,
           "daily_var_95_krw": 12771,
           "note": "USD 자산을 보유하는 것 자체가 원화 약세 방어선입니다. 원/달러가 10원 오르면 평가금이 약 8786원 늘어납니다(계좌 기준).",
-          "entry_commentary": "원/달러 1332.28원 기준: 신규 USD 매수 시 환율 10원 상승은 계좌 평가금 +8786원 효과. NH는 원화 증거금을 자동환전하므로 체결 시점 환율이 원가에 반영됩니다."
+          "entry_commentary": "원/달러 1332.54원 기준: 신규 USD 매수 시 환율 10원 상승은 계좌 평가금 +8786원 효과. NH는 원화 증거금을 자동환전하므로 체결 시점 환율이 원가에 반영됩니다."
         },
         "crypto_weekend_alert": {
           "triggered": true,
-          "btc_weekend_return_pct": -7.75,
-          "implied_monday_qqq_gap_pct": -0.88,
+          "btc_weekend_return_pct": -8.74,
+          "implied_monday_qqq_gap_pct": -1.02,
           "regression": {
             "beta_monday_gap_per_1pct_weekend_btc": 0.1398,
             "r_squared": 0.137,
             "sample_weeks": 45
           },
-          "action": "주말 코인 변동으로 인한 월요일 갭 경보 없음 — 통상 개장 계획 유지",
-          "reading_ko": "BTC 주말 -7.75% → 월요일 나스닥 갭 추정 -0.88% (β 0.1398, R² 0.137, n=45주)"
+          "action": "월요일 개장 첫 30분은 갭 확인 후 진입(ORB 추격 금지, DIP_SWING 트리거 대기)",
+          "reading_ko": "BTC 주말 -8.74% → 월요일 나스닥 갭 추정 -1.02% (β 0.1398, R² 0.137, n=45주)"
         },
         "preserved_controls": {
           "dip_swing_approval": "APPROVED (2026-11-14 21:29)",
           "nvda_levels_locked": "TP $173.0 / SL $150.0 — 사용자 지정, 변경 금지",
           "bear_alpha_gate": "VIX ≥ 24 + 확인 2개 (변경 금지)",
           "intraday_rotation": "유지 — DIP_SWING은 병행이며 회전 매매를 대체하지 않음",
-          "checked_at": "2026-11-19 07:51:53"
+          "checked_at": "2026-11-19 08:01:38"
         },
         "avg_anchor_plan": {
           "engine": "AVG_ANCHOR_PROFIT_DESK",
@@ -4716,8 +4724,8 @@
               "SQQQ"
             ],
             "max_notional_usd": 60.0,
-            "armed": false,
-            "vix": 23.54
+            "armed": true,
+            "vix": 24.56
           },
           "guards": {
             "sl_active_after_kst": "23:45",
@@ -5593,20 +5601,19 @@
     "recession_probability_pct": 10.9,
     "credit_level": "NORMAL",
     "market_stance": "CAUTIOUS_ROTATION",
-    "sentiment_avg": 57.1,
-    "market_implied_anchor": 54.5,
+    "sentiment_avg": 58.2,
+    "market_implied_anchor": 50.1,
     "approved_strategies": [
       "DIP_SWING"
     ],
     "execution_mode": "DIP_SWING",
     "target_weights": {
-      "SOXL": 0.156,
-      "TQQQ": 0.191,
-      "NVDA": 0.0,
-      "SGOV": 0.652
+      "SGOV": 0.8,
+      "SOXL": 0.1,
+      "TQQQ": 0.1
     },
     "next_open": "2026-11-19 23:30 KST",
     "simulation_disclaimer": "백테스트 수치는 시뮬레이션이며 실전 원장과 분리되어 있습니다."
   },
-  "pipeline_seconds": 9.1
+  "pipeline_seconds": 9.4
 }
