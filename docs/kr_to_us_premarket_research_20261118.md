@@ -240,7 +240,7 @@
 |---|---|
 | `scripts/research/kr_us_premarket_data.py` | 데이터 수집·세션 패널 구성(캐시 `data_cache/research/kr_us/`) |
 | `scripts/research/kr_us_premarket.py` | 상관·창별 β·구간표·백테스트·안정성·5년 교차확인, 계수 생성 |
-| `docs/kr_us_premarket_research.json` | 전체 결과(1,512 백테스트, 상관 171쌍, 창별 β 35개, 구간표, 안정성 474행) |
+| `docs/kr_us_premarket_research.json` | 전체 결과(1,512 백테스트, 상관 378쌍, 창별 β 35개, 구간표, 안정성 474행) |
 | `config/kr_signal_calibration.json` | 모니터링 모듈이 쓰는 5년 적합 계수 |
 | `core/kr_session_signal.py` | 한국 세션 신호 모니터(읽기 전용, `data/kr_session_signal.json`) |
 | `docs/nh_premarket_integration_design_20261118.md` | 프리장 주문 코드·정책·워크플로 연동 설계 |
