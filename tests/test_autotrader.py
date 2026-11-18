@@ -82,8 +82,9 @@ def test_entry_sizes_within_budget_and_cash_reserve(trader, tmp_trader):
     actions = trader.entries(st, brackets, market, ledger())
     assert len(actions) == 1
     buy = actions[0]
-    assert buy["side"] == "BUY" and buy["qty"] == 1          # 예산 85.33 → 1주
-    assert buy["sizing"]["notional_usd"] <= 85.33 + 0.01
+    # 예산 149.32(현금 35%) ÷ $50 = 2주, 1주 리스크 ≤ 한도
+    assert buy["side"] == "BUY" and buy["qty"] == 2
+    assert buy["sizing"]["notional_usd"] <= 149.32 + 0.01
     call = trader.router.calls[0]
     assert call["price"] == pytest.approx(50.10)            # +20bp 지정가
     assert brackets["SOXL"]["bought_qty"] == 0              # 체결 확인 전에는 0
@@ -94,14 +95,49 @@ def test_entry_sizes_within_budget_and_cash_reserve(trader, tmp_trader):
 def test_entry_respects_risk_per_trade(trader, tmp_trader):
     brackets = load_brackets(tmp_trader[1])
     st = trader.load_state("2026-11-17")
-    # ATR 30% → 손절 8% 클램프: 1주당 위험 $4 → 리스크 한도 $13.4로 3주까지 가능하지만
-    # 예산 85.33 → 1주. 리스크 상한 계산값을 확인한다.
+    # ATR 30% → 0.75×ATR = 22.5%지만 sl_max_pct 15%로 클램프. 1주 위험 $7.5.
     trader.entry_candidates = lambda *a, **k: [candidate(atr=30.0)]
     market = make_market(clock_at("01:00"), {"SOXL": {"intraday_price": 50.0}})
     actions = trader.entries(st, brackets, market, ledger())
     sizing = actions[0]["sizing"]
     assert sizing["risk_usd"] <= sizing["risk_cap_usd"]
-    assert sizing["sl_pct"] == pytest.approx(8.0)
+    assert sizing["sl_pct"] == pytest.approx(15.0)
+    assert sizing["risk_cap_usd"] == pytest.approx(891.63 * 0.03, abs=0.02)
+
+
+def test_closed_bracket_does_not_block_reentry(trader, tmp_trader):
+    """청산 완료(bought_qty가 남은 closed) 브래킷은 보유가 아니다 — 재진입을 막지 않는다."""
+    brackets = load_brackets(tmp_trader[1])
+    brackets["SOXL"] = {"bought_qty": 2, "entry_price": 50.43, "closed": True, "sl": 48.92}
+    st = trader.load_state("2026-11-17")
+    trader.entry_candidates = lambda *a, **k: [candidate()]
+    market = make_market(clock_at("01:00"), {"SOXL": {"intraday_price": 50.0}})
+    actions = trader.entries(st, brackets, market, ledger())
+    assert len(actions) == 1 and actions[0]["ticker"] == "SOXL"
+
+
+def test_min_one_share_when_price_exceeds_budget(trader, tmp_trader):
+    """예산보다 비싼 종목도 1주 리스크가 한도 안이면 0주 교착을 만들지 않는다."""
+    brackets = load_brackets(tmp_trader[1])
+    st = trader.load_state("2026-11-17")
+    trader.entry_candidates = lambda *a, **k: [candidate(atr=10.0)]
+    market = make_market(clock_at("01:00"), {"SOXL": {"intraday_price": 160.0}})
+    actions = trader.entries(st, brackets, market, ledger())
+    assert len(actions) == 1
+    sizing = actions[0]["sizing"]
+    assert actions[0]["qty"] == 1 and sizing["min_one_share"] is True
+    assert sizing["risk_usd"] <= sizing["risk_cap_usd"]
+
+
+def test_hedge_notional_cap_below_floor_still_orders(trader, tmp_trader):
+    """헤지 슬롯 상한($60)이 하한($150)보다 작아도 '예산 < 하한'으로 막히지 않는다."""
+    brackets = load_brackets(tmp_trader[1])
+    st = trader.load_state("2026-11-17")
+    trader.entry_candidates = lambda *a, **k: [candidate(ticker="SOXS", source="BEAR_ALPHA_HEDGE",
+                                                        atr=17.0, notional_cap=60.0)]
+    market = make_market(clock_at("01:00"), {"SOXS": {"intraday_price": 58.77}}, vix=25.0)
+    actions = trader.entries(st, brackets, market, ledger())
+    assert len(actions) == 1 and actions[0]["qty"] == 1
 
 
 def test_vix_riskoff_blocks_entries(trader, tmp_trader):

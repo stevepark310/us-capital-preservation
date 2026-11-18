@@ -54,7 +54,7 @@ BASE_PARAMS: Dict[str, Any] = {
     "trail_atr_mult": 0.9,
     "initial_sl_atr_mult": 0.75,
     "sl_min_pct": 1.5,
-    "sl_max_pct": 8.0,
+    "sl_max_pct": 15.0,
     "be_after_atr": 1.0,
     "breakeven_pct": 0.34,
     "max_hold_sessions": 3,

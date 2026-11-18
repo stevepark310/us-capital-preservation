@@ -36,13 +36,30 @@ def put_v2(brackets_path, extra=None):
 
 def test_cautious_force_exit_closes_v2_before_earnings(tmp_trader):
     tmp_path, brackets_path = tmp_trader
-    t = trader_with(tmp_path, "05:41", 50.2)
+    # 신중 모드는 2026-11-18 06:20 KST에 만료됐다 — 시험은 만료 시각을 미래로 고정해
+    # 가드 로직 자체를 검증한다(벽시계에 의존하면 하루 뒤부터 항상 실패한다).
+    policy = execution_policy.load_policy()
+    policy["cautious_mode"] = dict(policy.get("cautious_mode") or {})
+    policy["cautious_mode"]["until_kst"] = "2099-12-31 06:20"
+    t = trader_with(tmp_path, "05:41", 50.2, policy=policy)
     st = t.load_state("2026-11-17")
     data = put_v2(brackets_path)
     actions = t.exits(st, data, {"SOXL": {"intraday_price": 50.2}}, t.market()["clock"])
     assert len(actions) == 1
     assert "강제청산" in actions[0]["reason"]
     assert actions[0]["qty"] == 1
+
+
+def test_cautious_force_exit_off_after_expiry(tmp_trader):
+    """만료 이후에는 05:40을 넘겨도 강제청산하지 않는다(청산은 브래킷 규칙만)."""
+    tmp_path, brackets_path = tmp_trader
+    policy = execution_policy.load_policy()
+    policy["cautious_mode"] = dict(policy.get("cautious_mode") or {})
+    policy["cautious_mode"]["until_kst"] = "2020-01-01 00:00"
+    t = trader_with(tmp_path, "05:41", 50.2, policy=policy)
+    st = t.load_state("2026-11-17")
+    data = put_v2(brackets_path)
+    assert t.exits(st, data, {"SOXL": {"intraday_price": 50.2}}, t.market()["clock"]) == []
 
 
 def test_no_force_exit_before_0540(tmp_trader):

@@ -270,7 +270,11 @@ class AutonomousTrader:
 
     def position_qty(self, ticker: str, brackets: Dict[str, Any]) -> int:
         b = brackets.get(ticker) or {}
-        return exit_rules.remaining_qty(b) if isinstance(b, dict) else 0
+        if not isinstance(b, dict) or b.get("closed"):
+            # 청산 완료 브래킷은 보유가 아니다 — bought_qty를 남겨 두므로 여기서 걸러야
+            # 같은 종목 재진입이 "이미 보유"로 영구 차단되지 않는다(2026-11-18).
+            return 0
+        return exit_rules.remaining_qty(b)
 
     # ------------------------------------------------------------------ reconcile
     def reconcile(self, st: Dict[str, Any], brackets: Dict[str, Any],
@@ -595,9 +599,14 @@ class AutonomousTrader:
                 continue
 
             slot_budget = min(budget, float(cand.get("notional_cap") or budget))
-            if slot_budget < float(g.get("entry_budget_floor_usd", 25.0)):
+            # 하한은 ① 계좌 제약으로 이미 작아진 예산(raw) ② 슬롯 상한(헤지 $60)보다
+            # 클 수 없다 — 그렇지 않으면 정상 신호가 "예산 < 하한"으로 영구 차단된다.
+            raw_budget = float(budget_info.get("raw_usd") or budget)
+            slot_cap = float(cand.get("notional_cap") or raw_budget)
+            floor_usd = min(float(g.get("entry_budget_floor_usd", 150.0)), raw_budget, slot_cap)
+            if slot_budget < floor_usd:
                 self._emit("ENTRY_SKIP", ticker=tk, source=src,
-                           reason=f"예산 ${slot_budget:.2f} < 하한 ${g.get('entry_budget_floor_usd')}")
+                           reason=f"예산 ${slot_budget:.2f} < 하한 ${floor_usd:.2f}")
                 continue
             planned = sum(float(a.get("qty") or 0) * float(a.get("price") or 0)
                           for a in actions if a.get("side") == "BUY")
@@ -645,13 +654,22 @@ class AutonomousTrader:
         while qty > 0 and qty * price > max(0.0, cash - reserve):
             qty -= 1
         sl_pct = self._sl_pct(cand, params)
-        risk_cap = equity * float(g.get("risk_per_trade_pct", 1.5)) / 100.0
+        risk_cap = equity * float(g.get("risk_per_trade_pct", 3.0)) / 100.0
         per_share_risk = price * sl_pct / 100.0
         while qty > 0 and per_share_risk * qty > risk_cap:
             qty -= 1
+        min_one = False
+        if qty <= 0 and price > 0:
+            # 1주 최소 보장 — 예산·상한 때문에 정수주가 0이 되어 신호가 사라지지 않도록.
+            # 단 ① 현금보존 하한을 지키고 ② 1주 손절 리스크가 한도 안일 때만 허용한다.
+            price_cap = float(cand.get("notional_cap") or price)
+            if price <= max(0.0, cash - reserve) and price <= price_cap \
+                    and per_share_risk <= risk_cap:
+                qty, min_one = 1, True
         return qty, {"qty": qty, "notional_usd": round(qty * price, 2), "budget_usd": round(budget, 2),
                      "sl_pct": round(sl_pct, 2), "risk_usd": round(per_share_risk * qty, 2),
-                     "risk_cap_usd": round(risk_cap, 2), "cash_after_reserve_usd": round(cash - reserve, 2)}
+                     "risk_cap_usd": round(risk_cap, 2), "cash_after_reserve_usd": round(cash - reserve, 2),
+                     "min_one_share": min_one}
 
     def _sl_pct(self, cand: Dict[str, Any], params: Optional[Dict[str, Any]] = None) -> float:
         if cand.get("source") == "NVDA_EARNINGS_GAP_SOXS":
@@ -660,7 +678,7 @@ class AutonomousTrader:
         atr = float(cand.get("atr_pct") or 6.0)
         mult = float(p.get("initial_sl_atr_mult") or 0.75)
         lo = float(p.get("sl_min_pct") or 1.5)
-        hi = float(p.get("sl_max_pct") or 8.0)
+        hi = float(p.get("sl_max_pct") or 15.0)
         return max(lo, min(hi, mult * atr))
 
     @staticmethod
@@ -670,6 +688,7 @@ class AutonomousTrader:
             return strategy_evolver.load_params()
         except Exception:
             return {"trail_atr_mult": 0.9, "initial_sl_atr_mult": 0.75, "be_after_atr": 1.0,
+                    "sl_min_pct": 1.5, "sl_max_pct": 15.0,
                     "max_hold_sessions": 3, "risk_scale": 1.0,
                     "entry_filters": {"rsi2_max": 20.0, "pct_b_max": 0.15, "rvol_min": 1.0}}
 

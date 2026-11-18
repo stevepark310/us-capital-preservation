@@ -24,12 +24,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "swing_approval.json")
 HALT_FILE = os.path.join(BASE_DIR, "data", "autotrader_halt.json")
 
-# 정책 파일이 무엇을 쓰든 넘을 수 없는 절대 상한 (계좌 $891 규모 기준)
+# 정책 파일이 무엇을 쓰든 넘을 수 없는 절대 상한 (계좌 $883 · 2026-11-18 예산 상향 반영)
 SAFE_CAPS: Dict[str, float] = {
-    "entry_budget_cap_usd": 150.0,        # 1회 진입 명목 상한
-    "entry_budget_pct_of_cash": 25.0,     # 가용 현금 대비
-    "entry_budget_pct_of_equity": 15.0,   # 총자산 대비
-    "risk_per_trade_pct": 2.0,            # 손절까지 감수하는 자산 비율
+    "entry_budget_cap_usd": 220.0,        # 1회 진입 명목 상한 (사용자 지시 2026-11-18 10:30)
+    "entry_budget_pct_of_cash": 40.0,     # 가용 현금 대비
+    "entry_budget_pct_of_equity": 25.0,   # 총자산 대비
+    "entry_budget_floor_usd": 150.0,      # 변동성 감쇠가 내려갈 수 있는 최저 집행 규모
+    "risk_per_trade_pct": 3.0,            # 손절까지 감수하는 자산 비율
     "max_open_positions": 4,
     "max_entries_per_session": 4,
     "daily_realized_loss_limit_pct": 3.0,
@@ -46,11 +47,11 @@ DEFAULTS: Dict[str, Any] = {
     "ask_before_trade": True,
     "universe": ["SOXL", "TQQQ"],
     "guardrails": {
-        "risk_per_trade_pct": 1.5,
-        "entry_budget_pct_of_cash": 20.0,
-        "entry_budget_pct_of_equity": 12.0,
-        "entry_budget_cap_usd": 120.0,
-        "entry_budget_floor_usd": 25.0,
+        "risk_per_trade_pct": 3.0,
+        "entry_budget_pct_of_cash": 35.0,
+        "entry_budget_pct_of_equity": 25.0,
+        "entry_budget_cap_usd": 220.0,
+        "entry_budget_floor_usd": 150.0,
         "cash_reserve_floor_usd": 150.0,
         "max_open_positions": 4,
         "max_entries_per_session": 3,
@@ -150,28 +151,46 @@ def entry_budget(equity: float, cash: float, policy: Dict[str, Any],
                  vol_scale: float = 1.0) -> Dict[str, Any]:
     """1회 진입 예산 — 현금/자산/절대상한/현금보존 하한을 모두 만족하는 최소값.
 
+    변동성 감쇠(VIX × 전략 계수)는 **최저 집행 규모(`entry_budget_floor_usd`) 아래로는
+    내리지 않는다**(2026-11-18 교착 해소). 감쇠가 예산을 종목가 아래로 밀어 내면
+    신호가 나와도 정수주 0주가 되어 매수가 영구히 막혔기 때문이다(11-17 14시간 0건).
+
+    위험 통제는 예산 상한이 아니라 ① 거래당 리스크 한도(`risk_per_trade_pct`)
+    ② 일일 실현손실 서킷브레이커 ③ 보유 종목·세션 진입 건수로 건다. 감쇠 계수는
+    이제 `floor ~ 상한` 사이의 폭을 조절한다(VIX ≥ 28은 계수 0 = 진입 전면 금지 유지).
+
     반환값의 `binding`은 어떤 제약이 예산을 결정했는지 남긴다(보고·로그용).
     """
     g = guardrails(policy)
     equity = max(float(equity or 0), 0.0)
     cash = max(float(cash or 0), 0.0)
     candidates = {
-        "cash_pct": cash * float(g.get("entry_budget_pct_of_cash", 20.0)) / 100.0,
-        "equity_pct": equity * float(g.get("entry_budget_pct_of_equity", 12.0)) / 100.0,
-        "abs_cap": float(g.get("entry_budget_cap_usd", 120.0)),
+        "cash_pct": cash * float(g.get("entry_budget_pct_of_cash", 35.0)) / 100.0,
+        "equity_pct": equity * float(g.get("entry_budget_pct_of_equity", 25.0)) / 100.0,
+        "abs_cap": float(g.get("entry_budget_cap_usd", 220.0)),
         "cash_after_reserve": cash - float(g.get("cash_reserve_floor_usd", 150.0)),
     }
     usable = {k: v for k, v in candidates.items() if v is not None}
     binding = min(usable, key=usable.get) if usable else "none"
-    budget = max(0.0, min(usable.values())) if usable else 0.0
-    budget *= max(0.0, min(1.0, float(vol_scale)))
-    floor = float(g.get("entry_budget_floor_usd", 25.0))
+    raw = max(0.0, min(usable.values())) if usable else 0.0
+    scale = max(0.0, min(1.0, float(vol_scale)))
+    floor = max(0.0, float(g.get("entry_budget_floor_usd", 150.0)))
+    # 하한은 어떤 상한도 넘지 않는다 — 상한이 작으면 그 상한이 곧 예산이다.
+    floor_effective = min(floor, raw)
+    decayed = raw * scale
+    if scale <= 0.0:
+        budget = 0.0          # VIX 리스크오프는 하한으로도 되살리지 않는다
+    else:
+        budget = max(decayed, floor_effective)
     return {
         "budget_usd": round(budget, 2),
         "binding": binding,
+        "raw_usd": round(raw, 2),
+        "decayed_usd": round(decayed, 2),
         "components": {k: round(v, 2) for k, v in candidates.items()},
-        "vol_scale": round(float(vol_scale), 3),
-        "below_floor": budget < floor,
+        "vol_scale": round(scale, 3),
+        "floor_applied": bool(scale > 0.0 and decayed < floor_effective - 1e-9),
+        "below_floor": budget < floor and scale > 0.0,
         "floor_usd": floor,
     }
 

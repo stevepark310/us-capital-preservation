@@ -26,16 +26,18 @@ def test_full_cycle_buy_then_fill_then_stop(tmp_trader, monkeypatch):
 
     status = t.run(execute=True)
     assert status["entries"], "매수 주문이 나가야 한다"
+    order = status["pending_orders"][0]
+    qty = int(order["qty"])
+    assert qty >= 1
     bracket = json.loads(brackets_path.read_text(encoding="utf-8"))["SOXL"]
     assert bracket["bought_qty"] == 0 and bracket["pending_entry"] is True
     assert status["pending_orders"] and status["pending_orders"][0]["side"] == "BUY"
 
-    # 2사이클: NH 잔고에 1주가 생겼다 → 체결 확정
-    order = status["pending_orders"][0]
+    # 2사이클: NH 잔고에 주문 수량만큼 생겼다 → 체결 확정
     account = {"found": True,
-               "positions": {"SOXL": {"qty": 1, "avg_price": 49.98, "sellable_qty": 1}},
+               "positions": {"SOXL": {"qty": qty, "avg_price": 49.98, "sellable_qty": qty}},
                "recent_executions": {"20261118": {"Output_0": [
-                   {"orr_no": order["order_no"], "cns_qty": 1, "cns_pr": 49.98}]}}}
+                   {"orr_no": order["order_no"], "cns_qty": qty, "cns_pr": 49.98}]}}}
     t2 = AutonomousTrader(policy=execution_policy.load_policy(), router=router, dry_run=False,
                           market=market_at("01:10", 49.5), account=account, base_dir=str(tmp_path))
     monkeypatch.setattr(t2, "entry_candidates", lambda *a, **k: [])
@@ -43,7 +45,7 @@ def test_full_cycle_buy_then_fill_then_stop(tmp_trader, monkeypatch):
     status2 = t2.run(execute=True)
     assert status2["reconcile"]["confirmed"] == 1
     bracket = json.loads(brackets_path.read_text(encoding="utf-8"))["SOXL"]
-    assert bracket["bought_qty"] == 1
+    assert bracket["bought_qty"] == qty
     assert bracket["entry_price"] == 49.98
     assert status2["pending_orders"] == []
 
@@ -55,7 +57,7 @@ def test_full_cycle_buy_then_fill_then_stop(tmp_trader, monkeypatch):
     status3 = t3.run(execute=True)
     sells = [a for a in status3["exits"] if a["side"] == "SELL"]
     assert len(sells) == 1
-    assert sells[0]["qty"] == 1
+    assert sells[0]["qty"] == qty
     assert any(c["side"] == "SELL" for c in router.calls)
 
 

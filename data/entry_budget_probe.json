@@ -1,0 +1,606 @@
+{
+  "account": {
+    "equity_usd": 883.5,
+    "cash_usd": 636.01,
+    "as_of": "2026-11-18 10:31:54 KST"
+  },
+  "prices": {
+    "SOXL": 49.07,
+    "TQQQ": 51.81,
+    "SOXS": 58.77,
+    "SQQQ": 46.95
+  },
+  "atr_pct": {
+    "SOXL": 22.02,
+    "TQQQ": 7.66,
+    "SOXS": 17.08,
+    "SQQQ": 6.8
+  },
+  "vix": 25.46,
+  "risk_scale": 0.7,
+  "guardrails": {
+    "risk_per_trade_pct": 3.0,
+    "entry_budget_pct_of_cash": 35.0,
+    "entry_budget_pct_of_equity": 25.0,
+    "entry_budget_cap_usd": 220.0,
+    "entry_budget_floor_usd": 150.0,
+    "cash_reserve_floor_usd": 150.0,
+    "max_open_positions": 4.0,
+    "max_entries_per_session": 3.0,
+    "max_orders_per_session": 8,
+    "daily_realized_loss_limit_usd": 25.0,
+    "daily_realized_loss_limit_pct": 3.0,
+    "ticker_cooldown_min": 20,
+    "duplicate_order_window_min": 10,
+    "order_timeout_sec": 300,
+    "opening_blackout_kst": "23:30-00:00",
+    "no_new_entry_after_kst": "04:30",
+    "force_exit_kst": "05:40",
+    "min_price_usd": 3.0,
+    "vix_riskoff_scale": {
+      "24.0": 0.5,
+      "28.0": 0.0,
+      "20.0": 0.75
+    },
+    "no_averaging_down": true,
+    "nvda_levels_locked": {
+      "tp": 173.0,
+      "sl": 150.0,
+      "note": "사용자 지정 — 자동매매가 변경·추가매수하지 않는다"
+    },
+    "vix_riskoff_note": "20~24 → 0.75배 구간 추가 (2026-11-17 13F A/B 채택). 2년: PF 2.04→2.24, Sharpe 1.29→1.78, MDD -6.64%→-5.20%, 총수익 38.14%→33.90%(리스크 축소 대가). 최근 1년: 수익 18.85%→19.65%, MDD -6.64%→-4.61%, PF 1.83→2.49.",
+    "entry_budget_policy": {
+      "changed_at_kst": "2026-11-18 10:30",
+      "authorization": "동훈님 지시 — '1회 예산을 대폭 늘려' (2026-11-18 10:30 KST)",
+      "rule": "실효 1회 예산 = min(현금 35%, 자산 25%, 절대 $220, 현금여유) × VIX계수 × 전략계수. 단 계수>0이면 결과는 하한 $150 아래로 내려가지 않는다(하한≤상한). VIX계수 0(VIX≥28)은 하한으로도 되살리지 않는다.",
+      "why": "기존 예산 $44.80이 유니버스 최저가($46.95~)보다 작아 정수주 0주 → 신호가 나와도 매수 불가(11-17 위임 후 14시간 0건). 변동성 계수는 수량을 줄이는 데 쓰고 '1주도 못 사는' 데 쓰지 않는다.",
+      "before_20261118": {
+        "entry_budget_pct_of_cash": 20.0,
+        "entry_budget_pct_of_equity": 12.0,
+        "entry_budget_cap_usd": 120.0,
+        "entry_budget_floor_usd": 25.0,
+        "risk_per_trade_pct": 1.5,
+        "effective_budget_usd": 44.8,
+        "budget_at_vix25_usd": 37.11
+      },
+      "after_20261118": {
+        "entry_budget_pct_of_cash": 35.0,
+        "entry_budget_pct_of_equity": 25.0,
+        "entry_budget_cap_usd": 220.0,
+        "entry_budget_floor_usd": 150.0,
+        "risk_per_trade_pct": 3.0,
+        "effective_budget_vix_lt20_usd": 154.0,
+        "effective_budget_vix20_24_usd": 150.0,
+        "effective_budget_vix24_28_usd": 150.0,
+        "effective_budget_floor_hit": "VIX 20 이상에서는 하한 $150이 적용된다(감쇠 결과 $115.5·$77 < 하한)"
+      },
+      "risk_control": "예산 확대로 커진 위험은 ① 거래당 리스크 3%($26.5) ② 일일 실현손실 -$25(3%) ③ 보유 4종목·세션 3건 ④ 현금 마지노선 $150 ⑤ VIX≥28 진입금지로 제한한다.",
+      "measure": "scripts/research/measure_entry_budget.py (data/entry_budget_probe.json)",
+      "unchanged_guardrails": [
+        "cash_reserve_floor_usd 150.0",
+        "daily_realized_loss_limit_usd 25.0",
+        "nvda_levels_locked TP 173.0 / SL 150.0",
+        "ask_before_trade false",
+        "no_averaging_down",
+        "bear_alpha_gate"
+      ]
+    }
+  },
+  "daily_loss_limit_usd": 25.0,
+  "entry_budget_now": {
+    "budget_usd": 150.0,
+    "binding": "abs_cap",
+    "raw_usd": 220.0,
+    "decayed_usd": 77.0,
+    "components": {
+      "cash_pct": 222.6,
+      "equity_pct": 220.88,
+      "abs_cap": 220.0,
+      "cash_after_reserve": 486.01
+    },
+    "vol_scale": 0.35,
+    "floor_applied": true,
+    "below_floor": false,
+    "floor_usd": 150.0
+  },
+  "budget_by_vix": [
+    {
+      "vix": 17.5,
+      "vix_scale": 1.0,
+      "risk_scale": 0.7,
+      "budget_usd": 154.0,
+      "binding": "abs_cap",
+      "components": {
+        "cash_pct": 222.6,
+        "equity_pct": 220.88,
+        "abs_cap": 220.0,
+        "cash_after_reserve": 486.01
+      },
+      "vol_curve": [
+        0.7
+      ],
+      "floor_usd": 150.0,
+      "below_floor": false
+    },
+    {
+      "vix": 22.0,
+      "vix_scale": 0.75,
+      "risk_scale": 0.7,
+      "budget_usd": 150.0,
+      "binding": "abs_cap",
+      "components": {
+        "cash_pct": 222.6,
+        "equity_pct": 220.88,
+        "abs_cap": 220.0,
+        "cash_after_reserve": 486.01
+      },
+      "vol_curve": [
+        0.5249999999999999
+      ],
+      "floor_usd": 150.0,
+      "below_floor": false
+    },
+    {
+      "vix": 25.46,
+      "vix_scale": 0.5,
+      "risk_scale": 0.7,
+      "budget_usd": 150.0,
+      "binding": "abs_cap",
+      "components": {
+        "cash_pct": 222.6,
+        "equity_pct": 220.88,
+        "abs_cap": 220.0,
+        "cash_after_reserve": 486.01
+      },
+      "vol_curve": [
+        0.35
+      ],
+      "floor_usd": 150.0,
+      "below_floor": false
+    },
+    {
+      "vix": 29.0,
+      "vix_scale": 0.0,
+      "risk_scale": 0.7,
+      "budget_usd": 0.0,
+      "binding": "abs_cap",
+      "components": {
+        "cash_pct": 222.6,
+        "equity_pct": 220.88,
+        "abs_cap": 220.0,
+        "cash_after_reserve": 486.01
+      },
+      "vol_curve": [
+        0.0
+      ],
+      "floor_usd": 150.0,
+      "below_floor": false
+    }
+  ],
+  "sizing": {
+    "vix_now": [
+      {
+        "ticker": "SOXL",
+        "price": 49.07,
+        "atr_pct": 22.02,
+        "qty": 3,
+        "notional_usd": 147.21,
+        "sl_pct": 15.0,
+        "risk_usd": 22.08,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 150.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 49.17,
+        "deadlock": false,
+        "skip_events": [
+          {
+            "ts_kst": "2026-11-18 10:36:14",
+            "kind": "ENTRY_SKIP",
+            "ticker": "SQQQ",
+            "source": "BEAR_ALPHA_HEDGE",
+            "reason": "최대 보유 종목 수"
+          }
+        ]
+      },
+      {
+        "ticker": "TQQQ",
+        "price": 51.81,
+        "atr_pct": 7.66,
+        "qty": 2,
+        "notional_usd": 103.62,
+        "sl_pct": 5.75,
+        "risk_usd": 5.95,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 150.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 51.91,
+        "deadlock": false,
+        "skip_events": [
+          {
+            "ts_kst": "2026-11-18 10:36:14",
+            "kind": "ENTRY_SKIP",
+            "ticker": "SQQQ",
+            "source": "BEAR_ALPHA_HEDGE",
+            "reason": "최대 보유 종목 수"
+          }
+        ]
+      },
+      {
+        "ticker": "SOXS",
+        "price": 58.77,
+        "atr_pct": 17.08,
+        "qty": 1,
+        "notional_usd": 58.77,
+        "sl_pct": 12.81,
+        "risk_usd": 7.53,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 60.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 58.89,
+        "deadlock": false,
+        "skip_events": [
+          {
+            "ts_kst": "2026-11-18 10:36:14",
+            "kind": "ENTRY_SKIP",
+            "ticker": "SQQQ",
+            "source": "BEAR_ALPHA_HEDGE",
+            "reason": "최대 보유 종목 수"
+          }
+        ]
+      },
+      {
+        "ticker": "SQQQ",
+        "price": 46.95,
+        "atr_pct": 6.8,
+        "qty": 0,
+        "notional_usd": 0.0,
+        "sl_pct": null,
+        "risk_usd": null,
+        "risk_cap_usd": null,
+        "budget_usd": null,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": null,
+        "deadlock": true,
+        "skip_events": [
+          {
+            "ts_kst": "2026-11-18 10:36:14",
+            "kind": "ENTRY_SKIP",
+            "ticker": "SQQQ",
+            "source": "BEAR_ALPHA_HEDGE",
+            "reason": "최대 보유 종목 수"
+          }
+        ]
+      }
+    ],
+    "vix_now_clean": [
+      {
+        "ticker": "SOXL",
+        "price": 49.07,
+        "atr_pct": 22.02,
+        "qty": 3,
+        "notional_usd": 147.21,
+        "sl_pct": 15.0,
+        "risk_usd": 22.08,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 150.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 49.17,
+        "deadlock": false,
+        "skip_events": [
+          {
+            "ts_kst": "2026-11-18 10:36:14",
+            "kind": "ENTRY_SKIP",
+            "ticker": "SQQQ",
+            "source": "BEAR_ALPHA_HEDGE",
+            "reason": "최대 보유 종목 수"
+          }
+        ]
+      },
+      {
+        "ticker": "TQQQ",
+        "price": 51.81,
+        "atr_pct": 7.66,
+        "qty": 2,
+        "notional_usd": 103.62,
+        "sl_pct": 5.75,
+        "risk_usd": 5.95,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 150.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 51.91,
+        "deadlock": false,
+        "skip_events": [
+          {
+            "ts_kst": "2026-11-18 10:36:14",
+            "kind": "ENTRY_SKIP",
+            "ticker": "SQQQ",
+            "source": "BEAR_ALPHA_HEDGE",
+            "reason": "최대 보유 종목 수"
+          }
+        ]
+      },
+      {
+        "ticker": "SOXS",
+        "price": 58.77,
+        "atr_pct": 17.08,
+        "qty": 1,
+        "notional_usd": 58.77,
+        "sl_pct": 12.81,
+        "risk_usd": 7.53,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 60.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 58.89,
+        "deadlock": false,
+        "skip_events": [
+          {
+            "ts_kst": "2026-11-18 10:36:14",
+            "kind": "ENTRY_SKIP",
+            "ticker": "SQQQ",
+            "source": "BEAR_ALPHA_HEDGE",
+            "reason": "최대 보유 종목 수"
+          }
+        ]
+      },
+      {
+        "ticker": "SQQQ",
+        "price": 46.95,
+        "atr_pct": 6.8,
+        "qty": 0,
+        "notional_usd": 0.0,
+        "sl_pct": null,
+        "risk_usd": null,
+        "risk_cap_usd": null,
+        "budget_usd": null,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": null,
+        "deadlock": true,
+        "skip_events": [
+          {
+            "ts_kst": "2026-11-18 10:36:14",
+            "kind": "ENTRY_SKIP",
+            "ticker": "SQQQ",
+            "source": "BEAR_ALPHA_HEDGE",
+            "reason": "최대 보유 종목 수"
+          }
+        ]
+      }
+    ],
+    "vix_17_5": [
+      {
+        "ticker": "SOXL",
+        "price": 49.07,
+        "atr_pct": 22.02,
+        "qty": 3,
+        "notional_usd": 147.21,
+        "sl_pct": 15.0,
+        "risk_usd": 22.08,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 154.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 49.17,
+        "deadlock": false,
+        "skip_events": [
+          {
+            "ts_kst": "2026-11-18 10:36:14",
+            "kind": "ENTRY_SKIP",
+            "ticker": "SQQQ",
+            "source": "BEAR_ALPHA_HEDGE",
+            "reason": "최대 보유 종목 수"
+          }
+        ]
+      },
+      {
+        "ticker": "TQQQ",
+        "price": 51.81,
+        "atr_pct": 7.66,
+        "qty": 2,
+        "notional_usd": 103.62,
+        "sl_pct": 5.75,
+        "risk_usd": 5.95,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 154.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 51.91,
+        "deadlock": false,
+        "skip_events": [
+          {
+            "ts_kst": "2026-11-18 10:36:14",
+            "kind": "ENTRY_SKIP",
+            "ticker": "SQQQ",
+            "source": "BEAR_ALPHA_HEDGE",
+            "reason": "최대 보유 종목 수"
+          }
+        ]
+      },
+      {
+        "ticker": "SOXS",
+        "price": 58.77,
+        "atr_pct": 17.08,
+        "qty": 1,
+        "notional_usd": 58.77,
+        "sl_pct": 12.81,
+        "risk_usd": 7.53,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 60.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 58.89,
+        "deadlock": false,
+        "skip_events": [
+          {
+            "ts_kst": "2026-11-18 10:36:14",
+            "kind": "ENTRY_SKIP",
+            "ticker": "SQQQ",
+            "source": "BEAR_ALPHA_HEDGE",
+            "reason": "최대 보유 종목 수"
+          }
+        ]
+      },
+      {
+        "ticker": "SQQQ",
+        "price": 46.95,
+        "atr_pct": 6.8,
+        "qty": 0,
+        "notional_usd": 0.0,
+        "sl_pct": null,
+        "risk_usd": null,
+        "risk_cap_usd": null,
+        "budget_usd": null,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": null,
+        "deadlock": true,
+        "skip_events": [
+          {
+            "ts_kst": "2026-11-18 10:36:14",
+            "kind": "ENTRY_SKIP",
+            "ticker": "SQQQ",
+            "source": "BEAR_ALPHA_HEDGE",
+            "reason": "최대 보유 종목 수"
+          }
+        ]
+      }
+    ],
+    "isolated": [
+      {
+        "ticker": "SOXL",
+        "price": 49.07,
+        "atr_pct": 22.02,
+        "qty": 3,
+        "notional_usd": 147.21,
+        "sl_pct": 15.0,
+        "risk_usd": 22.08,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 150.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 49.17,
+        "deadlock": false,
+        "skip_events": []
+      },
+      {
+        "ticker": "SOXL",
+        "price": 49.07,
+        "atr_pct": 22.02,
+        "qty": 3,
+        "notional_usd": 147.21,
+        "sl_pct": 15.0,
+        "risk_usd": 22.08,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 154.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 49.17,
+        "deadlock": false,
+        "skip_events": []
+      },
+      {
+        "ticker": "TQQQ",
+        "price": 51.81,
+        "atr_pct": 7.66,
+        "qty": 2,
+        "notional_usd": 103.62,
+        "sl_pct": 5.75,
+        "risk_usd": 5.95,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 150.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 51.91,
+        "deadlock": false,
+        "skip_events": []
+      },
+      {
+        "ticker": "TQQQ",
+        "price": 51.81,
+        "atr_pct": 7.66,
+        "qty": 2,
+        "notional_usd": 103.62,
+        "sl_pct": 5.75,
+        "risk_usd": 5.95,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 154.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 51.91,
+        "deadlock": false,
+        "skip_events": []
+      },
+      {
+        "ticker": "SOXS",
+        "price": 58.77,
+        "atr_pct": 17.08,
+        "qty": 1,
+        "notional_usd": 58.77,
+        "sl_pct": 12.81,
+        "risk_usd": 7.53,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 60.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 58.89,
+        "deadlock": false,
+        "skip_events": []
+      },
+      {
+        "ticker": "SOXS",
+        "price": 58.77,
+        "atr_pct": 17.08,
+        "qty": 1,
+        "notional_usd": 58.77,
+        "sl_pct": 12.81,
+        "risk_usd": 7.53,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 60.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 58.89,
+        "deadlock": false,
+        "skip_events": []
+      },
+      {
+        "ticker": "SQQQ",
+        "price": 46.95,
+        "atr_pct": 6.8,
+        "qty": 1,
+        "notional_usd": 46.95,
+        "sl_pct": 5.1,
+        "risk_usd": 2.39,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 60.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 47.04,
+        "deadlock": false,
+        "skip_events": []
+      },
+      {
+        "ticker": "SQQQ",
+        "price": 46.95,
+        "atr_pct": 6.8,
+        "qty": 1,
+        "notional_usd": 46.95,
+        "sl_pct": 5.1,
+        "risk_usd": 2.39,
+        "risk_cap_usd": 26.5,
+        "budget_usd": 60.0,
+        "min_one_share": false,
+        "override": null,
+        "limit_price": 47.04,
+        "deadlock": false,
+        "skip_events": []
+      }
+    ]
+  }
+}

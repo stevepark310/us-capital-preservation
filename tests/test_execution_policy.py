@@ -35,10 +35,32 @@ def test_missing_policy_block_is_disabled(tmp_path):
 def test_entry_budget_binds_to_cash_pct():
     policy = ep.load_policy()
     info = ep.entry_budget(891.63, 426.63, policy)
-    # 20% of 426.63 = 85.33 이 가장 작은 제약
+    # 35% of 426.63 = 149.32 이 가장 작은 제약(전략 계수 1.0)
     assert info["binding"] == "cash_pct"
-    assert info["budget_usd"] == pytest.approx(85.33, abs=0.01)
-    assert info["components"]["abs_cap"] == 120.0
+    assert info["components"]["cash_pct"] == pytest.approx(149.32, abs=0.01)
+    assert info["budget_usd"] == pytest.approx(149.32, abs=0.01)
+    assert info["components"]["abs_cap"] == 220.0
+
+
+def test_entry_budget_floor_holds_above_zero_but_respects_constraints():
+    """변동성 감쇠는 하한($150) 아래로 내리지 않고, 상한·현금여유를 넘지 않는다."""
+    policy = ep.load_policy()
+    # 자산·현금이 충분하면 raw는 절대상한 $220
+    raw = ep.entry_budget(2000, 2000, policy, 1.0)
+    assert raw["budget_usd"] == pytest.approx(220.0, abs=0.01)
+    # VIX 20~24 계수 0.75 → 165 (하한 위에서는 감쇠가 유효)
+    mid = ep.entry_budget(2000, 2000, policy, 0.75)
+    assert mid["budget_usd"] == pytest.approx(165.0, abs=0.01)
+    assert mid["floor_applied"] is False
+    # VIX 24~28 계수 0.5 → 110 < 하한 150 → 하한이 적용된다
+    deep = ep.entry_budget(2000, 2000, policy, 0.5)
+    assert deep["budget_usd"] == pytest.approx(150.0, abs=0.01)
+    assert deep["floor_applied"] is True
+    # 하한은 계좌 제약을 넘을 수 없다(현금여유가 하한보다 작으면 그 값이 예산)
+    tight = ep.entry_budget(900, 200, policy, 0.5)
+    assert tight["budget_usd"] == pytest.approx(50.0, abs=0.01)
+    # 리스크오프(계수 0)는 하한으로도 되살리지 않는다
+    assert ep.entry_budget(2000, 2000, policy, 0.0)["budget_usd"] == 0.0
 
 
 def test_entry_budget_respects_cash_reserve():
@@ -49,11 +71,15 @@ def test_entry_budget_respects_cash_reserve():
     assert info["below_floor"] is True
 
 
-def test_entry_budget_vol_scale_cuts_notional():
+def test_entry_budget_vol_scale_cuts_notional_above_floor():
     policy = ep.load_policy()
-    base = ep.entry_budget(891.63, 426.63, policy, 1.0)
-    half = ep.entry_budget(891.63, 426.63, policy, 0.5)
-    assert half["budget_usd"] == pytest.approx(base["budget_usd"] * 0.5, abs=0.01)
+    base = ep.entry_budget(2000, 2000, policy, 1.0)
+    half = ep.entry_budget(2000, 2000, policy, 0.5)
+    # 0.75는 하한 위에서 비례해 줄어든다
+    assert ep.entry_budget(2000, 2000, policy, 0.75)["budget_usd"] == \
+        pytest.approx(base["budget_usd"] * 0.75, abs=0.01)
+    # 0.5는 하한($150)에 걸려 더 내려가지 않는다(교착 방지)
+    assert half["budget_usd"] == pytest.approx(150.0, abs=0.01)
 
 
 def test_loss_limit_uses_stricter_of_pct_and_usd():
