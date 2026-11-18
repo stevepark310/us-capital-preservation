@@ -180,6 +180,7 @@ details.src pre{white-space:pre-wrap;word-break:break-word;font-family:var(--mon
   padding:0.5px 5px;white-space:nowrap;pointer-events:none;z-index:5;backdrop-filter:blur(4px);opacity:.94}
 .emp-tag.sel{background:rgba(56,189,248,.95);color:#04121f;border-color:transparent}
 .emp-tag .pd{display:inline-block;width:4px;height:4px;border-radius:50%;background:#34d399;margin-right:4px;vertical-align:middle}
+.emp-tag i{display:inline-block;width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.55;margin-right:3px;vertical-align:middle}
 
 /* character parts + posture transitions */
 .emp-svg .arm{transform-box:fill-box;transform-origin:50% 6%;transition:transform .95s cubic-bezier(.3,1.25,.5,1)}
@@ -545,6 +546,8 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const num = (v, d = 2) => (v === null || v === undefined || v === "" || isNaN(+v)) ? "—" : (+v).toLocaleString("ko-KR", {minimumFractionDigits:d, maximumFractionDigits:d});
 const usd = (v, d = 2) => (v === null || v === undefined || isNaN(+v)) ? "—" : (v < 0 ? "-" : "") + "$" + Math.abs(+v).toLocaleString("en-US", {minimumFractionDigits:d, maximumFractionDigits:d});
+const numA = (v, d = 2) => { if (v === null || v === undefined || v === "" || isNaN(+v)) return "—";
+  const a = Math.abs(+v); const dd = a >= 1000 ? 0 : (a >= 100 ? 1 : d); return (+v).toLocaleString("ko-KR", {minimumFractionDigits:dd, maximumFractionDigits:dd}); };
 const krw = v => (v === null || v === undefined || isNaN(+v)) ? "—" : (v < 0 ? "-" : "") + Math.abs(Math.round(+v)).toLocaleString("ko-KR") + "원";
 const pct = (v, d = 2, sign = true) => (v === null || v === undefined || isNaN(+v)) ? "—" : (sign && +v > 0 ? "+" : "") + (+v).toFixed(d) + "%";
 const cls = v => (+v > 0 ? "up" : (+v < 0 ? "down" : "mut"));
@@ -588,6 +591,10 @@ const at = () => SNAP.autotrader || {};
 const board = () => SNAP.board || {};
 const leading = () => SNAP.leading || {};
 
+function compositeScore(){
+  const r9 = (agentSummaries()[9] || {}).report || {};
+  return r9.composite_score ?? (report().executive_summary || {}).composite_score ?? null;
+}
 function agentSummaries(){
   const out = {};
   for (const a of (report().agents || [])) out[a.agent_id] = a;
@@ -700,7 +707,7 @@ function renderOverview(){
     <div class="kv"><span>리포트 생성</span><b>${esc(rep.generated_at || "—")} KST</b></div>
     <div class="kv"><span>다음 개장</span><b>${esc(rep.next_open_kst || "—")} <span class="dim">(${num(rep.hours_to_next_open,1)}h)</span></b></div>
     <div class="kv"><span>경기 국면</span><b>${esc(exec.macro_regime || "—")} · CUBE-LEI ${num(lei.index,1)} <span class="dim">${esc(lei.regime_ko || "")}</span></b></div>
-    <div class="kv"><span>시장 태세</span><b>${esc(exec.market_stance || "—")} · 5축 ${num((exec.composite_score ?? 0),1)}</b></div>
+    <div class="kv"><span>시장 태세</span><b>${esc(exec.market_stance || "—")} · 5축 ${num(compositeScore(),1)}</b></div>
     <div class="kv"><span>집행 모드</span><b>${esc(exec.execution_mode || "—")}</b></div>
     <div class="kv"><span>업무보고</span><b>${posts().length}건 · ${esc(feed().last_updated || "—")}</b></div>
     <details class="src"><summary>데이터 출처 · 무결성</summary><pre>${esc(JSON.stringify(rep.data_provenance || {}, null, 1))}</pre></details>`;
@@ -945,7 +952,7 @@ function renderOffice(){
   if (!stage.dataset.built){
     const seats = TEAM.map(e => `<div class="emp" data-emp="${e.id}" style="left:${e.seat.x}%;top:${e.seat.y}%" title="${esc(e.name)} · ${esc(e.title)}">
         <div class="halo"></div>${empSvg(e)}</div>
-        <div class="emp-tag" data-tag="${e.id}" style="left:${e.seat.x}%;top:${e.seat.y + 4.7}%">${esc(e.name)}</div>`).join("");
+        <div class="emp-tag" data-tag="${e.id}" style="left:${e.seat.x}%;top:${e.seat.y + 4.1}%;border-color:${e.accent}55">${esc(e.name)}</div>`).join("");
     stage.insertAdjacentHTML("beforeend", seats);
     stage.dataset.built = "1";
     stage.addEventListener("click", ev => {
@@ -977,7 +984,7 @@ function paintPostures(){
     const state = (S.selected === e.id) ? "waving" : st.posture;
     svg.setAttribute("class", "emp-svg s-" + state);
     const tag = document.querySelector(`[data-tag="${e.id}"]`);
-    if (tag) tag.innerHTML = `${st.label === "보고 중" ? '<span class="pd"></span>' : ""}${esc(e.name)}`;
+    if (tag) tag.innerHTML = `<i style="background:${e.accent}"></i>${st.label === "보고 중" ? '<span class="pd"></span>' : ""}${esc(e.name)}`;
     if (tag) tag.classList.toggle("sel", S.selected === e.id);
     const box = document.querySelector(`.emp[data-emp="${e.id}"]`);
     if (box) box.classList.toggle("sel", S.selected === e.id);
@@ -1138,7 +1145,7 @@ function renderMacro(){
     {lab:"VIX", val:num(vix.last,2), sub:`${arrow(vix.change)} ${num(vix.change,2)} (${pct(vix.change_pct)})`, cls: (+vix.change_pct > 0 ? "r":"g"), bar: Math.min(100, (+vix.last||0)*3)},
     {lab:"미 10Y 금리", val:num(yields["10y"],3) + "%", sub:`3M ${num(yields["3m"],3)}% · 2Y ${num(yields["2y"],3)}%`, cls:"a", bar: (+yields["10y"]||0)*10},
     {lab:"HY OAS", val:num(credit.hy_oas_bp,0) + "bp", sub:`신용 ${credit.level || "—"} · z ${num(credit.hy_oas_z_5y,2)}`, cls:"", bar: Math.min(100,(+credit.hy_oas_bp||0)/7)},
-    {lab:"DXY", val:num(dxy.last,2), sub:`${arrow(dxy.chg_pct)} ${pct(dxy.chg_pct)} (20일 ${pct(dxy.ret_20d)})`, cls: (+dxy.chg_pct>0?"r":"g"), bar: Math.min(100,(+dxy.last||0)-60)},
+    {lab:"DXY", val:num(dxy.last,2), sub:`${arrow(dxy.chg_pct ?? dxy.change_pct)} ${pct(dxy.chg_pct ?? dxy.change_pct)}${dxy.ret_20d !== undefined ? " · 20일 " + pct(dxy.ret_20d) : ""}`, cls: ((dxy.chg_pct ?? dxy.change_pct) > 0 ? "r":"g"), bar: Math.min(100,(+dxy.last||0)-60)},
     {lab:"CUBE-LEI", val:num(lei.index,1), sub:`${esc(lei.regime_ko || "—")} · 3개월 ${pct((lei.trend_3m_z_change||0)*10,1)}`, cls:"a", bar: Math.min(100, Math.max(0,(+lei.score||50)))},
     {lab:"침체 확률", val:num(pro.probability_used ?? pro.probability_10y3m,1) + "%", sub:"12개월 내 · Estrella & Mishkin", cls:"", bar: Math.min(100,(+pro.probability_used||0)*2)},
   ].map(k => `<div class="card kpi ${k.cls}">
@@ -1176,7 +1183,7 @@ function renderMacro(){
     <thead><tr><th>지표</th><th>값</th><th>z (5y)</th><th>가중</th><th>기여</th><th>출처</th></tr></thead>
     <tbody>${comps.map(c => `<tr>
       <td><span class="tk">${esc(c.name)}<small>${esc(c.why || "")}</small></span></td>
-      <td>${num(c.value,3)}</td>
+      <td>${numA(c.value,3)}</td>
       <td class="${cls(c.z)}">${num(c.z,2)}</td>
       <td>${num((c.weight||0)*100,0)}%</td>
       <td class="${cls(c.contribution)}">${num(c.contribution,3)}</td>
@@ -1189,8 +1196,8 @@ function renderMacro(){
     <thead><tr><th>FRED 계열</th><th>최근값</th><th>변화</th><th>z (5y)</th><th>10년 백분위</th><th>기준일</th></tr></thead>
     <tbody>${fredRows.map(f => `<tr>
       <td><span class="tk">${esc(f.id)}<small>${esc(f.label || "")}</small></span></td>
-      <td>${num(f.latest,3)}${f.unit && f.unit !== "%" ? " " + esc(f.unit) : ""}</td>
-      <td class="${cls(f.change)}">${num(f.change,3)}</td>
+      <td>${numA(f.latest,3)}${f.unit && f.unit !== "%" ? " " + esc(f.unit) : ""}</td>
+      <td class="${cls(f.change)}">${numA(f.change,3)}</td>
       <td>${num(f.z_5y,2)}</td>
       <td>${num(f.pct_rank_10y,0)}%</td>
       <td>${esc(f.date || "")}</td>
