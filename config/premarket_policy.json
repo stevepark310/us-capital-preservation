@@ -1,0 +1,31 @@
+{
+  "enabled": false,
+  "version": 1,
+  "decided_at": "2026-11-18",
+  "decided_by": "백테스트 결과에 따른 권고안 — 실주문 활성화는 사용자 승인 필요",
+  "reason": "2026-11-18 한국증시↔프리장 백테스트에서 프리장 진입 전략의 왕복비용(0.44%) 차감 후 기대값이 음수였고, 한국장 정보는 04:00 ET 프리장 시가 갭에 이미 반영됨(5년 일봉 기준 갭 β 0.766·R² 0.196, 개장 후 장중 β 0.0077·R² 0.000). 프리장 실주문 자동화는 도입하지 않고 모니터링·알림 전용으로 운용한다.",
+  "evidence": {
+    "report": "docs/kr_to_us_premarket_research_20261118.md",
+    "result_json": "docs/kr_us_premarket_research.json",
+    "calibration": "config/kr_signal_calibration.json",
+    "backtest_sessions_60m": 681,
+    "backtest_sessions_daily_5y": 1178,
+    "round_trip_cost_pct": 0.44,
+    "world_baseline_ev_pct_per_trade": -0.35
+  },
+  "supported_order_types": {
+    "00": "정규장 지정가 (기본값, 기존 동작)",
+    "61": "프리마켓 지정가 (KST 18:00~23:30 / ET 04:00~09:30)",
+    "62": "애프터마켓 지정가 (KST 06:00~07:50 / ET 16:00~20:00)"
+  },
+  "enable_requirements": [
+    "동훈님 명시 승인(채팅 또는 카드 버튼)",
+    "표본 외(rolling out-of-sample) t >= 2.0 및 왕복비용 0.44% 차감 후 건당 기대값 > 0 재검증",
+    "1주 가격이 1회 진입 실효 예산 이하인 종목으로 한정(현재 실효 예산 약 44.80달러)",
+    "일일 손실 서킷브레이커(-$25 / -3%) 및 진입 마감 시각 유지"
+  ],
+  "notes": [
+    "이 파일이 enabled=false인 동안 OrderRouter.place(order_type='61'|'62')는 디스패치하지 않고 BLOCKED_POLICY를 반환한다.",
+    "NH Open API 프리마켓 주문은 지정가만 지원한다(price > 0 필수)."
+  ]
+}

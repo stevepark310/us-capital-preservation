@@ -33,6 +33,41 @@ def _int(value, default=0) -> int:
     return int(_num(value, default))
 
 
+# --- NH 해외주식 호가유형 코드(ahi_nmn_pr_tp_cd) -----------------------------
+# 00: 정규장 지정가(기본값, 기존 동작) · 61: 프리마켓 지정가 · 62: 애프터마켓 지정가
+ORDER_TYPE_CODES = {
+    "00": ("regular_limit", "정규장 지정가"),
+    "61": ("premarket_limit", "프리마켓 지정가"),
+    "62": ("aftermarket_limit", "애프터마켓 지정가"),
+}
+ORDER_TYPE_ALIASES = {
+    "00": "00", "regular": "00", "regularlimit": "00", "normal": "00", "limit": "00",
+    "정규": "00", "정규장": "00", "정규장지정가": "00",
+    "61": "61", "premarket": "61", "premarketlimit": "61", "pre": "61",
+    "프리": "61", "프리장": "61", "프리마켓": "61",
+    "62": "62", "aftermarket": "62", "aftermarketlimit": "62", "after": "62",
+    "afterhours": "62", "애프터": "62", "애프터마켓": "62", "시간외": "62",
+}
+
+
+def normalize_order_type(order_type=None, ahi_nmn_pr_tp_cd=None) -> str:
+    """호가유형 입력(코드/이름)을 NH 코드('00'|'61'|'62')로 정규화한다.
+
+    `ahi_nmn_pr_tp_cd`가 주어지면 그쪽을 우선한다(원본 API 필드명 호환).
+    모르는 값은 조용히 기본값으로 떨어뜨리지 않고 ValueError로 막는다 —
+    실주문에서 조용한 폴백은 의도하지 않은 정규장 주문을 만들 수 있다.
+    """
+    raw = ahi_nmn_pr_tp_cd if ahi_nmn_pr_tp_cd not in (None, "") else order_type
+    if raw in (None, ""):
+        return "00"
+    key = str(raw).strip().lower().replace(" ", "").replace("-", "").replace("_", "")
+    code = ORDER_TYPE_ALIASES.get(key)
+    if code is None:
+        raise ValueError(
+            f"Unsupported order type: {raw!r} (use '00' 정규장, '61' 프리마켓, '62' 애프터마켓)")
+    return code
+
+
 def _redact(obj):
     """Mask account numbers and any credential-looking key before logging."""
     if isinstance(obj, dict):
@@ -193,18 +228,35 @@ class NHBroker:
                 out[d] = {"error": str(e)}
         return out
 
-    def place_order(self, ticker: str, side: str, qty: int, price: float = 0.0) -> dict:
+    def place_order(
+        self,
+        ticker: str,
+        side: str,
+        qty: int,
+        price: float = 0.0,
+        order_type: str = "00",
+        ahi_nmn_pr_tp_cd: Optional[str] = None,
+    ) -> dict:
         """
         Submit a single US stock limit order via NH Global Stock Order API.
+
         side: 'BUY' or 'SELL'
+        order_type / ahi_nmn_pr_tp_cd:
+          '00' 정규장 지정가(기본값, 기존 동작과 동일)
+          '61' 프리마켓 지정가 (KST 18:00~23:30 / ET 04:00~09:30)
+          '62' 애프터마켓 지정가 (KST 06:00~07:50 / ET 16:00~20:00)
+        이름('premarket' 등)도 허용한다. 시장가 코드는 지원하지 않는다 — 세 유형 모두
+        지정가이며 price <= 0은 거부된다.
         """
         side_norm = side.strip().upper()
         if side_norm not in ("BUY", "SELL"):
             raise ValueError(f"Unsupported side: {side}")
         if qty <= 0:
             raise ValueError(f"qty must be positive: {qty}")
+        code = normalize_order_type(order_type, ahi_nmn_pr_tp_cd)
         if price <= 0:
-            raise ValueError("price must be > 0 for limit order (ahi_nmn_pr_tp_cd='00')")
+            raise ValueError(f"price must be > 0 for limit order (ahi_nmn_pr_tp_cd='{code}')")
+        type_name = ORDER_TYPE_CODES[code][0]
 
         if self.dry_run:
             return {
@@ -213,6 +265,8 @@ class NHBroker:
                 "side": side_norm,
                 "qty": qty,
                 "price": round(float(price), 2),
+                "order_type": type_name,
+                "ahi_nmn_pr_tp_cd": code,
             }
 
         endpoint = "/gbstock/order/v1/sell" if side_norm == "SELL" else "/gbstock/order/v1/buy"
@@ -222,7 +276,7 @@ class NHBroker:
             "iem_cd": ticker.strip().upper(),
             "orr_qty": int(qty),
             "fc_orr_uit_pr": round(float(price), 2),
-            "ahi_nmn_pr_tp_cd": "00",
+            "ahi_nmn_pr_tp_cd": code,
         }
         if side_norm == "BUY":
             payload["wtm_cur_knd_cd"] = "1"
@@ -380,6 +434,7 @@ class NHBroker:
         self,
         target_weights: dict[str, float],
         market_prices: Optional[dict[str, float]] = None,
+        order_type: str = "00",
     ) -> list[dict]:
         """
         Translates target weights into integer share buy/sell orders.
@@ -459,7 +514,7 @@ class NHBroker:
                     "iem_cd": sym,
                     "orr_qty": shares,
                     "fc_orr_uit_pr": price,
-                    "ahi_nmn_pr_tp_cd": "00",  # 00: 지정가
+                    "ahi_nmn_pr_tp_cd": normalize_order_type(order_type),
                 }
                 if side == "buy":
                     payload["wtm_cur_knd_cd"] = "1"  # 1: USD

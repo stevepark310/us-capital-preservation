@@ -407,6 +407,44 @@ def daily_tail() -> List[Dict]:
     return out
 
 
+def write_calibration(path: str) -> Dict:
+    """5년 일봉으로 적합한 신호→갭/장중 계수를 config로 내보낸다(모니터링 모듈이 사용)."""
+    d = pd.read_csv(DAILY, index_col=0, parse_dates=True)
+    sub = d[["semis_ret", "SOXL_prev_ret"]].dropna()
+    X = np.column_stack([np.ones(len(sub)), sub["SOXL_prev_ret"].values])
+    b = np.linalg.lstsq(X, sub["semis_ret"].values, rcond=None)[0]
+    d["semis_resid"] = np.nan
+    d.loc[sub.index, "semis_resid"] = sub["semis_ret"].values - X @ b
+    cal = {
+        "generated_by": "scripts/research/kr_us_premarket.py",
+        "generated_at": "2026-11-18",
+        "sample": {"n": int(d["semis_resid"].notna().sum()), "interval": "1d", "period": "5y"},
+        "semis_resid_def": {"intercept": round(float(b[0]), 6),
+                            "beta_soxl_prev_ret": round(float(b[1]), 6),
+                            "note": "semis_resid = semis_ret - (intercept + beta * 직전 미국 세션 SOXL 수익률)"},
+        "models": {},
+    }
+    for t in ["SOXX", "SOXL"]:
+        for tgt, key in [(f"{t}_gap", "gap"), (f"{t}_o2c", "intraday")]:
+            j = d[["semis_resid", tgt]].dropna()
+            Xj = np.column_stack([np.ones(len(j)), j["semis_resid"].values])
+            coef = np.linalg.lstsq(Xj, j[tgt].values, rcond=None)[0]
+            pred = Xj @ coef
+            r2 = 1 - ((j[tgt].values - pred) ** 2).sum() / ((j[tgt].values - j[tgt].values.mean()) ** 2).sum()
+            sd = float(np.sqrt(((j[tgt].values - pred) ** 2).sum() / (len(j) - 2)))
+            cal["models"][f"{t}_{key}"] = {
+                "intercept_pct": round(float(coef[0]) * 100, 4),
+                "beta_pct_per_pct_signal": round(float(coef[1]), 4),
+                "r2": round(float(r2), 3),
+                "resid_sd_pct": round(sd * 100, 3),
+                "n": int(len(j)),
+            }
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(cal, f, ensure_ascii=False, indent=2)
+    return cal
+
+
 def main() -> Dict:
     panel = pd.read_csv(PANEL, index_col=0, parse_dates=True)
     sig = build_signals(panel)
@@ -459,6 +497,7 @@ def main() -> Dict:
         "robustness": rob,
         "daily_5y_check": daily_check(),
         "daily_5y_tail": daily_tail(),
+        "calibration": write_calibration(os.path.join(BASE_DIR, "config", "kr_signal_calibration.json")),
     }
     os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
     with open(OUT_JSON, "w", encoding="utf-8") as f:

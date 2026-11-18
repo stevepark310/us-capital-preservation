@@ -25,6 +25,15 @@ on:
         description: "Limit price in USD (0 or empty for market/current)"
         required: false
         default: "0"
+      order_type:
+        description: "Order window code: 00 regular limit | 61 premarket limit | 62 aftermarket limit"
+        required: false
+        default: "00"
+        type: choice
+        options:
+          - "00"
+          - "61"
+          - "62"
 
 permissions:
   contents: write
@@ -61,6 +70,7 @@ jobs:
           ticker = "${{ github.event.inputs.ticker }}".strip().upper()
           qty = int("${{ github.event.inputs.qty }}" or "0")
           price = float("${{ github.event.inputs.price }}" or "0")
+          order_type = ("${{ github.event.inputs.order_type }}" or "00").strip() or "00"
 
           if not os.getenv("NH_APP_KEY") or not os.getenv("NH_APP_SECRET") or not os.getenv("NH_ACT_NO"):
               raise SystemExit("ERROR: NH_APP_KEY, NH_APP_SECRET, NH_ACT_NO secrets must be set in GitHub Repository Secrets.")
@@ -75,7 +85,8 @@ jobs:
                   raise SystemExit("ERROR: ticker and positive qty required.")
               broker = NHBroker(dry_run=False)
               side = "BUY" if mode == "buy" else "SELL"
-              res = broker.place_order(ticker, side, qty, price) if hasattr(broker, "place_order") else {"error": "place_order not found"}
+              print(f"order_type={order_type}")
+              res = broker.place_order(ticker, side, qty, price, order_type=order_type) if hasattr(broker, "place_order") else {"error": "place_order not found"}
               print(json.dumps(res, ensure_ascii=False, indent=2))
           elif mode == "monitor":
               import subprocess

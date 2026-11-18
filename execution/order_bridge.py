@@ -15,9 +15,13 @@ GitHub Actions 러너에서는 NH Open API가 정상 동작한다(2026-11-17 11:
 
 워크플로우 스펙(.github/workflows/nh_trade_dispatch.yml, 수정 금지)
 ------------------------------------------------------------------
-inputs: mode(test_balance|buy|sell|monitor), ticker, qty, price
-- buy/sell: `NHBroker(dry_run=False).place_order(ticker, side, qty, price)` →
-  지정가(ahi_nmn_pr_tp_cd="00") 해외주식 주문. price <= 0이면 거부된다.
+inputs: mode(test_balance|buy|sell|monitor), ticker, qty, price, order_type
+- buy/sell: `NHBroker(dry_run=False).place_order(ticker, side, qty, price, order_type=...)`
+  → 지정가 해외주식 주문. order_type 미지정이면 '00'(정규장 지정가)이다.
+  '61'(프리마켓)·'62'(애프터마켓)는 `order_type` 입력이 워크플로에 있어야 디스패치된다 —
+  없이 보내면 GitHub가 알 수 없는 입력으로 거부하므로, `order_type`이 기본값일 때는
+  `-f order_type=`를 붙이지 않는다(기존 워크플로와 호환). 워크플로 개정본은
+  `execution/nh_trade_dispatch.yml.template` 참조.
 - monitor: `scripts/monitor_and_exit.py` 실행(러너에서 직접 주문 가능).
 - test_balance: `broker.get_balance()` 결과 JSON 출력(비밀값은 ***로 마스킹).
 
@@ -39,10 +43,13 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from execution.nh_trader import normalize_order_type
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ORDERS_LOG = os.path.join(BASE_DIR, "data", "live_order_responses.jsonl")
 DISPATCH_STATE = os.path.join(BASE_DIR, "data", "order_dispatch_state.json")
 ACCOUNT_SNAPSHOT = os.path.join(BASE_DIR, "data", "nh_account_snapshot.json")
+PREMARKET_POLICY = os.path.join(BASE_DIR, "config", "premarket_policy.json")
 
 ACCEPT_CODES = {"00171", "00166", "00000"}
 REJECT_CODES = {"13578", "16156", "IGW40018"}
@@ -129,6 +136,20 @@ def _load(path: str) -> Dict[str, Any]:
         return {}
 
 
+def premarket_gate() -> Dict[str, Any]:
+    """프리마켓/애프터마켓 실주문 허용 여부 — `config/premarket_policy.json` 한 곳으로만 켜진다.
+
+    2026-11-18 백테스트 결과(프리장 진입 기대값 음수)로 `enabled: false`가 기본이다.
+    파일이 없거나 enabled가 참이 아니면 프리장·애프터마켓 주문은 디스패치 전에 막린다.
+    """
+    pol = _load(PREMARKET_POLICY)
+    if not pol:
+        return {"allowed": False, "reason": "config/premarket_policy.json 없음"}
+    if not pol.get("enabled"):
+        return {"allowed": False, "reason": pol.get("reason") or "정책 enabled=false"}
+    return {"allowed": True, "reason": pol.get("reason", "")}
+
+
 def _save(path: str, obj: Any) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -189,7 +210,8 @@ class OrderRouter:
         return None
 
     # ------------------------------------------------------------------ command
-    def build_command(self, mode: str, ticker: str = "", qty: int = 0, price: float = 0.0) -> List[str]:
+    def build_command(self, mode: str, ticker: str = "", qty: int = 0, price: float = 0.0,
+                      order_type: str = "") -> List[str]:
         cmd = ["gh", "workflow", "run", self.workflow, "-R", self.repo, "-f", f"mode={mode}"]
         if ticker:
             cmd += ["-f", f"ticker={ticker.upper()}"]
@@ -197,6 +219,11 @@ class OrderRouter:
             cmd += ["-f", f"qty={int(qty)}"]
         if price:
             cmd += ["-f", f"price={float(price):.2f}"]
+        # 기본값 '00'·빈값에서는 입력을 보내지 않는다 — order_type 입력이 없는
+        # 현행 워크플로에 알 수 없는 입력을 보내면 디스패치가 거부된다.
+        code = normalize_order_type(order_type) if order_type not in ("", None) else "00"
+        if code != "00":
+            cmd += ["-f", f"order_type={code}"]
         return cmd
 
     def _list_runs(self, limit: int = 8) -> List[Dict[str, Any]]:
@@ -253,23 +280,30 @@ class OrderRouter:
 
     # ------------------------------------------------------------------ orders
     @staticmethod
-    def idempotency_key(session_date: str, ticker: str, side: str, qty: int, price: float) -> str:
-        return f"{session_date}|{ticker.upper()}|{side.upper()}|{int(qty)}|{round(float(price), 2):.2f}"
+    def idempotency_key(session_date: str, ticker: str, side: str, qty: int, price: float,
+                        order_type: str = "00") -> str:
+        key = f"{session_date}|{ticker.upper()}|{side.upper()}|{int(qty)}|{round(float(price), 2):.2f}"
+        code = normalize_order_type(order_type)
+        return key if code == "00" else f"{key}|{code}"
 
     def place(self, ticker: str, side: str, qty: int, price: float, reason: str,
               session_date: str = "", dry_run: Optional[bool] = None,
-              extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """매수/매도 1건. 반환: {status, run_id, orr_no, response, ...}"""
+              extra: Optional[Dict[str, Any]] = None, order_type: str = "00") -> Dict[str, Any]:
+        """매수/매도 1건. 반환: {status, run_id, orr_no, response, ...}
+
+        order_type: '00' 정규장 지정가(기본) · '61' 프리마켓 · '62' 애프터마켓.
+        """
         side = side.upper()
         ticker = ticker.upper()
         qty = int(qty)
         price = round(float(price), 2)
+        code = normalize_order_type(order_type)
         dry = self.dry_run if dry_run is None else bool(dry_run)
-        key = self.idempotency_key(session_date or now_kst_str()[:10], ticker, side, qty, price)
+        key = self.idempotency_key(session_date or now_kst_str()[:10], ticker, side, qty, price, code)
         record: Dict[str, Any] = {
             "ts": now_kst_str(), "ts_utc": datetime.now(timezone.utc).isoformat(),
             "side": side, "ticker": ticker, "qty": qty, "price": price,
-            "reason": reason, "idempotency_key": key,
+            "order_type": code, "reason": reason, "idempotency_key": key,
             "channel": "github_actions" if not dry else "dry_run",
         }
         if extra:
@@ -279,6 +313,14 @@ class OrderRouter:
             self._append_log(record)
             return record
 
+        if code != "00":
+            gate = premarket_gate()
+            if not gate["allowed"]:
+                record.update({"status": "BLOCKED_POLICY", "error": gate["reason"],
+                               "policy": "config/premarket_policy.json"})
+                self._append_log(record)
+                return record
+
         dup = self._recent_duplicate(key)
         if dup and dup.get("status") in ("SUBMITTED", "DISPATCHED", "PENDING"):
             record.update({"status": "DUPLICATE_BLOCKED", "duplicate_of": dup})
@@ -286,7 +328,7 @@ class OrderRouter:
             return record
 
         mode = "buy" if side == "BUY" else "sell"
-        cmd = self.build_command(mode, ticker, qty, price)
+        cmd = self.build_command(mode, ticker, qty, price, code)
         record["command"] = " ".join(cmd)
 
         if dry:
@@ -295,13 +337,14 @@ class OrderRouter:
             return record
 
         # 1) 로컬에서 NH API가 열려 있으면 직접 발주(러너 안에서 돌 때)
-        direct = self._try_direct(ticker, side, qty, price)
+        direct = self._try_direct(ticker, side, qty, price, code)
         if direct is not None:
             record.update(direct)
             record["channel"] = "direct_nh"
             self._append_log(record)
             self._record_dispatch(key, {"ts_utc": record["ts_utc"], "status": record["status"],
                                         "ticker": ticker, "side": side, "qty": qty, "price": price,
+                                        "order_type": code,
                                         "channel": "direct_nh", "orr_no": record.get("orr_no")})
             return record
 
@@ -313,7 +356,7 @@ class OrderRouter:
             record.update({"status": result.get("status"), "error": result.get("error")})
             self._append_log(record)
             self._record_dispatch(key, {"ts_utc": record["ts_utc"], "status": record["status"],
-                                        "ticker": ticker, "side": side, "qty": qty, "price": price})
+                                        "ticker": ticker, "side": side, "qty": qty, "price": price, "order_type": code})
             return record
 
         record["run_id"] = result.get("run_id")
@@ -328,10 +371,12 @@ class OrderRouter:
         self._append_log(record)
         self._record_dispatch(key, {"ts_utc": record["ts_utc"], "status": record["status"],
                                     "ticker": ticker, "side": side, "qty": qty, "price": price,
+                                    "order_type": code,
                                     "run_id": record.get("run_id"), "orr_no": record.get("orr_no")})
         return record
 
-    def _try_direct(self, ticker: str, side: str, qty: int, price: float) -> Optional[Dict[str, Any]]:
+    def _try_direct(self, ticker: str, side: str, qty: int, price: float,
+                    order_type: str = "00") -> Optional[Dict[str, Any]]:
         """로컬 NH API가 살아 있을 때만 직접 발주. 막혀 있으면 None(디스패치로 폴백)."""
         if os.getenv("CUBE_FORCE_ACTIONS", "0") == "1":
             return None
@@ -340,7 +385,7 @@ class OrderRouter:
         try:
             from execution.nh_trader import NHBroker
             broker = NHBroker(dry_run=False)
-            res = broker.place_order(ticker, side, qty, price)
+            res = broker.place_order(ticker, side, qty, price, order_type=order_type)
             code = str((res or {}).get("rsp_cd") or "")
             return {"status": "SUBMITTED" if code in ACCEPT_CODES else "REJECTED",
                     "response": res, "orr_no": ((res or {}).get("Output_0") or {}).get("orr_no")}
