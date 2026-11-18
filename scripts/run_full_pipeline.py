@@ -6,7 +6,7 @@ CUBE full pipeline — one command for the hourly scheduled action.
    are refreshed on demand by scripts/run_1y_backtest.py
 2. 10 agents run against live data -> data/cube_report.json
 3. feed posts -> data/agent_feed.json
-4. dashboard HTML -> cube.html / feed.html
+4. unified dashboard -> index.html (+ cube/feed/docs 리다이렉트)
 5. live portfolio sync -> data|docs/live_portfolio.json
 6. HTML copied into the widgets/us-quant-dashboard bundle
 
@@ -38,8 +38,14 @@ def sync_widget() -> bool:
     if not os.path.isdir(WIDGET_BUNDLE):
         print(f"  widget bundle 없음: {WIDGET_BUNDLE}")
         return True
-    for src, dst in (("cube.html", "index.html"),):
+    for src, dst in (("index.html", "index.html"),):
         shutil.copyfile(os.path.join(BASE_DIR, src), os.path.join(WIDGET_BUNDLE, dst))
+    wa = os.path.join(WIDGET_BUNDLE, "assets")
+    os.makedirs(wa, exist_ok=True)
+    src_assets = os.path.join(BASE_DIR, "assets")
+    for n in os.listdir(src_assets):
+        if n.startswith("office_"):
+            shutil.copyfile(os.path.join(src_assets, n), os.path.join(wa, n))
     cube = os.path.join(WIDGET_BUNDLE, "index.html")
     print(f"  synced → {cube} ({os.path.getsize(cube):,} bytes)")
     return True

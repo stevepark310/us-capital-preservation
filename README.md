@@ -55,10 +55,13 @@ us-capital-preservation/
 ├── execution/
 │   ├── nh_trader.py           # NH Investment & Securities (Namuh) OpenAPI broker
 │   └── alpaca_trader.py       # Alpaca Paper & Live API execution
-├── cube.html                  # 🏛️ CUBE 10-Agent Interactive Trading Dashboard
-├── strategy.html              # 📖 Comprehensive Quantitative Strategy & Logic Guide
-├── index.html                 # 📊 HRP Portfolio Live Dashboard
-├── docs/                      # GitHub Pages deployment directory (cube, strategy, index)
+├── index.html                 # 🏛️ 통합 대시보드 (유일한 정본 — 개요·사무실·매크로·크로스마켓·시나리오·전략·업무보고)
+├── dashboard/template.html    # 대시보드 UI 원본 (HTML/CSS/JS, __SNAP_JSON__ 자리표시자)
+├── assets/office_day.png      # 아이소메트릭 사무실(낮) — 10석 실측 좌표로 직원 배치
+├── assets/office_night.png    # 아이소메트릭 사무실(밤) — 06:00~18:00 KST 자동 전환
+├── cube.html / feed.html      # ↪ 통합 대시보드로 리다이렉트 (옛 링크 호환)
+├── strategy.html / scenarios.html  # ↪ 통합 대시보드로 리다이렉트 (내용은 탭으로 흡수)
+├── docs/                      # GitHub Pages 배포 디렉터리 (index.html은 ../index.html로 리다이렉트)
 ├── main.py                    # Pipeline Entrypoint (--mode cube, daily, rebalance, backtest)
 └── requirements.txt
 ```
@@ -67,13 +70,42 @@ us-capital-preservation/
 
 ## 3. Web Dashboards & CUBE Terminal
 
-1. **🏛️ CUBE 10-Agent Trading Desk**: `https://stevepark310.github.io/us-capital-preservation/cube.html`
-   - Real-time work reporting of all 10 specialized agents
-   - 10 investment scenarios backtest matrix & profitable scenario selection
-   - Ensemble scenario blending & daily target asset allocation
-   - Daily profit-taking execution terminal & 100% automated compounding reinvestment
-2. **📖 전략 상세 가이드 (Strategy Spec)**: `https://stevepark310.github.io/us-capital-preservation/strategy.html`
-3. **📊 메인 대시보드 (HRP Monitor)**: `https://stevepark310.github.io/us-capital-preservation/`
+**통합 대시보드**: `https://stevepark310.github.io/us-capital-preservation/`
+
+2026-11-18 개편으로 페이지는 `index.html` 한 장이다. `cube.html`·`feed.html`·`strategy.html`·
+`scenarios.html`·`docs/index.html`은 모두 이 페이지의 해당 탭으로 리다이렉트된다(중복 제거).
+
+| 탭 | 내용 |
+|---|---|
+| 🏛️ 개요 | 실전 계좌·손익·보유 포지션·무인 집행 상태·시스템 상태·**최신화 점검 보고** |
+| 🏢 사무실 | 아이소메트릭 10석 디오라마(낮/밤 자동·수동), 직원 클릭 → 프로필 + 그 직원의 업무보고 스크롤 |
+| 🌐 매크로 레이더 | VIX·금리·HY OAS·DXY·CUBE-LEI·침체확률, 선행지수 구성요소, FRED 원계열 |
+| 🔀 크로스마켓 | 주식·ETF·선물, 채권 ETF·수익률 곡선, 외환·코인·원자재 |
+| 📐 시나리오 | 세션 시나리오 확률, 승인/폐기 전략, 목표 자산 배분 |
+| 🧭 전략·정책 | 투자 원칙, 4계층 파이프라인, 국면 매트릭스, 실전 가드레일·파라미터, 10인 조직 체계 |
+| 💬 업무보고 | 전체 피드 — 직원·유형 필터, 검색, 본문 펼치기 |
+
+**CUBE 10인 직원** (이름·직함·좌석은 `agents/agent_profiles.py`가 정본):
+
+| # | 이름 | 직함 | 좌석 |
+|---|---|---|---|
+| 1 | 한지우 | 수석 뉴스·센티먼트 분석가 | 안쪽 1 |
+| 2 | 이도현 | 멀티에셋 기술적 분석가 | 안쪽 2 |
+| 3 | 박서연 | 실적 촉매 분석가 | 안쪽 3 |
+| 4 | 최민준 | 글로벌 매크로·채권 전략가 | 안쪽 4 |
+| 5 | 정하린 | 스마트머니·기관 포지셔닝 분석가 | 안쪽 5 |
+| 6 | 강우진 | 퀀트 시나리오 모델러 | 앞줄 1 |
+| 7 | 윤태호 | 백테스트 검증 엔지니어 | 앞줄 2 |
+| 8 | 임수아 | 알파·리스크 평가자 | 앞줄 3 |
+| 9 | 송재원 | 앙상블 융합 총괄 (수석) | 앞줄 4 |
+| 10 | 김시우 | 실전 집행관 (트레이더) | 앞줄 5 |
+
+**최신화(Refresh)** — 헤더의 `↻ 전체 최신화` 또는 직원별 `↻ 최신화` 버튼은
+`docs/agent_feed.json`·`cube_report.json`·`live_portfolio.json`·`market_board.json`·
+`leading_indicators.json`·`autotrader_status.json`·`cube_pulse.json`을 `?ts=` 캐시 우회로 다시 받아,
+마지막 점검 시점 이후 바뀐 항목(자산·손익·VIX·LEI·집행 모드·신규 보고)과 10인 상태를 다시 보고한다.
+워크플로 파일은 수정하지 않으며, `고급 → GitHub Actions 원격 트리거`에서 PAT(actions:write)로
+`workflow_dispatch`를 호출하는 옵션만 클라이언트에 둔다(토큰은 저장하지 않음).
 
 ---
 
@@ -143,7 +175,8 @@ python main.py --mode rebalance
 
 ### 실행
 ```bash
-python3 scripts/run_full_pipeline.py     # 원장 동기화 → 10인 파이프라인·피드 → HTML → 위젯 복사
+python3 scripts/run_full_pipeline.py     # 원장 동기화 → 10인 파이프라인·피드 → 통합 대시보드 → 위젯 복사
+python3 scripts/build_dashboard.py       # index.html만 다시 렌더 (데이터 수정 후)
 python3 scripts/run_1y_backtest.py       # 개선 전/후 + DIP_SWING + 숏 트리거 스윕 (수 분 소요)
 python3 scripts/reconcile_ledger.py --fix
 python3 scripts/monitor_and_exit.py --dry-run

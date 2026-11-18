@@ -28,34 +28,29 @@ FEED_PATH = os.path.join(DATA, "agent_feed.json")
 DOCS_FEED_PATH = os.path.join(DOCS, "agent_feed.json")
 DIRECTIVES = os.path.join(DATA, "directives_archive.json")
 
+from agents import agent_profiles  # noqa: E402  (직원 이름·프로필 정본)
+
+# 이모지·색·카테고리는 직원 프로필에서 파생한다(이름을 여기서 다시 적지 않는다).
+_BADGE_COLORS = {
+    "SENTIMENT": "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+    "TECHNICAL": "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    "CATALYST": "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    "MACRO": "bg-purple-500/10 text-purple-400 border-purple-500/20",
+    "GAMMA": "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    "QUANT": "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+    "BACKTEST": "bg-rose-500/10 text-rose-400 border-rose-500/20",
+    "ALPHA": "bg-teal-500/10 text-teal-400 border-teal-500/20",
+    "ENSEMBLE": "bg-violet-500/10 text-violet-400 border-violet-500/20",
+    "EXECUTION": "bg-amber-500/10 text-amber-300 border-amber-500/30",
+}
 AGENT_STYLE = {
-    1: {"icon": "📰", "avatar_bg": "from-cyan-500 to-blue-600", "badge_color": "bg-cyan-500/10 text-cyan-400 border-cyan-500/20", "category": "SENTIMENT"},
-    2: {"icon": "📈", "avatar_bg": "from-blue-600 to-indigo-600", "badge_color": "bg-blue-500/10 text-blue-400 border-blue-500/20", "category": "TECHNICAL"},
-    3: {"icon": "🏢", "avatar_bg": "from-emerald-500 to-teal-600", "badge_color": "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", "category": "CATALYST"},
-    4: {"icon": "🌐", "avatar_bg": "from-purple-600 to-violet-700", "badge_color": "bg-purple-500/10 text-purple-400 border-purple-500/20", "category": "MACRO"},
-    5: {"icon": "🐋", "avatar_bg": "from-amber-500 to-orange-600", "badge_color": "bg-amber-500/10 text-amber-400 border-amber-500/20", "category": "GAMMA"},
-    6: {"icon": "📐", "avatar_bg": "from-indigo-500 to-fuchsia-600", "badge_color": "bg-indigo-500/10 text-indigo-400 border-indigo-500/20", "category": "QUANT"},
-    7: {"icon": "🧪", "avatar_bg": "from-rose-500 to-red-600", "badge_color": "bg-rose-500/10 text-rose-400 border-rose-500/20", "category": "BACKTEST"},
-    8: {"icon": "🎯", "avatar_bg": "from-teal-500 to-emerald-600", "badge_color": "bg-teal-500/10 text-teal-400 border-teal-500/20", "category": "ALPHA"},
-    9: {"icon": "🧬", "avatar_bg": "from-violet-500 to-purple-600", "badge_color": "bg-violet-500/10 text-violet-400 border-violet-500/20", "category": "ENSEMBLE"},
-    10: {"icon": "⚡", "avatar_bg": "from-yellow-400 to-amber-600", "badge_color": "bg-amber-500/10 text-amber-400 border-amber-500/20", "category": "EXECUTION"},
+    e["id"]: {"icon": e["icon"], "avatar_bg": e["avatar_bg"],
+              "badge_color": _BADGE_COLORS.get(e["category"], "bg-slate-500/10 text-slate-300 border-slate-500/20"),
+              "category": e["category"]}
+    for e in agent_profiles.EMPLOYEES
 }
-NAMES = {
-    1: "Agent 1: 뉴스 & 센티먼트 분석가 (주식·채권·외환·크립토 분리)",
-    2: "Agent 2: 기술적 변동성 & 모멘텀 분석가 (주식·채권·환율·코인)",
-    3: "Agent 3: 단기 실적 촉매(Catalyst) & 어닝 서프라이즈 분석가",
-    4: "Agent 4: 글로벌 매크로 · 채권 · 외환 · 선행지표 총괄",
-    5: "Agent 5: 스마트머니 · 크레딧 · 기관 포지셔닝 분석가",
-    6: "Agent 6: 단기 퀀트 시나리오 모델링 연구원",
-    7: "Agent 7: 단기 시나리오 백테스트 검증 엔지니어",
-    8: "Agent 8: 단기 수익 시나리오 알파 분석가",
-    9: "Agent 9: 단기 최적 시나리오 융합가",
-    10: "Agent 10: 일일 실전 트레이더 & 브래킷 집행관",
-}
-ROLES = {1: "NEWS_SENTIMENT_SPECIALIST", 2: "TECH_MOMENTUM_MULTIASSET", 3: "FUNDAMENTALS_CATALYST_SPECIALIST",
-         4: "GLOBAL_MACRO_RATES_FX_CRYPTO_LEI", 5: "SMART_MONEY_GAMMA_SPECIALIST", 6: "QUANT_SCENARIO_MODELER",
-         7: "SHORT_TERM_BACKTESTER_ENGINEER", 8: "CROSS_MARKET_ALPHA_EVALUATOR", 9: "CROSS_MARKET_ENSEMBLE",
-         10: "SHORT_TERM_EXECUTION_TRADER"}
+NAMES = agent_profiles.DISPLAY_NAMES
+ROLES = {e["id"]: e["role"] for e in agent_profiles.EMPLOYEES}
 
 
 def _now_kst() -> datetime:
@@ -77,6 +72,8 @@ def _post(agent_id: int, clock: Dict[str, Any], badge: str, title: str, content:
         "id": f"post-{agent_id:02d}-{ts.strftime('%Y%m%d%H')}",
         "agent_id": agent_id,
         "agent_name": NAMES[agent_id],
+        "agent_person": agent_profiles.profile(agent_id)["name"],
+        "agent_title": agent_profiles.profile(agent_id)["title"],
         "agent_role": ROLES[agent_id],
         "icon": st["icon"], "avatar_bg": st["avatar_bg"], "badge_color": st["badge_color"],
         "timestamp": ts.strftime("%Y-%m-%d %H:%M"),

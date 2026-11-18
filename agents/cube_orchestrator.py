@@ -33,6 +33,7 @@ from agents.agent9_ensemble_synthesizer import EnsembleSynthesizerAgent
 from agents.agent10_daily_trader import DailyTraderAgent
 
 from core import market_clock, market_snapshot, news_engine, technical, ledger as ledger_mod, leading_indicators
+from agents import agent_profiles
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPORT_PATH = os.path.join(BASE_DIR, "data", "cube_report.json")
@@ -42,18 +43,8 @@ NEWS_TTL_MIN = float(os.getenv("CUBE_NEWS_TTL_MIN", "20"))
 
 MANDATE_FILE = os.path.join(BASE_DIR, "data", "avg_anchor_plan.json")
 
-ROLE_DUTIES = {
-    1: "센티먼트·뉴스 충격 시 사다리 목표/손절 조정 의견 (단, NVDA 잠금 레벨은 제외)",
-    2: "진입 게이트 계산 (VWAP·RSI2·%B·RVOL) 과 ATR 최신화 — 사다리 폭의 입력값 제공",
-    3: "NVDA 3분기 실적(11-18 06:20 KST) D-day·컨센·발표 후 갭 시나리오 관리",
-    4: "VIX·금리·달러 국면으로 헤지 게이트(VIX>=24+확인 2개) 판정",
-    5: "기관·크레딧 포지셔닝으로 반도체 수급 리스크 점검",
-    6: "세션 내 시나리오 확률(상승/횡보/하락)과 사다리 도달확률 재계산",
-    7: "사다리 손익비·도달확률 백테스트 검증 (data/avg_anchor_ladder_stats.json)",
-    8: "종목별 기대 알파 대비 사다리 기대값 비교, 자본 배분 우선순위 판단",
-    9: "10인 의견 융합 — 오늘 목표 달성 가능성과 리스크 한도 종합",
-    10: "사다리 브래킷 집행·본전 상향·05:40 실적 가드 청산 (data/active_brackets.json)",
-}
+# 역할별 담당 업무는 직원 프로필(agents/agent_profiles.py)이 정본이다.
+ROLE_DUTIES = agent_profiles.ROLE_DUTIES
 
 
 def _profit_mandate() -> Dict[str, Any]:
@@ -241,6 +232,8 @@ class CubeOrchestrator:
                 "last_inquiry_time": led.get("as_of"),
             },
             "agents": summaries,
+            "team": agent_profiles.as_list(),
+            "office": agent_profiles.office_layout(),
             "profit_mandate": _profit_mandate(),
             "executive_summary": {
                 "macro_regime": (ctx.get("macro") or {}).get("macro_regime"),

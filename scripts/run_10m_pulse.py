@@ -12,7 +12,7 @@
    — 24시간 캐시된 백테스트는 다시 돌리지 않고 그대로 읽는다(Agent 7).
 3. 각 직원이 **자기 담당 업무의 현재 상태 + 다음 행동**을 10분 보고로 1건씩 추가
    (무인 집행 현황·전략 자기점검 결과를 근거로 붙는다 — 수치를 만들지 않는다)
-4. `cube.html`·`feed.html` 재렌더 + 위젯 번들 동기화 (약 1초)
+4. 통합 대시보드 `index.html` 재렌더 + 위젯 번들 동기화 (약 1초)
 5. `--push`면 `main`에 커밋·푸시 (동시 푸시 충돌 시 rebase 후 1회 재시도)
 
 실행: python3 scripts/run_10m_pulse.py [--push] [--no-html]
@@ -31,6 +31,7 @@ sys.path.insert(0, BASE_DIR)
 
 from core import market_clock  # noqa: E402
 from agents.cube_orchestrator import ROLE_DUTIES  # noqa: E402
+from agents import agent_profiles  # noqa: E402
 
 DATA = os.path.join(BASE_DIR, "data")
 FEED_PATH = os.path.join(DATA, "agent_feed.json")
@@ -42,12 +43,9 @@ AUTOTRADER_STATUS = os.path.join(DATA, "autotrader_status.json")
 RESEARCH_DIRECTIVE = os.path.join(DATA, "inflection_research_directive.json")
 WIDGET_BUNDLE = os.path.abspath(os.path.join(BASE_DIR, "..", "widgets", "us-quant-dashboard", "bundle"))
 
-NAMES = {
-    1: "뉴스 & 센티먼트", 2: "기술적 변동성·모멘텀", 3: "실적 촉매", 4: "매크로·선행지표",
-    5: "스마트머니·크레딧", 6: "퀀트 시나리오", 7: "백테스트 검증", 8: "알파 평가",
-    9: "앙상블 융합", 10: "실전 집행",
-}
-ICONS = {1: "📰", 2: "📈", 3: "🏢", 4: "🌐", 5: "🐋", 6: "📐", 7: "🧪", 8: "🎯", 9: "🧬", 10: "⚡"}
+# 직원 이름·아이콘·아바타는 agents/agent_profiles.py가 정본이다.
+NAMES = {e["id"]: f"{e['name']} · {e['title']}" for e in agent_profiles.EMPLOYEES}
+ICONS = agent_profiles.ICONS
 
 
 def _load(path, default=None):
@@ -222,16 +220,18 @@ def pulse_posts(clock, report, status, evolution):
         posts.append({
             "id": f"post-pulse-{aid:02d}-{ts}",
             "agent_id": aid,
-            "agent_name": f"Agent {aid}: {NAMES[aid]}",
+            "agent_name": agent_profiles.DISPLAY_NAMES[aid],
+            "agent_person": agent_profiles.SHORT_NAMES[aid],
+            "agent_title": agent_profiles.profile(aid)["title"],
             "agent_role": "TEN_MIN_PULSE",
             "icon": ICONS[aid],
-            "avatar_bg": "from-slate-600 to-slate-700",
+            "avatar_bg": agent_profiles.profile(aid)["avatar_bg"],
             "badge_color": "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
             "timestamp": clock["now_kst"][:16],
             "time_ago": "10분 보고",
             "category": "PULSE",
             "badge": f"⏱ {hhmm} 10분 업무보고",
-            "title": f"[{hhmm} 10분 업무보고] {NAMES[aid]} — {ROLE_DUTIES.get(aid, '')}"[:220],
+            "title": f"[{hhmm} 10분 업무보고] {agent_profiles.SHORT_NAMES[aid]} — {ROLE_DUTIES.get(aid, '')}"[:220],
             "content": content,
             "metrics": metrics,
             "action_required": _next_action(aid, status),
@@ -291,6 +291,8 @@ def build_pulse(clock, report, status, evolution, elapsed_stages):
         "id": f"post-pulse-autotrader-{ts}",
         "agent_id": 10,
         "agent_name": "🤖 무인 자동매매 집행 엔진",
+        "agent_person": "무인 집행 엔진",
+        "agent_title": "자율 집행",
         "agent_role": "AUTONOMOUS_INTRADER",
         "icon": "🤖",
         "avatar_bg": "from-emerald-600 to-teal-700",
@@ -367,7 +369,13 @@ def main(argv=None):
         ok3, dt = _run([sys.executable, "scripts/build_full_cube.py"], "3/4 대시보드 렌더")
         stages["render"] = dt
         if os.path.isdir(WIDGET_BUNDLE):
-            shutil.copyfile(os.path.join(BASE_DIR, "cube.html"), os.path.join(WIDGET_BUNDLE, "index.html"))
+            # 2026-11-18 통합 개편: 위젯도 같은 통합 대시보드(index.html)를 쓴다.
+            shutil.copyfile(os.path.join(BASE_DIR, "index.html"), os.path.join(WIDGET_BUNDLE, "index.html"))
+            wa = os.path.join(WIDGET_BUNDLE, "assets")
+            os.makedirs(wa, exist_ok=True)
+            for _n in os.listdir(os.path.join(BASE_DIR, "assets")):
+                if _n.startswith("office_"):
+                    shutil.copyfile(os.path.join(BASE_DIR, "assets", _n), os.path.join(wa, _n))
             print(f"  [위젯] {os.path.join(WIDGET_BUNDLE, 'index.html')}")
     else:
         ok3 = True
