@@ -75,7 +75,7 @@ a{color:inherit}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ============================================================ tabs */
-.tabs{position:sticky;top:65px;z-index:55;background:rgba(7,11,20,.86);backdrop-filter:blur(12px);
+.tabs{position:sticky;top:var(--hdr-h,65px);z-index:55;background:rgba(7,11,20,.86);backdrop-filter:blur(12px);
   border-bottom:1px solid var(--line)}
 .tabs-in{display:flex;gap:5px;overflow-x:auto;padding:8px 0;scrollbar-width:none}
 .tabs-in::-webkit-scrollbar{display:none}
@@ -1497,8 +1497,16 @@ setInterval(() => {
   if (S.tab === "office"){ const c = $("office-clock"); if (c) c.textContent = kstStamp().slice(0,16) + " KST · " + (report().phase_label || report().phase || "—"); }
 }, 1000);
 
+/* 헤더 높이 → 탭 바 고정 위치(모바일에서 헤더가 여러 줄로 접힐 때 겹침 방지) */
+function syncHdrHeight(){
+  const h = document.querySelector(".hdr");
+  if (h) document.documentElement.style.setProperty("--hdr-h", h.offsetHeight + "px");
+}
+window.addEventListener("resize", syncHdrHeight);
+
 /* 부트 */
 (function boot(){
+  syncHdrHeight();
   document.querySelectorAll("[data-otab]").forEach(b => b.classList.toggle("on", b.dataset.otab === "detail"));
   const h = (location.hash || "#office").replace("#", "");
   renderAll();
