@@ -167,13 +167,28 @@ def _agent_state(aid, report, status, pulse_ctx):
     exits = at.get("exits") or []
     policy = at.get("policy") or {}
     budget = (policy.get("entry_budget") or {})
+    c5 = at.get("c5_pilot") or {}
+    if not c5.get("enabled", False):
+        c5_txt = "C5 파일럿 중지"
+    elif c5.get("blackout") or c5.get("next_session_blackout"):
+        c5_txt = ("C5 파일럿 "
+                  + ("진입 제외" if c5.get("blackout") else f"다음 세션({c5.get('next_session')}) 진입 제외")
+                  + f"({c5.get('blackout_reason') or c5.get('next_session_blackout_reason')})")
+    elif c5.get("open_ticker"):
+        c5_txt = f"C5 파일럿 보유 {c5.get('open_ticker')} ({c5.get('exit_kst')} 청산)"
+    elif c5.get("done_today"):
+        c5_txt = "C5 파일럿 오늘 집행 완료(1일 1회)"
+    else:
+        c5_txt = f"C5 파일럿 대기(개장 30분 판정 · 손절 {c5.get('sl_atr_mult')}×ATR)"
     held = ", ".join(f"{k} {v.get('qty')}주" for k, v in pos.items()) or "없음"
     return (f"무인 집행 {at.get('mode', '대기')} · 보유 {len(pos)}종목 ({held}) · "
             f"이번 사이클 매도 {len(exits)} / 매수 {len(entries)} · 1회 예산 ${budget.get('budget_usd')} · "
-            f"다음 게이트 {at.get('next_gate', '—')}",
+            f"다음 게이트 {at.get('next_gate', '—')} · {c5_txt}",
             [{"label": "모드", "value": at.get("mode", "대기"), "highlight": True},
              {"label": "예산", "value": f"${budget.get('budget_usd')}"},
-             {"label": "당일 실현", "value": f"${at.get('realized_pnl_today_usd', 0)}"}])
+             {"label": "당일 실현", "value": f"${at.get('realized_pnl_today_usd', 0)}"},
+             {"label": "C5 파일럿", "value": ("제외" if (c5.get("blackout") or c5.get("next_session_blackout")) else
+                                             (c5.get("open_ticker") or ("완료" if c5.get("done_today") else "대기")))}])
 
 
 def research_review(aid):

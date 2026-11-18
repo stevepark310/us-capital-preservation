@@ -988,8 +988,20 @@ class AutonomousTrader:
         cfg = self._c5_cfg()
         session_date = str(clock.get("session_date") or "")
         bo = entry_signals.c5_blackout(session_date, cfg)
+        # 세션 밖에서는 '다음 세션' 기준으로도 보여 준다(대시보드가 오늘 밤 동작을 그대로 표시).
+        next_session, next_bo = None, None
+        if clock.get("phase") != "REGULAR" and session_date:
+            try:
+                from datetime import date as _date
+                next_session = market_clock.next_trading_day(_date.fromisoformat(session_date)).isoformat()
+                next_bo = entry_signals.c5_blackout(next_session, cfg)
+            except Exception:
+                next_session, next_bo = None, None
         return {"enabled": bool(cfg.get("enabled", True)), "session_date": session_date,
                 "blackout": bo["blackout"], "blackout_reason": bo.get("reason"),
+                "next_session": next_session,
+                "next_session_blackout": (next_bo or {}).get("blackout"),
+                "next_session_blackout_reason": (next_bo or {}).get("reason"),
                 "open_ticker": self._c5_open(brackets), "done_today": self._c5_done_today(st, brackets),
                 "entry_window_min": cfg.get("entry_window_min"), "exit_kst": cfg.get("exit_kst"),
                 "sl_atr_mult": cfg.get("sl_atr_mult"), "budget_usd": cfg.get("budget_usd")}
