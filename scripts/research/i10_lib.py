@@ -91,6 +91,9 @@ def to10m(df5: pd.DataFrame) -> pd.DataFrame:
         rows.append(r)
     out = pd.concat(rows).sort_index()
     out["hm"] = [f"{ts.hour:02d}:{ts.minute:02d}" for ts in out.index]
+    # hm_end = 봉 종료(=결정·체결) 시각. 10분봉 라벨은 시작 시각이므로 혼동을 막기 위해 함께 둔다.
+    out["hm_end"] = [f"{(ts + pd.Timedelta(minutes=10)).hour:02d}:{(ts + pd.Timedelta(minutes=10)).minute:02d}"
+                     for ts in out.index]
     return out
 
 
