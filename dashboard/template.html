@@ -1465,6 +1465,15 @@ document.querySelectorAll("[data-otab]").forEach(b => b.addEventListener("click"
   $("office-timeline").style.display = S.officeSub === "timeline" ? "" : "none";
   if (S.officeSub === "timeline") renderTimeline(); else renderEmployeePanel();
 }));
+/* 위젯(앱)에서 오는 명령 — 'refresh'(최신화), 'tab office|feed|...' */
+window.addEventListener("message", ev => {
+  const d = ev && ev.data;
+  const raw = typeof d === "string" ? d : (d && (d.command || d.text || d.value)) || "";
+  const cmd = String(raw).trim().toLowerCase();
+  if (!cmd) return;
+  if (cmd.startsWith("refresh") || cmd === "최신화") refreshAll();
+  else if (cmd.startsWith("tab")) { const t = cmd.split(/\s+/)[1]; if (t) setTab(t); }
+});
 window.addEventListener("hashchange", () => {
   const h = location.hash.replace("#", "");
   if (h.startsWith("emp-")) { setTab("office", false); selectEmployee(+h.slice(4)); return; }

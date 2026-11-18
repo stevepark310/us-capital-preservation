@@ -409,7 +409,10 @@ def main(argv=None):
     pushed = False
     if do_push:
         git = lambda *a: subprocess.run(["git", *a], cwd=BASE_DIR, text=True, capture_output=True)  # noqa: E731
-        git("add", "-A")
+        # `git add -A`는 다른 작업 중인 파일(execution/ 등)까지 쓸어담는다.
+        # 이 파이프라인이 실제로 만드는 산출물만 스테이징한다.
+        git("add", "data", "docs", "index.html", "cube.html", "feed.html", "strategy.html",
+            "scenarios.html", "assets")
         msg = f"chore(cube): 10분 업무보고 {clock['now_kst'][11:16]} KST ({len(feed['posts'])} posts)"
         c = git("commit", "-m", msg)
         if c.returncode == 0:
