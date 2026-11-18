@@ -214,7 +214,7 @@ def build() -> Dict:
     for t, df in us.items():
         if not len(df):
             continue
-        cols = ["pm_open_0400", "p_0600", "p_0800", "rth_open", "rth_close", "ah_close",
+        cols = ["pm_open_0400", "p_0600", "p_0800", "p_0900", "rth_open", "rth_close", "ah_close",
                 "prev_rth_close", "gap", "rth_ret", "pm_0400_0930", "pm_0600_0930",
                 "pm_0800_0930", "pm_0400_0900", "day_0400_1600", "gap_prevclose_0400",
                 "ah_ret", "pre_volume", "rth_volume", "pre_bars"]

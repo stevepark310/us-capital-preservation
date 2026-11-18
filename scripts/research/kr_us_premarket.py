@@ -52,7 +52,7 @@ KR_SIGNALS = {
 RESID_SIGNALS = {"kospi_resid": "kospi_ret", "semis_resid": "semis_ret"}
 
 ENTRIES = {"0400": "pm_open_0400", "0600": "p_0600", "0800": "p_0800", "0930": "rth_open"}
-EXITS = {"0930": "rth_open", "1600": "rth_close"}
+EXITS = {"0900": "p_0900", "0930": "rth_open", "1600": "rth_close"}  # 0900 = 프리장 내 청산(09:00 봉 시가)
 
 
 # ------------------------------------------------------------------ helpers
@@ -271,7 +271,8 @@ def run_backtests(panel: pd.DataFrame, sig: pd.DataFrame, slip_pre: float,
                 ext = panel[f"{t}_{x_name}"]
                 gross = ext / ent - 1.0
                 slip_in = SLIP_REG if e_key == "0930" else slip_pre
-                cost = 2 * COMMISSION_SIDE + slip_in + SLIP_REG
+                slip_out = SLIP_REG if x_key in ("0930", "1600") else slip_pre  # 프리장 내 청산은 추가 슬리피지
+                cost = 2 * COMMISSION_SIDE + slip_in + slip_out
                 rules = [("all", pd.Series(True, index=panel.index))]
                 thrs = (1.0,) if e_key == "0930" else (1.0, 1.5)  # 정규장 진입 통제군은 1.0만
                 for sname in ["kospi_z", "semis_z", "semis_excess_z", "composite_z",
@@ -300,7 +301,8 @@ def robustness(panel: pd.DataFrame, sig: pd.Series, ticker: str, rule: str,
     thr = float(m.group(1)) if m else 1.0
     gross = panel[f"{ticker}_{EXITS[exit_]}"] / panel[f"{ticker}_{ENTRIES[entry]}"] - 1.0
     mask = (sig > thr) if thr > 0 else (sig < thr)
-    cost = 2 * COMMISSION_SIDE + (SLIP_REG if entry == "0930" else slip_pre) + SLIP_REG
+    slip_out = SLIP_REG if exit_ in ("0930", "1600") else slip_pre
+    cost = 2 * COMMISSION_SIDE + (SLIP_REG if entry == "0930" else slip_pre) + slip_out
     net = (gross - cost)[mask.fillna(False) & gross.notna()]
     if len(net) < 20:
         return {"n": 0}
