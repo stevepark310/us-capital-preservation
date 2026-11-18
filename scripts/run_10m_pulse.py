@@ -39,6 +39,7 @@ REPORT_PATH = os.path.join(DATA, "cube_report.json")
 PULSE_PATH = os.path.join(DATA, "cube_pulse.json")
 PULSE_LOG = os.path.join(DATA, "cube_pulse_log.jsonl")
 AUTOTRADER_STATUS = os.path.join(DATA, "autotrader_status.json")
+RESEARCH_DIRECTIVE = os.path.join(DATA, "inflection_research_directive.json")
 WIDGET_BUNDLE = os.path.abspath(os.path.join(BASE_DIR, "..", "widgets", "us-quant-dashboard", "bundle"))
 
 NAMES = {
@@ -175,6 +176,20 @@ def _agent_state(aid, report, status, pulse_ctx):
              {"label": "당일 실현", "value": f"${at.get('realized_pnl_today_usd', 0)}"}])
 
 
+def research_review(aid):
+    """동훈님 2026-11-18 11:14 지시(10분 백테스트·변곡점 연구)에 대한 직원별 검토 의견.
+
+    `data/inflection_research_directive.json`의 `agent_reviews`가 정본이다. 여기서는
+    읽기만 하고, 수치를 새로 만들지 않는다.
+    """
+    d = _load(RESEARCH_DIRECTIVE, {}) or {}
+    r = (d.get("agent_reviews") or {}).get(str(aid)) or {}
+    if not r:
+        return None
+    return {"headline": r.get("headline"), "finding": r.get("finding"), "action": r.get("action"),
+            "given_at_kst": d.get("given_at_kst"), "status": d.get("status")}
+
+
 def pulse_posts(clock, report, status, evolution):
     ts = clock["now_kst"][:16].replace("-", "").replace(":", "").replace(" ", "")
     hhmm = clock["now_kst"][11:16]
@@ -184,6 +199,11 @@ def pulse_posts(clock, report, status, evolution):
     for aid in range(1, 11):
         report_agent = by_id.get(aid) or {}
         content, metrics = _agent_state(aid, report_agent, status, ctx)
+        rv = research_review(aid)
+        if rv:
+            content = (content + f"\n🔬 변곡점 연구(11-18 11:14 지시) — {rv['headline']}: {rv['finding']}"
+                       f" → {rv['action']}")
+            metrics = list(metrics) + [{"label": "변곡점 연구", "value": "검토 의견 제출"}]
         posts.append({
             "id": f"post-pulse-{aid:02d}-{ts}",
             "agent_id": aid,
@@ -342,7 +362,8 @@ def main(argv=None):
         "phase": clock["phase"],
         "employees": [
             {"agent_id": aid, "name": NAMES[aid], "duty": ROLE_DUTIES.get(aid),
-             "post_id": f"post-pulse-{aid:02d}"}
+             "post_id": f"post-pulse-{aid:02d}",
+             "research_review": research_review(aid)}
             for aid in range(1, 11)
         ],
         "autotrader": {k: status.get(k) for k in ("mode", "phase", "next_gate", "realized_pnl_today_usd",
