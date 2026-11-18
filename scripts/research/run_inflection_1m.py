@@ -458,7 +458,9 @@ def delay_minutes(b1m: Dict[str, pd.DataFrame], ev: List[Dict[str, Any]]) -> Dic
 
 # ============================================================== 4. 격자 실행
 def run_grid(prep: Dict[str, Dict[str, Any]], dt: Dict[str, Dict[str, bool]], days: List[str],
-             ev: List[Dict[str, Any]], tf: str, bar_min: int) -> List[Dict[str, Any]]:
+             ev: List[Dict[str, Any]], tf: str, bar_min: int,
+             days5: Optional[List[str]] = None, ev5: Optional[List[Dict[str, Any]]] = None
+             ) -> List[Dict[str, Any]]:
     cfgs: List[Dict[str, Any]] = [
         {"label": "DIP(현행 신호계열)", "trigger": "dip",
          "params": {"rsi_max": 20.0, "pctb_max": 0.15, "rvol_min": 1.0},
@@ -479,6 +481,12 @@ def run_grid(prep: Dict[str, Dict[str, Any]], dt: Dict[str, Dict[str, bool]], da
                          trail_mult=cfg["tm"], diag=diag)
         sc = R1.score(tr, ev)
         pf = R1.perf(tr)
+        five: Dict[str, Any] = {}
+        if days5:
+            t5 = [t for t in tr if t["day"] in set(days5)]
+            five = {"n_5d": R1.perf(t5)["n"], "pnl_5d": R1.perf(t5)["pnl_usd"],
+                    "recall5d_pct": R1.score(t5, ev5 or []).get("recall_pct"),
+                    "precision5d_pct": R1.score(t5, ev5 or []).get("precision_pct")}
         row = {"tf": tf, "bar_min": bar_min, "config": cfg["label"], "c": cfg["c"],
                "filter": cfg["fname"], "exit": cfg["exit"],
                "recall_pct": sc.get("recall_pct"), "recall_overlap_pct": sc.get("recall_overlap_pct"),
@@ -494,7 +502,7 @@ def run_grid(prep: Dict[str, Dict[str, Any]], dt: Dict[str, Dict[str, bool]], da
                "skip_in_position": diag.get("skip_in_position", 0),
                "skip_blackout": diag.get("skip_blackout", 0),
                "skip_late": diag.get("skip_late", 0),
-               "per_day": pf["per_day"]}
+               "per_day": pf["per_day"], **five}
         rows.append(row)
         print(f"  [{tf}] {cfg['label']} / {cfg['exit']}: R={row['recall_pct']}% "
               f"P={row['precision_pct']}% n={row['n_trades']} pnl=${row['pnl_usd']} "
@@ -639,8 +647,77 @@ def trigger_quality(prep: Dict[str, Dict[str, Any]], days: List[str], c: float,
             "p_mfe_ge_cost_pct": round(100.0 * float((m >= RT * 100 + 0.1).mean()), 1)}
 
 
+def shared_leg_mechanism(prep_a: Dict[str, Dict[str, Any]], prep_b: Dict[str, Dict[str, Any]],
+                         dt: Dict[str, Dict[str, bool]], days: List[str], ev: List[Dict[str, Any]],
+                         c: float, exit_mode: str) -> Dict[str, Any]:
+    """공유 레그(두 TF 가 함께 잡은 이벤트)에서 1m 거래가 실제로 무엇을 했는가."""
+    def run(prep):
+        return R1.simulate(prep, dt, days, "pivot", {"c": c, "c_exit": c}, exit_mode,
+                           blackout=False)
+
+    def match(trs):
+        m = {}
+        for k, e in enumerate(ev):
+            for t in trs:
+                if (t["day"] == e["day"] and t["ticker"] == e["instrument"]
+                        and e["t0"] <= t["entry_hm"] <= e["t1"]):
+                    m.setdefault(k, t)
+        return m
+
+    ta, tb = run(prep_a), run(prep_b)
+    ma, mb = match(ta), match(tb)
+    shared = sorted(set(ma) & set(mb))
+    import collections
+
+    def agg(m):
+        r = [m[k] for k in shared]
+        if not r:
+            return {}
+        return {"n": len(r),
+                "mean_gross_pct": round(float(np.mean([x["gross_pct"] for x in r])), 3),
+                "mean_net_pct": round(float(np.mean([x["ret_pct"] for x in r])), 3),
+                "mean_hold_min": round(float(np.mean([x["hold_min"] for x in r])), 1),
+                "mean_entry_lag_min": round(float(np.mean([hm_min(x["entry_hm"]) - hm_min(ev[k]["t0"])
+                                                           for k, x in zip(shared, r)])), 1)}
+
+    return {"c": c, "exit": exit_mode, "shared_events": len(shared),
+            "tf_a(10m)": agg(ma), "tf_b": agg(mb),
+            "exit_reasons_a": dict(collections.Counter(t["reason"] for t in ta)),
+            "exit_reasons_b": dict(collections.Counter(t["reason"] for t in tb))}
+
+
+def prior_reproduction(prep60: Dict[str, Dict[str, Any]], dt: Dict[str, Dict[str, bool]],
+                       days60: List[str], ev60: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """직전 연구(60일) 수치를 같은 코드로 재현해 파이프라인 정합성을 검증."""
+    prior_path = os.path.join(DATA, "research_inflection_100pct_20261118.json")
+    try:
+        prior = json.load(open(prior_path))["grid"]
+    except Exception:
+        return []
+    checks: List[Dict[str, Any]] = []
+    for c, fname, flt, exit_mode in ((2.5, "무필터", (), "trail"),
+                                     (2.5, "+거래량", ("vol",), "trail"),
+                                     (3.0, "+거래량", ("vol",), "trail"),
+                                     (1.5, "무필터", (), "flip"),
+                                     (0.5, "무필터", (), "flip"),
+                                     (1.0, "무필터", (), "trail")):
+        ref = [g for g in prior if g["c"] == c and g["filter_name"] == fname
+               and g["exit_mode"] == exit_mode and g["trail_atr_mult"] == 1.5]
+        if not ref:
+            continue
+        tr = R1.simulate(prep60, dt, days60, "pivot", {"c": c, "c_exit": c}, exit_mode,
+                         filters=flt, blackout=False, trail_mult=1.5)
+        p = R1.perf(tr)
+        checks.append({"c": c, "filter": fname, "exit": exit_mode,
+                       "prior_n": ref[0]["60d"]["n"], "now_n": p["n"],
+                       "prior_pnl": ref[0]["60d"]["pnl_usd"], "now_pnl": p["pnl_usd"],
+                       "match": bool(ref[0]["60d"]["n"] == p["n"]
+                                     and abs(ref[0]["60d"]["pnl_usd"] - p["pnl_usd"]) < 0.01)})
+    return checks
+
+
 def engine_trades(days: List[str]) -> List[Dict[str, Any]]:
-    """현행 엔진(L0) 10분봉 재현 — R1.main 과 같은 준비."""
+    """현행 엔진(L0) 10분봉 재현 — R1.main 과 같은 준비."""""
     panel = L.panel(period="60d")
     panel5 = {s: CE.five_min_metrics(L.load5m(s, "60d")) for s in L.SYMBOLS}
     vix10 = panel["^VIX"]["Close"] if "^VIX" in panel else None
@@ -695,6 +772,8 @@ def main() -> int:
     ev_all = R1.build_events(panel10, all_days_60)
     ev = [e for e in ev_all if e["day"] in set(days)]
     ev_5d = [e for e in ev_all if e["day"] in set(L.SESSION_DAYS)]
+    days5 = [d for d in days if d in set(L.SESSION_DAYS)]
+    ev_5d_in = [e for e in ev if e["day"] in set(days5)]
     print(f"   비교 창 이벤트 {len(ev)}개 / 5일 {len(ev_5d)}개 / 60일 {len(ev_all)}개", flush=True)
 
     print("5) 격자 준비(10m·5m·1m)", flush=True)
@@ -746,7 +825,8 @@ def main() -> int:
     grid: Dict[str, List[Dict[str, Any]]] = {}
     for tf, _b in TFS:
         print(f" --- {tf}", flush=True)
-        grid[tf] = run_grid(prep_tf[tf], dt_all, days, ev, tf, dict(TFS)[tf])
+        grid[tf] = run_grid(prep_tf[tf], dt_all, days, ev, tf, dict(TFS)[tf],
+                            days5=days5, ev5=ev_5d_in)
     result["grid"] = grid
     result["compare_10m_5m_1m"] = compare_table(grid)
     result["recall_ladder"] = ladder(grid)
@@ -754,13 +834,15 @@ def main() -> int:
     # ---- 절제: 1분봉 판정 + 10분봉 스케일 청산 (진입 시점만 1분으로 줄인 효과)
     print("7b) 절제 — 1m 판정 + 10m 청산 규격", flush=True)
     prep_1m_atr10 = retime_atr(prep_tf["1m"], panel10)
-    grid_abl = run_grid(prep_1m_atr10, dt_all, days, ev, "1m+10mexit", 1)
+    grid_abl = run_grid(prep_1m_atr10, dt_all, days, ev, "1m+10mexit", 1,
+                        days5=days5, ev5=ev_5d_in)
     result["grid_1m_exit10m"] = grid_abl
 
     # ---- 동일 신호빈도 대조: 1m 신호/세션을 10m(c=2.5) 수준으로 맞출 수 있는가
     print("7c) 동일 신호빈도 대조", flush=True)
     mf = []
-    base_rate = [r for r in result["signal_timing"] if r["tf"] == "10m" and r["c"] == 2.5][0]["triggers_per_session"]
+    base_rate = round(len(pivot_trigger_times(prep_tf["10m"], days, 2.5))
+                     / (len(days) * len(PAIRS)), 2)
     for c_hi in (3.5, 4.0, 5.0):
         trigs = pivot_trigger_times(prep_tf["1m"], days, c_hi)
         st = event_signal_stats(prep_tf["1m"], days, ev, c_hi, "1m", trigs)
@@ -827,6 +909,21 @@ def main() -> int:
         result["trigger_quality"][tf] = {
             f"c{c}": trigger_quality(prep_tf[tf], days, c, 60, dict(TFS)[tf]) for c in C_SPECTRUM}
 
+    print("10b) 공유 레그 기전 진단 + 직전 연구 재현 검증", flush=True)
+    result["mechanism_shared_legs"] = [
+        shared_leg_mechanism(prep_tf["10m"], prep_tf[tf], dt_all, days, ev, c, ex)
+        for tf in ("5m", "1m") for c in (2.5, 1.5) for ex in ("trail", "flip")]
+    for m in result["mechanism_shared_legs"]:
+        print(f"   c={m['c']} {m['exit']}: 공유 {m['shared_events']}건 "
+              f"10m gross {m['tf_a(10m)'].get('mean_gross_pct')}%/{m['tf_a(10m)'].get('mean_hold_min')}분 "
+              f"vs {m['tf_b'].get('mean_gross_pct')}%/{m['tf_b'].get('mean_hold_min')}분", flush=True)
+    prep60 = R1.prep_pair(panel10, all_days_60)
+    result["prior_reproduction"] = prior_reproduction(prep60, dt_all, all_days_60, ev_all)
+    for chk in result["prior_reproduction"]:
+        print(f"   재현 c={chk['c']} {chk['filter']} {chk['exit']}: "
+              f"직전 n={chk['prior_n']} ${chk['prior_pnl']} → "
+              f"현재 n={chk['now_n']} ${chk['now_pnl']} 일치={chk['match']}", flush=True)
+
     print("11) 현행 엔진 L0 (22일 창)", flush=True)
     tr_engine = engine_trades(days)
     result["engine_L0"] = {"n": len(tr_engine), **R1.perf(tr_engine),
@@ -863,16 +960,35 @@ def main() -> int:
     result["robustness"] = robust
 
     # ---------------------------------------------------------- 요약 판정
-    def best(tf: str, key: str = "pnl_usd") -> Dict[str, Any]:
-        return max(grid[tf], key=lambda r: r[key])
+    def best(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+        return max(rows, key=lambda r: r["pnl_usd"])
 
     summary = {}
-    for tf in ("10m", "5m", "1m", "1m+10mexit"):
-        b = best(tf)
+    for tf, rows in (("10m", grid["10m"]), ("5m", grid["5m"]), ("1m", grid["1m"]),
+                     ("1m+10mexit", grid_abl)):
+        b = best(rows)
         summary[tf] = {"best_config": b["config"], "exit": b["exit"], "c": b["c"],
                        "recall_pct": b["recall_pct"], "precision_pct": b["precision_pct"],
                        "n_trades": b["n_trades"], "fee_usd": b["fee_usd"],
                        "pnl_usd": b["pnl_usd"], "pf": b["pf"], "mdd_usd": b["mdd_usd"]}
+    # ---------------------------------------------------------- 24셀 요약 (주기 사다리)
+    cell_sum = {}
+    for tf, _b in TFS:
+        v = [x["pnl_usd"] for x in grid[tf] if x["c"] is not None]
+        cell_sum[tf] = {"n_cells": len(v), "mean_pnl_usd": round(float(np.mean(v)), 2),
+                        "median_pnl_usd": round(float(np.median(v)), 2),
+                        "n_positive": int(sum(1 for x in v if x > 0)),
+                        "best_pnl_usd": round(float(max(v)), 2)}
+    wins_10, wins_5 = 0, 0
+    for key in [(x["c"], x["filter"], x["exit"]) for x in grid["1m"] if x["c"] is not None]:
+        a = [y for y in grid["10m"] if (y["c"], y["filter"], y["exit"]) == key][0]["pnl_usd"]
+        b = [y for y in grid["5m"] if (y["c"], y["filter"], y["exit"]) == key][0]["pnl_usd"]
+        c1 = [y for y in grid["1m"] if (y["c"], y["filter"], y["exit"]) == key][0]["pnl_usd"]
+        wins_10 += int(c1 > a)
+        wins_5 += int(c1 > b)
+    cell_sum["1m_vs_10m_wins"] = f"{wins_10}/24"
+    cell_sum["1m_vs_5m_wins"] = f"{wins_5}/24"
+    result["cell_summary_24"] = cell_sum
     result["best_by_tf"] = summary
     result["verdict_numbers"] = {
         "oracle_usd_compare": result["event_set"]["oracle_usd_compare"],
