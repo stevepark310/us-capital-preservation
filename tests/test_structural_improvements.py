@@ -1,7 +1,7 @@
-"""구조 개선 3건 (2026-11-18 11:37 사용자 승인).
+"""구조 개선 3건 (2026-11-18 11:37 사용자 승인) + ② RVOL 필수의 14:25 원복.
 
 ① 숏 게이트 2-of-2 → 1-of-1 (VIX ≥ 24 하한 고정, 가격구조 확인 추가)
-② DIP의 RVOL 필수 → 가점 (방어 모드에서만 다시 필수)
+② DIP의 RVOL 필수 → 가점 → **2026-11-18 14:25 필수로 원복**(기대값 하락 — 리스크는 그대로, 수익만 감소)
 ③ 장중 트레일 0.9 → 1.5×ATR · 일봉/장중/C5 브래킷 규격 분리
 """
 import pandas as pd
@@ -66,22 +66,29 @@ def test_vwap_state_detects_below_vwap():
     assert entry_signals.intraday_vwap_state(up)["below_vwap"] is False
 
 
-# ---------------------------------------------------------------- ② RVOL 가점
-def test_rvol_low_no_longer_blocks_dip():
-    """11-12 10:10 사례: RSI2 11.4 · %B 0.02 · RVOL 0.66 → 이제 신호가 나온다."""
+# ---------------------------------------------------------------- ② RVOL 필수(2026-11-18 14:25 원복)
+def test_rvol_below_1_blocks_dip():
+    """11-12 10:10 사례(RSI2 11.4 · %B 0.02 · RVOL 0.66)는 이제 진입하지 않는다."""
     m = {"rsi2": 11.4, "pct_b": 0.02, "rvol": 0.66, "atr_pct": 2.1}
     v = entry_signals.dip_signal_from_metrics(m)
+    assert v["ok"] is False
+    assert v["rvol_required"] is True
+    assert "RVOL" in v["why_not"] and "필수" in v["why_not"]
+
+
+def test_rvol_at_or_above_min_passes():
+    v = entry_signals.dip_signal_from_metrics({"rsi2": 11.4, "pct_b": 0.02, "rvol": 1.0, "atr_pct": 2.1})
     assert v["ok"] is True
-    assert v["bonus"]["rvol"] == 0.0
-    assert v["score"] > 0
+    assert v["bonus"]["rvol"] > 0
+    assert entry_signals.dip_signal_from_metrics(
+        {"rsi2": 11.4, "pct_b": 0.02, "rvol": None, "atr_pct": 2.1})["ok"] is False
 
 
-def test_rvol_adds_score_not_gate():
-    low = entry_signals.dip_signal_from_metrics({"rsi2": 11.4, "pct_b": 0.02, "rvol": 0.66, "atr_pct": 2.1})
+def test_rvol_higher_still_scores_higher():
+    low = entry_signals.dip_signal_from_metrics({"rsi2": 11.4, "pct_b": 0.02, "rvol": 1.05, "atr_pct": 2.1})
     high = entry_signals.dip_signal_from_metrics({"rsi2": 11.4, "pct_b": 0.02, "rvol": 1.8, "atr_pct": 2.1})
     assert low["ok"] and high["ok"]
     assert high["score"] > low["score"]
-    assert high["bonus"]["rvol"] > 0
 
 
 def test_oversold_still_required():
@@ -91,23 +98,82 @@ def test_oversold_still_required():
     assert v2["ok"] is False and "%B" in v2["why_not"]
 
 
-def test_defensive_mode_restores_rvol_requirement():
+def test_rvol_gate_only_lowered_when_caller_says_so():
+    """연구·비교용으로 호출 측이 명시할 때만 RVOL이 빠진다(집행 경로에는 없다)."""
     m = {"rsi2": 11.4, "pct_b": 0.02, "rvol": 0.66, "atr_pct": 2.1}
-    v = entry_signals.dip_signal_from_metrics(m, {"rvol_required": True, "rvol_min": 1.5})
-    assert v["ok"] is False and "방어 모드" in v["why_not"]
+    assert entry_signals.dip_signal_from_metrics(m, {"rvol_required": False})["ok"] is True
+    assert entry_signals.dip_signal_from_metrics(m, {"rvol_required": True})["ok"] is False
 
 
-def test_swing_engine_rvol_bonus():
+def test_swing_engine_requires_rvol():
     row = pd.Series({"ATR": 1.2, "RSI2": 12.0, "RSI14": 25.0, "PCT_B": 0.05, "RVOL": 0.6,
                      "ATR_PCT": 2.4, "Close": 50.0})
-    loose = swing_engine.signal_row(row, {**swing_engine.DIP_PARAMS, "rvol_required": False})
-    strict = swing_engine.signal_row(row, {**swing_engine.DIP_PARAMS, "rvol_required": True})
-    assert loose is not None and "score" in loose
-    assert strict is None
+    assert swing_engine.DIP_PARAMS["rvol_required"] is True
+    assert swing_engine.signal_row(row) is None                       # 기본 파라미터로 차단
     hot = row.copy()
-    hot["RVOL"] = 2.0
-    scored = swing_engine.signal_row(hot, {**swing_engine.DIP_PARAMS, "rvol_required": False})
-    assert scored["score"] > loose["score"]
+    hot["RVOL"] = 1.4
+    sig = swing_engine.signal_row(hot)
+    assert sig is not None and sig["rvol"] == 1.4
+
+
+def test_approval_config_requires_rvol():
+    """승인 정본(config/swing_approval.json)도 필수로 원복됐다."""
+    import json
+    import os
+    path = os.path.join(autotrader.execution_policy.BASE_DIR, "config", "swing_approval.json")
+    with open(path, "r", encoding="utf-8") as f:
+        cond = json.load(f)["entry_conditions"]
+    assert cond["rvol_required"] is True and float(cond["rvol_min"]) == 1.0
+    assert cond["rvol_history"]["restored_at_kst"] == "2026-11-18 14:25"
+
+
+def test_approval_condition_is_a_floor_over_strategy_params():
+    """전략 파라미터가 느슨해도 승인 조건이 이긴다. 더 엄격하게 조이는 것은 허용."""
+    loose = entry_signals.resolve_entry_filters(
+        {"rvol_required": False, "rvol_min": 1.0}, {"rvol_required": True, "rvol_min": 1.0})
+    assert loose["rvol_required"] is True and loose["rvol_min"] == 1.0
+    strict = entry_signals.resolve_entry_filters(
+        {"rvol_required": True, "rvol_min": 1.0}, {"rvol_required": True, "rvol_min": 1.5})
+    assert strict["rvol_min"] == 1.5
+    tighter_band = entry_signals.resolve_entry_filters(
+        {"pct_b_max": 0.10, "rsi2_max": 20.0}, {"pct_b_max": 0.15, "rsi2_max": 20.0})
+    assert tighter_band["pct_b_max"] == 0.10
+
+
+def test_live_strategy_params_require_rvol():
+    """집행이 읽는 data/strategy_params.json 도 필수(true)다."""
+    assert strategy_evolver.load_params()["entry_filters"]["rvol_required"] is True
+    assert strategy_evolver.BASE_PARAMS["entry_filters"]["rvol_required"] is True
+
+
+def test_trader_entry_filters_ignore_loose_strategy_file(trader, monkeypatch):
+    """전략 파일이 false로 되돌아가도 집행 필터는 승인 조건(필수)을 유지한다."""
+    monkeypatch.setattr(autotrader.AutonomousTrader, "_strategy_params",
+                        staticmethod(lambda: {"entry_filters": {"rvol_required": False, "rvol_min": 1.0}}))
+    f = trader._entry_filters()
+    assert f["rvol_required"] is True and f["rvol_min"] == 1.0
+
+
+def test_trader_passes_required_rvol_into_signals(trader, monkeypatch):
+    """entry_candidates가 신호 계산에 필터를 넘길 때 RVOL 필수가 살아 있는지."""
+    seen = {}
+
+    def fake_intraday(syms, **kw):
+        seen["intraday"] = kw.get("thresholds")
+        return {"signals": []}
+
+    def fake_daily(daily, universe=None, thresholds=None):
+        seen["daily"] = thresholds
+        return {"signals": []}
+
+    monkeypatch.setattr(entry_signals, "dip_intraday", fake_intraday)
+    monkeypatch.setattr(entry_signals, "dip_daily", fake_daily)
+    trader.entry_candidates(
+        {"clock": clock_at("01:00"), "quotes": {}, "techs": {}, "daily": {},
+         "snapshot": {}, "vix": 22.0}, {"entries": [], "orders": [], "pending": []}, {},
+        params={"entry_filters": {"rvol_required": False, "rvol_min": 1.0}})
+    assert seen["intraday"]["rvol_required"] is True
+    assert seen["daily"]["rvol_required"] is True
 
 
 # ---------------------------------------------------------------- ③ 브래킷 분리
@@ -197,7 +263,7 @@ def test_intraday_session_close_exit():
     assert d and "SESSION EXIT" in d["reason"]
 
 
-def test_evolver_defaults_keep_intraday_trail_and_rvol_bonus():
+def test_evolver_defaults_keep_intraday_trail_and_rvol_required():
     assert strategy_evolver.BASE_PARAMS["trail_atr_mult"] == 0.9
     assert strategy_evolver.CLAMPS["trail_atr_mult"] == (0.60, 1.20)
-    assert strategy_evolver.BASE_PARAMS["entry_filters"]["rvol_required"] is False
+    assert strategy_evolver.BASE_PARAMS["entry_filters"]["rvol_required"] is True

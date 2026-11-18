@@ -61,8 +61,8 @@ BASE_PARAMS: Dict[str, Any] = {
     "risk_scale": 1.0,
     "defensive_mode": False,
     "entry_filters": {"rsi2_max": 20.0, "pct_b_max": 0.15, "rvol_min": 1.0,
-                      "rvol_required": False},
-    "source": "config/swing_approval.json exit_v2_chandelier + 2026-11-18 구조 개선 ②(RVOL 가점)·③(브래킷 분리, 장중 트레일 0.9 유지)",
+                      "rvol_required": True},
+    "source": "config/swing_approval.json entry_conditions(RVOL 필수, 2026-11-18 14:25 원복) + 구조 개선 ①③(C5·숏게이트 1-of-1·브래킷 분리, 장중 트레일 0.9 유지)",
     "updated_at_kst": "2026-11-18 12:05",
 }
 
@@ -272,7 +272,7 @@ def evaluate(market_ctx: Optional[Dict[str, Any]] = None, realized_session: floa
                        "trail_atr_mult": _clamp("trail_atr_mult", 0.9),
                        "initial_sl_atr_mult": _clamp("initial_sl_atr_mult", 0.75),
                        "entry_filters": dict(BASE_PARAMS["entry_filters"])})
-        decisions.append("DEFENSIVE_OFF: 최근20 성과 회복 → A/B 검증 기본값으로 복귀(트레일 0.9×ATR·RVOL 가점)")
+        decisions.append("DEFENSIVE_OFF: 최근20 성과 회복 → A/B 검증 기본값으로 복귀(트레일 0.9×ATR·RVOL 1.0 필수)")
         applied = True
 
     # ---- 3) 파라미터 후보 교체 (표본·4개 게이트)

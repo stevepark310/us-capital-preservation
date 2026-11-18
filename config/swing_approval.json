@@ -512,8 +512,16 @@
     "rsi2_max": 20.0,
     "pct_b_max": 0.15,
     "rvol_min": 1.0,
-    "rvol_required": false,
-    "rvol_note": "2026-11-18 11:37 승인 — RVOL ≥ 1.0은 필수에서 가점으로 전환. 11-11~17 큰 반등 5건이 RVOL 조건에서 걸렸다(11-12 10:10 저점 RVOL 0.66 → 이후 +11.5%). 방어 모드에서만 다시 필수.",
+    "rvol_required": true,
+    "rvol_note": "RVOL ≥ 1.0 필수(2026-11-18 14:25 원복). 가점 전환은 60일 표본에서 기대값을 -$10.9 떨어뜨렸고(5일만 +$2.34), 동훈님이 '기대값을 낮춘다면 리스크는 같은데 수익만 적다'는 이유로 적용하지 않기로 했다.",
+    "rvol_history": {
+      "before_20261118_1137": "필수 (RSI2 ≤ 20 · %B ≤ 0.15 · RVOL ≥ 1.0)",
+      "20261118_1137_to_1415": "가점 (예상 기대값 하락 — 5일 +$2.34 / 60일 -$10.9)",
+      "restored_at_kst": "2026-11-18 14:25",
+      "restored_by": "박동훈 (사용자)",
+      "restore_quote": "기대값을 낮췄다는건 그만큼 리스크는 있고 수익은 적다는거지? 그러면 이걸 적용하지 않는게 좋을듯해.",
+      "enforcement": "core/entry_signals.resolve_entry_filters — 승인 조건은 하한이다. 전략 파라미터(data/strategy_params.json)·방어 모드가 이보다 느슨하게 풀 수 없다(더 엄격하게만 조일 수 있다)."
+    },
     "entry_timing": "신호 다음 세션 시가"
   },
   "exit_rules": {
@@ -528,6 +536,7 @@
   },
   "preserved_controls": {
     "intraday_rotation": "유지 — DIP_SWING은 장중 회전과 병행하며 회전 매매를 대체하지 않음",
+    "structural_changes_20261118": "① 숏 게이트 1-of-1 · ③ 일봉/장중 브래킷 분리(장중 트레일 0.9 ATR) · C5 파일럿은 유지. ② RVOL 가점은 2026-11-18 14:25 원복(필수 조건 복귀).",
     "nvda_levels_locked": "TP $173.0 / SL $150.0 (사용자 지정, 변경 금지)",
     "bear_alpha_gate": "VIX >= 24.0 하한 고정 + 확인 1개 (2026-11-18 11:37 사용자 승인으로 2-of-2 → 1-of-1). VIX 하한 미만 완화는 위임 밖",
     "small_cap_surge_model": "실전 배제 유지 (11-13 지시)",

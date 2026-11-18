@@ -3,10 +3,10 @@ Entry signals — 무인 집행이 실제로 '살 수 있는' 신호만 계산�
 
 여기 있는 신호는 전부 사용자가 이미 승인한 것들이다.
 
-1. `dip_daily`      — DIP_SWING(11-14 21:29 승인): RSI2 ≤ 20 · %B ≤ 0.15 이면 다음 세션
-   시가 진입, ATR×1.5 대칭 브래킷, 최대 3세션. 1년 +19.19%/PF 1.98, 2년 +38.17%
-   (60분봉·왕복 0.24% 마찰). **RVOL ≥ 1.0은 필수에서 가점으로 전환**(2026-11-18 승인 —
-   5거래일 큰 반등 5건이 모두 RVOL 조건에서 걸렸다: 11-12 10:10 저점 RVOL 0.66 → +11.5%).
+1. `dip_daily`      — DIP_SWING(11-14 21:29 승인): RSI2 ≤ 20 · %B ≤ 0.15 · RVOL ≥ 1.0 이면
+   다음 세션 시가 진입, ATR×1.5 대칭 브래킷, 최대 3세션. 1년 +19.19%/PF 1.98, 2년 +38.17%
+   (60분봉·왕복 0.24% 마찰). **RVOL ≥ 1.0은 필수**(2026-11-18 14:25 원복 — 가점 전환은 60일
+   기대값 -$10.9로 기대값이 떨어져 적용하지 않음. 11-18 11:37~14:15 사이에만 가점이었다).
 2. `dip_intraday`   — 신중 모드(11-16 23:43 승인)의 장중 규칙: 00:00 KST 이후
    DIP_SWING 등급 신호가 나올 때만 현금 15~20%로 1회 진입. 5분봉 VWAP 돌파 단독
    진입은 60일 실측 건당 -0.29%(SOXL)/-0.30%(TQQQ)로 폐기됐다.
@@ -34,9 +34,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(BASE_DIR, "data")
 INTRADAY_CACHE = os.path.join(DATA, "intraday_5m_cache.json")
 
-# RVOL은 "확인"이 아니라 "가점"이다(2026-11-18 승인). RSI2·%B만 필수.
+# RVOL ≥ 1.0은 필수 조건이다(2026-11-18 14:25 원복). RSI2·%B와 함께 세 조건 모두 통과해야 신호.
 DIP_THRESHOLDS = {"rsi2_max": 20.0, "pct_b_max": 0.15, "rvol_min": 1.0,
-                  "rvol_required": False, "rvol_bonus_max": 20.0}
+                  "rvol_required": True, "rvol_bonus_max": 20.0}
 
 # 숏 게이트 — VIX 하한 24.0은 고정(SAFE: config로도 내릴 수 없다), 확인은 1-of-1.
 BEAR_GATE = {"vix_min": 24.0, "vix_floor": 24.0, "confirmations_required": 1,
@@ -138,11 +138,12 @@ def _rsi_last(closes: List[float], n: int = 2) -> Optional[float]:
 
 def dip_signal_from_metrics(m: Optional[Dict[str, Any]],
                             thresholds: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
-    """5분봉 지표 → DIP 판정(필수 조건 + RVOL 가점).
+    """5분봉 지표 → DIP 판정(필수 3조건 + 거래량 가점).
 
-    필수: RSI2 ≤ 20 · %B ≤ 0.15 (과매도 극단에서만 산다).
-    가점: RVOL ≥ 1.0이면 score에 최대 `rvol_bonus_max`점을 더한다. RVOL은 필수가 아니다
-    (2026-11-18 승인) — 단 `rvol_required`가 True면(방어 모드) 예전처럼 필수로 돌아간다.
+    필수: RSI2 ≤ 20 · %B ≤ 0.15 · RVOL ≥ `rvol_min`(1.0). 과매도 극단 + 거래량 확인이
+    같이 붙은 자리에서만 산다(2026-11-18 14:25 원복). RVOL이 1.0을 넘으면 score에
+    최대 `rvol_bonus_max`점을 더해 같은 세션 진입 한도 안에서 우선순위를 정한다.
+    `rvol_required=False`는 호출 측이 명시할 때만 쓰는 연구·비교용 경로다.
     """
     th = dict(DIP_THRESHOLDS)
     for k, v in (thresholds or {}).items():
@@ -161,7 +162,7 @@ def dip_signal_from_metrics(m: Optional[Dict[str, Any]],
     if pct_b is None or float(pct_b) > pct_b_max:
         misses.append(f"%B {pct_b}>{pct_b_max:.2f}")
     if rvol_required and (rvol is None or float(rvol) < rvol_min):
-        misses.append(f"RVOL {rvol}<{rvol_min}(방어 모드 필수)")
+        misses.append(f"RVOL {rvol}<{rvol_min}(필수)")
     bonus = 0.0
     if rvol is not None and float(rvol) >= rvol_min:
         bonus = min(float(th.get("rvol_bonus_max", 20.0)), (float(rvol) - rvol_min) * 20.0 + 5.0)
@@ -174,6 +175,33 @@ def dip_signal_from_metrics(m: Optional[Dict[str, Any]],
     return {"ok": not misses, "why_not": " 또는 ".join(misses) if misses else None,
             "score": score, "boundary": round(depth, 1), "bonus": {"rvol": round(bonus, 1)},
             "rvol_required": rvol_required}
+
+
+def resolve_entry_filters(strategy_filters: Optional[Dict[str, Any]] = None,
+                          approval_conditions: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """전략 파라미터 + 승인 조건(`config/swing_approval.json entry_conditions`) 합성.
+
+    승인 조건은 하한(floor)이다 — 전략 파라미터나 방어 모드가 승인 조건보다 **느슨하게**
+    풀 수는 없고 더 엄격하게만 조일 수 있다. 그래서 `rvol_required`는 둘 중 하나라도
+    True면 True이고, RVOL도 더 높은 쪽을 쓴다(2026-11-18 14:25 원복이
+    `data/strategy_params.json` 상태와 무관하게 집행된다).
+    """
+    out = dict(DIP_THRESHOLDS)
+    for k, v in (strategy_filters or {}).items():
+        if k in out and v is not None:
+            out[k] = v
+    ap = approval_conditions or {}
+    for key in ("rsi2_max", "pct_b_max", "rvol_min"):
+        if ap.get(key) is None:
+            continue
+        try:
+            a, b = float(out[key]), float(ap[key])
+        except (TypeError, ValueError):
+            continue
+        out[key] = max(a, b) if key == "rvol_min" else min(a, b)
+    out["rvol_required"] = bool(out.get("rvol_required")) or bool(ap.get("rvol_required"))
+    out["rvol_bonus_max"] = float(out.get("rvol_bonus_max") or 20.0)
+    return out
 
 
 def intraday_atr_pct(bars: List[Dict[str, float]]) -> Optional[float]:

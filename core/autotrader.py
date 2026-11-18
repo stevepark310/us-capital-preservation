@@ -473,7 +473,7 @@ class AutonomousTrader:
         clock = market["clock"]
         quotes = market.get("quotes") or {}
         params = params or self._strategy_params()
-        filters = params.get("entry_filters") or {}
+        filters = self._entry_filters(params)
         minutes_into = session_time.session_minutes(session_time.kst_hhmm(clock)) - session_time.session_minutes("23:30")
         cands: List[Dict[str, Any]] = []
 
@@ -486,7 +486,7 @@ class AutonomousTrader:
             scan = entry_signals.dip_daily(market.get("daily") or {}, DIP_UNIVERSE, filters)
             for sig in scan.get("signals") or []:
                 cands.append({"source": "DIP_SWING_DAILY", "ticker": sig.get("symbol"),
-                              "signal": sig, "why": f"RSI2 {sig.get('rsi2')} · %B {sig.get('pct_b')} · RVOL {sig.get('rvol')}(가점)",
+                              "signal": sig, "why": f"RSI2 {sig.get('rsi2')} · %B {sig.get('pct_b')} · RVOL {sig.get('rvol')}(필수)",
                               "atr_pct": sig.get("atr_pct")})
         # 3) DIP_SWING — 장중 등급 신호(신중 모드 규칙: 00:00 이후)
         if minutes_into >= 30:
@@ -495,7 +495,7 @@ class AutonomousTrader:
                 cands.append({"source": "DIP_SWING_INTRADAY", "ticker": sig.get("symbol"),
                               "signal": sig,
                               "why": (f"5분봉 RSI2 {sig.get('rsi2')} · %B {sig.get('pct_b')} · "
-                                      f"RVOL {sig.get('rvol')}(가점 {sig.get('rvol_bonus') or 0}) · 점수 {sig.get('score')}"),
+                                      f"RVOL {sig.get('rvol')}(필수 ≥{filters.get('rvol_min')}) · 점수 {sig.get('score')}"),
                               "atr_pct": sig.get("atr_pct")})
         # 4) BEAR ALPHA — VIX ≥ 24 + 확인 1개(가격구조 포함, 2026-11-18 완화)
         structure = self._price_structure(market)
@@ -825,7 +825,21 @@ class AutonomousTrader:
                     "sl_min_pct": 1.5, "sl_max_pct": 15.0,
                     "max_hold_sessions": 3, "risk_scale": 1.0,
                     "entry_filters": {"rsi2_max": 20.0, "pct_b_max": 0.15, "rvol_min": 1.0,
-                                      "rvol_required": False}}
+                                      "rvol_required": True}}
+
+    def _entry_filters(self, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """집행에 실제로 쓰는 진입 필터 — 전략 파라미터 + 승인 조건(하한)."""
+        p = params or self._strategy_params()
+        return entry_signals.resolve_entry_filters(p.get("entry_filters"),
+                                                  self._approval_entry_conditions())
+
+    def _approval_entry_conditions(self) -> Dict[str, Any]:
+        """승인 조건 정본 — `config/swing_approval.json entry_conditions`.
+
+        RVOL 필수(`rvol_required`) 같은 승인 조건은 전략 파라미터보다 우선하는 하한이라,
+        이걸 읽지 않으면 config를 원복해도 집행이 따라오지 않는다(2026-11-18 14:25 원복).
+        """
+        return ((self.policy.get("swing_approval") or {}).get("entry_conditions") or {})
 
     def _bracket_spec(self, source: Optional[str]) -> Dict[str, Any]:
         """진입 신호 → 브래킷 규격(일봉/장중/C5 분리). config가 정본, 코드는 폴백."""
