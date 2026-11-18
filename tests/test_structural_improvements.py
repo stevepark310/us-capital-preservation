@@ -140,10 +140,32 @@ def test_approval_condition_is_a_floor_over_strategy_params():
     assert tighter_band["pct_b_max"] == 0.10
 
 
+def test_dip_daily_requires_rvol_on_real_path():
+    """일봉 채널도 거래량 없는 과매도를 사지 않는다(승인 조건 집행 확인)."""
+    idx = pd.date_range("2026-06-01", periods=80, freq="B")
+    close = [100.0] * 70 + [99.0, 97.0, 94.0, 90.0, 85.0, 80.0, 76.0, 73.0, 71.0, 69.0]
+    vol = [1_000_000] * 79 + [500_000]                       # RVOL 0.5
+    df = pd.DataFrame({"Close": close, "High": [c * 1.01 for c in close],
+                       "Low": [c * 0.99 for c in close], "Volume": vol}, index=idx)
+    scan = entry_signals.dip_daily({"SOXL": df}, ["SOXL"], None)
+    assert scan["signals"] == []
+    assert "RVOL" in scan["watch"][0]["why_not"] and "필수" in scan["watch"][0]["why_not"]
+    hot = df.copy()
+    hot.loc[hot.index[-1], "Volume"] = 3_000_000                # RVOL 3.0
+    assert len(entry_signals.dip_daily({"SOXL": hot}, ["SOXL"], None)["signals"]) == 1
+
+
 def test_live_strategy_params_require_rvol():
     """집행이 읽는 data/strategy_params.json 도 필수(true)다."""
     assert strategy_evolver.load_params()["entry_filters"]["rvol_required"] is True
     assert strategy_evolver.BASE_PARAMS["entry_filters"]["rvol_required"] is True
+
+
+def test_approval_state_flags_rvol_drift():
+    """승인 기록과 실행 기본값이 어긋나면 approval_state가 짚어 준다."""
+    st = swing_engine.approval_state()
+    assert st["param_checks"]["rvol_required"] is True
+    assert st["params_consistent"] is True
 
 
 def test_trader_entry_filters_ignore_loose_strategy_file(trader, monkeypatch):

@@ -16,11 +16,11 @@
 |---|---|
 | C5 파일럿 | **적용**. 60일 단일 레그 +$14.64(58건, 승률 46.6%) · 5일 −$7.81(5건) |
 | ① 숏 게이트 1-of-1 | **적용**. 60일 발동 사이클 0 → 29회, 숏 체결 3건(손익 ≈ $0). VIX 하한 24.0은 코드로 고정 |
-| ② RVOL 가점 전환 | **적용**. 단, **60일 표본에서 기대값 악화(−$10.6 ~ −$10.9)** — 5일 표본에서만 개선. 아래 §4 참조 |
+| ② RVOL 가점 전환 | **원복**(2026-11-18 14:25). 60일 기대값 −$10.9 · 5일 +$2.34였고, 사용자 판단("기대값을 낮춘다면 리스크는 같은데 수익만 적다")으로 **RVOL ≥ 1.0 필수 복귀**. 아래 §4-5, §7 참조 |
 | ③ 브래킷 규격 분리 | **적용**. 장중 트레일 **0.9×ATR 유지**(일괄 1.5는 5일 −$2.72→−$7.75, 60일 −$31.29→−$44.80로 악화). 넓히는 것은 일봉 스윙(ATR×1.5 대칭)에만 |
 | 불변 가드레일 | 6개 전부 유지(현금 $150 · 일손실 $25 · NVDA 173/150 · VIX≥28 금지 · ask_before_trade false · 1회 예산 $150) |
-| 테스트 | `pytest` **107 passed** (신규 34건: C5 15 · 구조 19) |
-| dry-run | `scripts/autotrader.py --dry-run` 정상(2026-11-18 11:49 KST, OFF_HOURS, 주문 0) |
+| 테스트 | `pytest` **113 passed** (C5 15 · 구조 25) |
+| dry-run | `scripts/autotrader.py --dry-run` 정상(2026-11-18 14:31 KST 재확인, OFF_HOURS, 주문 0) |
 
 **전체 Before → After(적용본)**: 5거래일 −$3.00 → **−$11.74**, 60거래일 −$27.21 → **−$15.56**.
 60일은 개선(+$11.65), 5일은 C5 5건(−$7.81) 때문에 악화. 5일 표본은 연구 문서에서도 C5가 중립(+$0.10, 2레그)이었던 창이다.
@@ -65,11 +65,15 @@
 - `HEDGE_NOTIONAL_CAP $60`은 유지 → SOXS·SQQQ 각 1주. 슬롯 상한($60)이 예산 하한($150)보다 작아도
   주문이 막히지 않도록 하한 계산은 `min(하한, raw, 슬롯)` (11-18 10:30 수정 유지). C5 인버스는 별도 $150 슬롯.
 
-### ② RVOL 필수 → 가점
-- 필수 조건은 **RSI2 ≤ 20 · %B ≤ 0.15**만. RVOL ≥ 1.0은 점수 가점(최대 +20점)으로 전환.
-- 신호는 점수 순 정렬 → 세션 3건 한도 안에서 더 깊은 과매도·거래량 실린 신호가 먼저 간다.
-- **방어 모드(strategy_evolver)에서는 다시 필수**(RVOL ≥ 1.5). 손실 축소 방향은 자동 적용된다.
-- 일봉 채널(`swing_engine.signal_row`)도 같은 규칙(`rvol_required`).
+### ② RVOL — 11:37 가점 전환 → **14:25 필수로 원복(현행)**
+- 현행: 필수 조건은 **RSI2 ≤ 20 · %B ≤ 0.15 · RVOL ≥ 1.0** 세 가지. 셋 다 통과해야 신호다.
+- RVOL이 1.0을 넘는 신호는 점수 가점(최대 +20점)을 받아 같은 세션 3건 한도 안에서 우선순위를 정한다.
+- 승인 조건은 **하한**으로 집행된다: `core/entry_signals.resolve_entry_filters`가
+  `config/swing_approval.json entry_conditions`와 `data/strategy_params.json entry_filters`를 합칠 때
+  더 엄격한 쪽을 쓴다(RVOL 최소값은 큰 쪽, RSI2·%B 상한은 작은 쪽, `rvol_required`는 OR).
+  전략 파일이 느슨해져도 승인 조건을 풀 수 없고, 방어 모드(RVOL ≥ 1.5·%B ≤ 0.10)처럼 조이는 것은 그대로 먹는다.
+- 일봉 채널(`swing_engine.signal_row`)도 같은 규칙(`rvol_required=True`).
+- 11:37~14:15 사이 적용본의 측정: 5일 +$2.34, **60일 −$10.9**(추가된 RVOL<1 진입의 건당 기대값 −$0.67).
 
 ### ③ 브래킷 규격 분리 (`core/bracket_specs.py`)
 | 신호 | class | ATR 기준 | 손절 | 익절/청산 |
@@ -94,14 +98,14 @@
 | 파일 | 변경 |
 |---|---|
 | `core/bracket_specs.py` | **신규** — 진입 채널별 브래킷 규격 표(일봉/장중/C5/이벤트) |
-| `core/entry_signals.py` | C5 신호·블랙아웃·방향 판정, 숏 게이트 1-of-1 + VWAP 가격구조, `dip_signal_from_metrics`(RVOL 가점), 5분봉 ATR 헬퍼 |
+| `core/entry_signals.py` | C5 신호·블랙아웃·방향 판정, 숏 게이트 1-of-1 + VWAP 가격구조, `dip_signal_from_metrics`(RVOL 필수), `resolve_entry_filters`(승인 조건=하한), 5분봉 ATR 헬퍼 |
 | `core/autotrader.py` | `_c5_candidate`·`_c5_done_today`·`_c5_conflict`·`_c5_status`, `_new_bracket` 규격 라우팅, 후보 우선순위에 C5, 상태에 `c5_pilot`·`bracket_class` |
 | `core/exit_rules.py` | chandelier_v2에 세션 종가 청산(`force_exit_kst`) 추가, 문서·주석 갱신 |
-| `core/swing_engine.py` | `rvol_required` 지원(RVOL 가점) |
-| `core/strategy_evolver.py` | `rvol_required` 기본 False, 방어 모드에서 RVOL 1.5 필수 복귀, 트레일 클램프 0.60~1.20 유지 |
+| `core/swing_engine.py` | `rvol_required` 지원(현행 True = RVOL 필수, 14:25 원복) |
+| `core/strategy_evolver.py` | `rvol_required` 기본 True, 방어 모드에서 RVOL 1.5·%B 0.10으로 강화, 트레일 클램프 0.60~1.20 유지 |
 | `core/execution_policy.py` | 위임 경계 문서 갱신(11-18 승인 반영), `c5_pilot`·`bracket_specs`·`bear_alpha_gate` 정책 노출 |
-| `config/swing_approval.json` | `c5_pilot`·`bear_alpha_gate`·`bracket_specs` 블록, `entry_sources`에 C5, `entry_conditions.rvol_required=false`, `preserved_controls.guardrails_20261118` |
-| `data/strategy_params.json` | `rvol_required=false`, 트레일 0.9 유지 사유 기록 |
+| `config/swing_approval.json` | `c5_pilot`·`bear_alpha_gate`·`bracket_specs` 블록, `entry_sources`에 C5, `entry_conditions.rvol_required=true`(14:25 원복), `preserved_controls.guardrails_20261118` |
+| `data/strategy_params.json` | `rvol_required=true`, 트레일 0.9 유지 사유 기록 |
 | `tests/test_c5_pilot.py` | 신규 15건 |
 | `tests/test_structural_improvements.py` | 신규 19건 |
 | `scripts/research/run_after_ab.py` | 신규 — Before/After A/B 하네스(프로덕션 함수 직접 호출, feature-detect로 구버전 코드도 재현) |
@@ -152,8 +156,8 @@
 1. **C5는 60일에서만 플러스**(+$14.64/58건, 건당 +$0.25). 5일 5건 −$7.81로 표본 의존이 크다 — t=0.71(연구) 그대로.
    단일 레그라 연구의 2레그 합(+$40.09)보다 작다. 2주 파일럿 후 판정이 맞다.
 2. **RVOL 가점은 60일 표본에서 기대값을 떨어뜨렸다**(추가된 RVOL<1 진입의 건당 기대값 약 −$0.67).
-   연구의 11-12 사례(단일일)는 60일로 일반화되지 않았다. 이 판단은 사용자 몫이며, 되돌리는 방법은 한 줄이다:
-   `config/swing_approval.json entry_conditions.rvol_required = true`.
+   연구의 11-12 사례(단일일)는 60일로 일반화되지 않았다. 사용자가 2026-11-18 14:25 이 항목만 원복을 지시해
+   `entry_conditions.rvol_required = true`로 돌렸다(§7).
 3. 일봉 채널 교체는 이 창에서 손익 중립(모두 3세션 시간청산, 표본 20건) — 구조 정합성 목적으로 유지.
 4. C5는 하루 1건을 세션 3건 한도에 포함시키고 보유 종목을 점유하므로 DIP 건수를 줄인다(60일 DIP 99 → 54).
    이 크라우드아웃이 5일 손익을 더 나쁘게 만든 주된 경로다.
@@ -177,6 +181,34 @@
 | 항목 | 방법 |
 |---|---|
 | C5 파일럿 중단 | `config/swing_approval.json → autonomous_execution.c5_pilot.enabled = false` |
-| RVOL 필수 복귀 | `entry_conditions.rvol_required = true` |
+| RVOL 필수 | **원복 완료**(2026-11-18 14:25, `entry_conditions.rvol_required = true`). 다시 가점으로 돌리려면 `false` — 60일 −$10.9라 권장하지 않음 |
 | 숏 게이트 2-of-2 복귀 | `autonomous_execution.bear_alpha_gate.confirmations_required = 2` |
 | 브래킷 규격 | `autonomous_execution.bracket_specs` 값 수정(코드 배포 불필요, 다음 사이클 반영) |
+
+---
+
+## 7. 2026-11-18 14:25 — RVOL 필수 원복 기록
+
+사용자 지시(14:25): "기대값을 낮췄다는건 그만큼 리스크는 있고 수익은 적다는거지? 그러면 이걸 적용하지 않는게 좋을듯해."
+→ 구조 개선 ②만 취소하고 ①(숏 게이트 1-of-1)·③(브래킷 분리·장중 0.9 ATR)·C5 파일럿은 그대로 둔다.
+
+| 변경 | 값 |
+|---|---|
+| `config/swing_approval.json entry_conditions` | `rvol_required: false → true`, `rvol_history`(11:37 가점 → 14:25 원복, 지시 원문) 기록 |
+| `data/strategy_params.json entry_filters` | `rvol_required: false → true` (집행 파라미터) |
+| `core/entry_signals.py` | `DIP_THRESHOLDS.rvol_required=True`, `resolve_entry_filters()` 신설(승인 조건=하한) |
+| `core/swing_engine.py` | `DIP_PARAMS.rvol_required=True`, 차단 사유 문구 "RVOL x<1.0(필수)" |
+| `core/strategy_evolver.py` | `BASE_PARAMS.entry_filters.rvol_required=True`, DEFENSIVE_OFF 문구 |
+| `core/autotrader.py` | `_entry_filters()`로 승인 조건을 합쳐 신호 계산에 전달(`_approval_entry_conditions`) |
+| `tests/test_structural_improvements.py` | ② 테스트 재작성(RVOL 차단·하한 병합·집행 경로 6건 추가) |
+
+검증(실행 결과 그대로):
+```
+effective filters: {"rsi2_max": 20.0, "pct_b_max": 0.15, "rvol_min": 1.0, "rvol_required": true, "rvol_bonus_max": 20.0}
+RVOL 0.66 → 신호 없음 "RVOL 0.66<1.0(필수)" · RVOL 1.42 → 신호(점수 58.7)
+숏 게이트 1-of-1(VIX 하한 24.0) · C5 3.0×ATR / 예산 $150 그대로
+체감 영향(최근 60세션 일봉 DIP): 과매도 19회 중 RVOL<1.0로 차단 2회(TQQQ 09-15 0.81, 10-23 0.93) — 실제로 걸러지는 건 저확신 2건
+pytest 113 passed · autotrader --dry-run 정상(OFF_HOURS, 진입 0건 · 주문 2건은 기존 상태 표시)
+```
+주의: 승인 조건을 집행 경로가 실제로 읽게 만든 것이 이번 변경의 핵심이다. 이전에는 `config`만 true로 바꿔도
+`data/strategy_params.json`의 false가 이겨서 RVOL 게이트가 살아나지 않았다.

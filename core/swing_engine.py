@@ -67,6 +67,8 @@ def approval_state() -> Dict[str, Any]:
         "rsi2_max": _eq(cond.get("rsi2_max"), DIP_PARAMS["rsi2_max"]),
         "pct_b_max": _eq(cond.get("pct_b_max"), DIP_PARAMS["pct_b_max"]),
         "rvol_min": _eq(cond.get("rvol_min"), DIP_PARAMS["rvol_min"]),
+        "rvol_required": bool(cond.get("rvol_required", DIP_PARAMS["rvol_required"]))
+                         == bool(DIP_PARAMS["rvol_required"]),
         "max_hold_sessions": _eq(exitr.get("max_hold_sessions"), DIP_PARAMS["max_hold_days"]),
         "atr_bracket_mult": _eq(exitr.get("atr_bracket_mult"), DIP_PARAMS["tp_atr_mult"]),
         "max_positions": _eq(risk.get("max_positions"), DIP_PARAMS["max_positions"]),
@@ -167,11 +169,16 @@ def scan_latest(daily: Dict[str, pd.DataFrame], params: Dict[str, Any] = None) -
             sig["entry_rule"] = "다음 세션 시가 진입 (지정가/시장가), 최대 3세션 보유"
             out["signals"].append(sig)
         else:
+            misses = []
+            if float(row["RSI2"]) > p["rsi2_max"]:
+                misses.append(f"RSI2 {row['RSI2']:.0f}>{p['rsi2_max']:.0f}")
+            if float(row["PCT_B"]) > p["pct_b_max"]:
+                misses.append(f"%B {row['PCT_B']:.2f}>{p['pct_b_max']:.2f}")
+            if p.get("rvol_required", True) and not (np.isfinite(row["RVOL"]) and float(row["RVOL"]) >= p["rvol_min"]):
+                misses.append(f"RVOL {row['RVOL']:.2f}<{p['rvol_min']}(필수)")
             base.update({"rsi2": round(float(row["RSI2"]), 1), "pct_b": round(float(row["PCT_B"]), 3),
                          "rvol": round(float(row["RVOL"]), 2) if np.isfinite(row["RVOL"]) else None,
-                         "why_not": (f"RSI2 {row['RSI2']:.0f}>{p['rsi2_max']:.0f} or %B {row['PCT_B']:.2f}>{p['pct_b_max']:.2f}"
-                                     + (f" or RVOL {row['RVOL']:.1f}<{p['rvol_min']}(필수)"
-                                        if p.get("rvol_required", True) else ""))})
+                         "why_not": " 또는 ".join(misses) or "과매도 신호 없음"})
             out["watch"].append(base)
     out["params"] = p
     return out
