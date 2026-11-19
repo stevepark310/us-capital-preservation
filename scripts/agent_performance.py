@@ -75,10 +75,30 @@ def summarize(ledger: dict, bus: dict) -> dict:
 
 
 def main() -> int:
-    report = summarize(_read(LEDGER, {}), _read(BUS, {}))
+    previous = _read(OUT, {})
+    bus = _read(BUS, {})
+    report = summarize(_read(LEDGER, {}), bus)
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as stream:
         json.dump(report, stream, ensure_ascii=False, indent=2)
+    # Broadcast *newly confirmed* portfolio reward to all ten agents, not
+    # ten fictitious individual profits. Keep the shared feedback auditable.
+    score = report["team_score"]["realized_pnl_usd"]
+    if report["confirmed_trades"] > 0 and (
+        report["confirmed_trades"] != previous.get("confirmed_trades")
+        or score != (previous.get("team_score") or {}).get("realized_pnl_usd")
+    ):
+        from core import collab_bus
+        doc = collab_bus.load()
+        collab_bus.post(
+            doc, 10, "집행·성과 리뷰", "FEEDBACK", "실현손익 기반 10인 공통 성과",
+            (f"체결 검증 청산 {report['confirmed_trades']}건 · 누적 실현손익 "
+             f"${score:.2f} · 전략 변경 PROPOSAL_ONLY. "
+             "모든 데스크는 다음 주기 가설·위험관리 검토에 반영."),
+            to=list(range(1, 11)),
+            metrics={"confirmed_closes": report["confirmed_trades"],
+                     "realized_usd": score, "auto_deployed": False})
+        collab_bus.save(doc)
     print(f"[agent-performance] {report['team_score']['latest_reports']}/10 latest reports; "
           f"{report['confirmed_trades']} confirmed trades; proposed policy only")
     return 0
