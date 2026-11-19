@@ -90,9 +90,9 @@ class NewsSentimentAgent(BaseAgent):
                 "breaking_news": [f"[{h['source']}] {h['title']}" for h in headlines] or ["최근 24시간 내 해당 종목 직접 헤드라인 없음"],
                 "ib_insights": ib,
                 "community_sentiment": {
-                    "source": "SNS(레딧·X) 미연동 → 기관 옵션 포지셔닝으로 대체",
+                    "source": "기관 옵션 포지셔닝",
                     "call_put_ratio": f"QQQ Put/Call OI {pc:.2f}" if pc else "옵션 데이터 수집 전",
-                    "summary": "소셜 버즈는 수집하지 않습니다(연동 없음). 대신 실제 옵션 미결제약정과 뉴스 플로우로 대체합니다.",
+                    "summary": "종목별 참고 지표입니다. 공개 커뮤니티 게시물은 업무보고의 커뮤니티 항목에 표시합니다.",
                 },
                 "news_flow": {
                     "headline_count": s.get("headline_count", 0),
@@ -130,7 +130,8 @@ class NewsSentimentAgent(BaseAgent):
             "scan_timestamp": self.last_run,
             "phase": phase,
             "phase_label": clock.get("label_ko", ""),
-            "hourly_cadence": "EVERY_1_HOUR",
+            "news_fetched_at_kst": payload.get("fetched_at_kst"),
+            "community": context.get("community", {}),
             "data_sources": {
                 "news_feeds_ok": f"{payload.get('feeds_ok')}/{payload.get('feeds_total')}",
                 "news_items": payload.get("item_count", 0),
