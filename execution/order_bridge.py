@@ -50,6 +50,8 @@ ORDERS_LOG = os.path.join(BASE_DIR, "data", "live_order_responses.jsonl")
 DISPATCH_STATE = os.path.join(BASE_DIR, "data", "order_dispatch_state.json")
 ACCOUNT_SNAPSHOT = os.path.join(BASE_DIR, "data", "nh_account_snapshot.json")
 PREMARKET_POLICY = os.path.join(BASE_DIR, "config", "premarket_policy.json")
+LIVE_GATE_PATH = os.path.join(BASE_DIR, "config", "live_execution_gate.json")
+
 
 ACCEPT_CODES = {"00171", "00166", "00000"}
 REJECT_CODES = {"13578", "16156", "IGW40018"}
@@ -279,6 +281,50 @@ class OrderRouter:
         return {"status": "COMPLETED", "run_id": run_id, "conclusion": conclusion, "log": log}
 
     # ------------------------------------------------------------------ orders
+    def _live_pretrade_check(self, ticker: str, side: str, qty: int, price: float) -> Dict[str, Any]:
+        """Read NH directly before each live order: never use the cached dashboard ledger."""
+        gate = _load(LIVE_GATE_PATH)
+        if gate.get("enabled") is not True:
+            return {"ok": False, "reason": "live_execution_gate.enabled is not true"}
+        try:
+            from execution.nh_trader import NHBroker
+            acct = NHBroker(dry_run=False).get_portfolio_state(include_raw=False)
+            if str(acct.get("rsp_cd")) != "00166":
+                return {"ok": False, "reason": "NH balance rsp_cd != 00166"}
+            equity = float(acct["equity"])
+            cash = float(acct["cash"])
+            if not (0 < equity < 1e12 and 0 <= cash < 1e12):
+                return {"ok": False, "reason": "NH balance is invalid"}
+            holdings = acct.get("positions")
+            if not isinstance(holdings, dict):
+                return {"ok": False, "reason": "NH holdings are unavailable"}
+            if side == "BUY":
+                # fc_dca is a balance, not a guaranteed orderable-cash quote.
+                # Keep both the NH live balance and the local ledger as conservative caps,
+                # and require a reserve; do not treat unsettled proceeds as buying power.
+                ledger = _load(os.path.join(BASE_DIR, "data", "live_portfolio.json"))
+                ledger_cash = ledger.get("cash_deposit_usd", ledger.get("cash_buffer_usd"))
+                if ledger_cash is None:
+                    return {"ok": False, "reason": "Ledger cash is missing"}
+                spendable = min(cash, float(ledger_cash))
+                reserve = 150.0
+                if qty * price > max(0.0, spendable - reserve) + 1e-6:
+                    return {"ok": False, "reason": "Fresh NH/ledger cash minus reserve cannot cover order",
+                            "nh_cash_usd": round(cash, 2), "conservative_cash_usd": round(spendable, 2)}
+                if ticker in holdings and int((holdings[ticker] or {}).get("qty") or 0) > 0:
+                    return {"ok": False, "reason": "Existing NH position; averaging down blocked"}
+                return {"ok": True, "nh_equity_usd": round(equity, 2),
+                        "nh_cash_usd": round(cash, 2), "conservative_cash_usd": round(spendable, 2)}
+            holding = holdings.get(ticker) or {}
+            sellable = int(holding.get("sellable_qty") or 0)
+            if sellable < qty:
+                return {"ok": False, "reason": "NH sellable shares insufficient",
+                        "sellable_qty": sellable}
+            return {"ok": True, "nh_equity_usd": round(equity, 2),
+                    "sellable_qty": sellable}
+        except Exception as exc:
+            return {"ok": False, "reason": "NH read failed: " + type(exc).__name__}
+
     @staticmethod
     def idempotency_key(session_date: str, ticker: str, side: str, qty: int, price: float,
                         order_type: str = "00") -> str:
@@ -336,6 +382,16 @@ class OrderRouter:
             self._append_log(record)
             return record
 
+        # Every cloud live order must refresh NH holdings and cash immediately before submission.
+        # A failed/ambiguous account read blocks the order instead of falling back to stale data.
+        if os.getenv("GITHUB_ACTIONS") == "true":
+            check = self._live_pretrade_check(ticker, side, qty, price)
+            record["pretrade"] = check
+            if not check.get("ok"):
+                record.update({"status": "BLOCKED_PREFLIGHT", "error": check.get("reason")})
+                self._append_log(record)
+                return record
+
         # 1) 로컬에서 NH API가 열려 있으면 직접 발주(러너 안에서 돌 때)
         direct = self._try_direct(ticker, side, qty, price, code)
         if direct is not None:
@@ -389,8 +445,11 @@ class OrderRouter:
             code = str((res or {}).get("rsp_cd") or "")
             return {"status": "SUBMITTED" if code in ACCEPT_CODES else "REJECTED",
                     "response": res, "orr_no": ((res or {}).get("Output_0") or {}).get("orr_no")}
-        except Exception:
-            return None
+        except Exception as exc:
+            # Timeout/network failure is ambiguous: NH may have accepted the order.
+            # Never dispatch a second order while the first result is uncertain.
+            return {"status": "UNKNOWN_NEEDS_RECONCILE",
+                    "error": "Direct NH order outcome ambiguous: " + type(exc).__name__}
 
     @staticmethod
     def _append_log(record: Dict[str, Any]) -> None:
