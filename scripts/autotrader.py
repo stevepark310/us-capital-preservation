@@ -115,8 +115,11 @@ def main(argv=None) -> int:
                 live_gate = json.load(handle)
         except (OSError, ValueError):
             live_gate = {}
-        if not isinstance(live_gate, dict) or live_gate.get("enabled") is not True:
-            print("[autotrader] BLOCKED: explicit live execution gate is disabled")
+        from core import market_clock
+        from core.live_session_gate import check_live_gate
+        authorization = check_live_gate(live_gate, market_clock.resolve())
+        if not authorization["ok"]:
+            print(f"[autotrader] BLOCKED: {authorization['reason']}")
             return 2
     if not execute and "--dry-run" not in args:
         print("사용법: python3 scripts/autotrader.py --execute | --dry-run | --status")

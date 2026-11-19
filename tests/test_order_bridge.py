@@ -12,6 +12,13 @@ def isolated_github_actions(monkeypatch):
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def mock_us_market_clock(monkeypatch):
+    from core import market_clock
+    monkeypatch.setattr(market_clock, "resolve",
+                        lambda: {"phase": "REGULAR", "session_date": "2026-11-19"})
+
+
 LOG_BUY = """execute-nh-trade\tRun NH Trade / Monitor\t2026-11-17T02:15:13.3747836Z Token issued: True
 execute-nh-trade\tRun NH Trade / Monitor\t2026-11-17T02:15:13.3752396Z {
 execute-nh-trade\tRun NH Trade / Monitor\t2026-11-17T02:15:13.3755203Z   "Output_0": {
@@ -168,7 +175,7 @@ def test_account_state_parsed_from_dispatch(tmp_path, monkeypatch):
 def test_cloud_pretrade_blocks_insufficient_cash(tmp_path, monkeypatch):
     monkeypatch.setattr(ob, "LIVE_GATE_PATH", str(tmp_path / "gate.json"))
     monkeypatch.setattr(ob, "BASE_DIR", str(tmp_path))
-    (tmp_path / "gate.json").write_text('{"enabled":true}', encoding="utf-8")
+    (tmp_path / "gate.json").write_text('{"enabled":true,"session_date":"2026-11-19","expires_at_kst":"2099-01-01 06:00:00","max_buy_order_usd":65,"max_session_buy_usd":120,"max_session_buy_orders":2}', encoding="utf-8")
     (tmp_path / "data").mkdir()
     (tmp_path / "data" / "live_portfolio.json").write_text(
         '{"cash_deposit_usd":160}', encoding="utf-8")
@@ -186,7 +193,7 @@ def test_cloud_pretrade_blocks_insufficient_cash(tmp_path, monkeypatch):
 
 def test_cloud_pretrade_blocks_unsellable_shares(tmp_path, monkeypatch):
     monkeypatch.setattr(ob, "LIVE_GATE_PATH", str(tmp_path / "gate.json"))
-    (tmp_path / "gate.json").write_text('{"enabled":true}', encoding="utf-8")
+    (tmp_path / "gate.json").write_text('{"enabled":true,"session_date":"2026-11-19","expires_at_kst":"2099-01-01 06:00:00","max_buy_order_usd":65,"max_session_buy_usd":120,"max_session_buy_orders":2}', encoding="utf-8")
     from execution import nh_trader
     monkeypatch.setattr(nh_trader, "NHBroker", lambda dry_run=False: type("FakeNH", (), {
         "get_order_capacity": lambda self, ticker, side, price: {
@@ -202,7 +209,7 @@ def test_cloud_pretrade_blocks_unsellable_shares(tmp_path, monkeypatch):
 
 def test_cloud_pretrade_blocks_failed_nh_response(tmp_path, monkeypatch):
     monkeypatch.setattr(ob, "LIVE_GATE_PATH", str(tmp_path / "gate.json"))
-    (tmp_path / "gate.json").write_text('{"enabled":true}', encoding="utf-8")
+    (tmp_path / "gate.json").write_text('{"enabled":true,"session_date":"2026-11-19","expires_at_kst":"2099-01-01 06:00:00","max_buy_order_usd":65,"max_session_buy_usd":120,"max_session_buy_orders":2}', encoding="utf-8")
     from execution import nh_trader
     monkeypatch.setattr(nh_trader, "NHBroker", lambda dry_run=False: type("FakeNH", (), {
         "get_order_capacity": lambda self, ticker, side, price: {

@@ -283,25 +283,47 @@ class OrderRouter:
     # ------------------------------------------------------------------ orders
     def _live_pretrade_check(self, ticker: str, side: str, qty: int, price: float) -> Dict[str, Any]:
         """Read NH directly before each live order: never use the cached dashboard ledger."""
+        from core import market_clock
+        from core.live_session_gate import check_live_gate
         gate = _load(LIVE_GATE_PATH)
-        if gate.get("enabled") is not True:
-            return {"ok": False, "reason": "live_execution_gate.enabled is not true"}
+        authorized = check_live_gate(gate, market_clock.resolve())
+        if not authorized["ok"]:
+            return authorized
+        if side == "BUY" and qty * price > authorized["max_buy_order_usd"] + 1e-6:
+            return {"ok": False, "reason": "live per-order buy cap exceeded"}
         try:
             from execution.nh_trader import NHBroker
-            acct = NHBroker(dry_run=False).get_portfolio_state(include_raw=False)
+            broker = NHBroker(dry_run=False)
+            acct = broker.get_portfolio_state(include_raw=False)
             if str(acct.get("rsp_cd")) != "00166":
                 return {"ok": False, "reason": "NH balance rsp_cd != 00166"}
             equity = float(acct["equity"])
             cash = float(acct["cash"])
             if not (0 < equity < 1e12 and 0 <= cash < 1e12):
                 return {"ok": False, "reason": "NH balance is invalid"}
-            capacity = NHBroker(dry_run=False).get_order_capacity(ticker, side, price)
+            capacity = broker.get_order_capacity(ticker, side, price)
             if str(capacity.get("rsp_cd")) != "00166":
                 return {"ok": False, "reason": "NH order-capacity inquiry failed"}
             holdings = acct.get("positions")
             if not isinstance(holdings, dict):
                 return {"ok": False, "reason": "NH holdings are unavailable"}
             if side == "BUY":
+                # Accepted and ambiguous session orders consume the daily BUY cap.
+                live_statuses = {"SUBMITTED", "DISPATCHED", "PENDING",
+                                 "UNKNOWN_NEEDS_RECONCILE", "RUN_NOT_FOUND", "UNPARSED"}
+                prior = [
+                    x for x in (self._recent().get("runs") or [])
+                    if x.get("session_date") == authorized["session_date"]
+                    and x.get("side") == "BUY" and x.get("status") in live_statuses
+                ]
+                if any(x.get("ticker") == ticker for x in prior):
+                    return {"ok": False, "reason": "Already submitted buy for this symbol/session"}
+                if len(prior) >= authorized["max_session_buy_orders"]:
+                    return {"ok": False, "reason": "Maximum session buy orders reached"}
+                used = sum(float(x.get("qty") or 0) * float(x.get("price") or 0)
+                           for x in prior)
+                if used + qty * price > authorized["max_session_buy_usd"] + 1e-6:
+                    return {"ok": False, "reason": "Maximum session buy notional reached"}
                 # fc_dca is a balance, not a guaranteed orderable-cash quote.
                 # Keep both the NH live balance and the local ledger as conservative caps,
                 # and require a reserve; do not treat unsettled proceeds as buying power.
@@ -359,6 +381,7 @@ class OrderRouter:
         record: Dict[str, Any] = {
             "ts": now_kst_str(), "ts_utc": datetime.now(timezone.utc).isoformat(),
             "side": side, "ticker": ticker, "qty": qty, "price": price,
+            "session_date": session_date or now_kst_str()[:10],
             "order_type": code, "reason": reason, "idempotency_key": key,
             "channel": "github_actions" if not dry else "dry_run",
         }
@@ -410,7 +433,7 @@ class OrderRouter:
             record["channel"] = "direct_nh"
             self._append_log(record)
             self._record_dispatch(key, {"ts_utc": record["ts_utc"], "status": record["status"],
-                                        "ticker": ticker, "side": side, "qty": qty, "price": price,
+                                        "ticker": ticker, "side": side, "qty": qty, "price": price, "session_date": record["session_date"],
                                         "order_type": code,
                                         "channel": "direct_nh", "orr_no": record.get("orr_no")})
             return record
@@ -423,7 +446,7 @@ class OrderRouter:
             record.update({"status": result.get("status"), "error": result.get("error")})
             self._append_log(record)
             self._record_dispatch(key, {"ts_utc": record["ts_utc"], "status": record["status"],
-                                        "ticker": ticker, "side": side, "qty": qty, "price": price, "order_type": code})
+                                        "ticker": ticker, "side": side, "qty": qty, "price": price, "session_date": record["session_date"], "order_type": code})
             return record
 
         record["run_id"] = result.get("run_id")
@@ -437,7 +460,7 @@ class OrderRouter:
             record["error"] = "워크플로우 실패 — 로그의 rsp_cd를 확인하세요."
         self._append_log(record)
         self._record_dispatch(key, {"ts_utc": record["ts_utc"], "status": record["status"],
-                                    "ticker": ticker, "side": side, "qty": qty, "price": price,
+                                    "ticker": ticker, "side": side, "qty": qty, "price": price, "session_date": record["session_date"],
                                     "order_type": code,
                                     "run_id": record.get("run_id"), "orr_no": record.get("orr_no")})
         return record

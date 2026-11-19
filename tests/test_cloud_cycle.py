@@ -113,7 +113,7 @@ def test_failed_initial_sync_blocks_every_order(sandbox, monkeypatch):
 def test_enabled_gate_requires_successful_nh_preflight(sandbox, monkeypatch):
     tmp, calls = sandbox
     monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: REGULAR)
-    (tmp / "live_execution_gate.json").write_text('{"enabled":true}', encoding="utf-8")
+    (tmp / "live_execution_gate.json").write_text('{"enabled":true,"session_date":"2026-11-18","expires_at_kst":"2099-01-01 06:00:00","max_buy_order_usd":65,"max_session_buy_usd":120,"max_session_buy_orders":2}', encoding="utf-8")
     monkeypatch.setattr(cc, "_team_preflight", lambda: {"ok": True})
     monkeypatch.setattr(cc, "_live_account_preflight",
                         lambda: {"ok": False, "reason": "NH account mismatch"})
@@ -126,7 +126,7 @@ def test_enabled_gate_requires_successful_nh_preflight(sandbox, monkeypatch):
 def test_enabled_gate_with_preflight_runs_only_one_execution_engine(sandbox, monkeypatch):
     tmp, calls = sandbox
     monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: REGULAR)
-    (tmp / "live_execution_gate.json").write_text('{"enabled":true}', encoding="utf-8")
+    (tmp / "live_execution_gate.json").write_text('{"enabled":true,"session_date":"2026-11-18","expires_at_kst":"2099-01-01 06:00:00","max_buy_order_usd":65,"max_session_buy_usd":120,"max_session_buy_orders":2}', encoding="utf-8")
     monkeypatch.setattr(cc, "_team_preflight", lambda: {"ok": True})
     monkeypatch.setattr(cc, "_live_account_preflight", lambda: {"ok": True})
     out = cc.market_cycle()
@@ -157,7 +157,7 @@ def test_partial_cycle_returns_nonzero_exit_code(sandbox, monkeypatch):
 def test_live_execution_fails_closed_on_stale_agent_reporting(sandbox, monkeypatch):
     tmp, calls = sandbox
     monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: REGULAR)
-    (tmp / "live_execution_gate.json").write_text('{"enabled":true}', encoding="utf-8")
+    (tmp / "live_execution_gate.json").write_text('{"enabled":true,"session_date":"2026-11-18","expires_at_kst":"2099-01-01 06:00:00","max_buy_order_usd":65,"max_session_buy_usd":120,"max_session_buy_orders":2}', encoding="utf-8")
     monkeypatch.setattr(cc, "_team_preflight",
                         lambda: {"ok": False, "reason": "stale", "missing_agents": [4]})
     monkeypatch.setattr(cc, "_live_account_preflight",

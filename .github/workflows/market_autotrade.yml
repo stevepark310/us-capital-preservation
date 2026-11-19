@@ -8,6 +8,11 @@ name: CUBE Market Autotrade (10m)
 on:
   schedule:
     - cron: "*/10 13-21 * * 1-5"
+  # Trigger one immediate guarded market cycle when today's live gate is changed.
+  push:
+    branches: [main]
+    paths:
+      - 'config/live_execution_gate.json'
   workflow_dispatch:
     inputs:
       dry_run:
