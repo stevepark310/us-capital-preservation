@@ -317,7 +317,16 @@ def run_cycle(every: int = DUTY_EVERY) -> Dict[str, Any]:
     daily = desk_lab.load_daily()
     fp = desk_lab.data_fingerprint(daily)
     as_of = desk_lab.data_as_of(daily)
-    pending = buildup.pending_measurement(doc)
+    if not daily:
+        # 가격 캐시가 없으면 측정할 수 없다 — 빈 데이터로 가설을 만들지 않는다.
+        subject = "검증 데이터 없음 — 가격 캐시 갱신 대기"
+        if not _recent_message(bus, subject, hours=6):
+            collab_bus.post(bus, 7, name(7), "FEEDBACK", subject,
+                            ("일봉 캐시(data_cache/backtest_daily.pkl)가 없어 In/Out-of-Sample 측정을 시작하지 않습니다. "
+                             "`scripts/refresh_price_cache.py`가 캐시를 채운 뒤 같은 후보를 다시 잽니다."),
+                            to=[6, 8, 9], metrics={"캐시": "없음"}, phase=f["phase"])
+        daily = {}
+    pending = buildup.pending_measurement(doc) if daily else []
     hypothesis = None
     measured_now = False
     if pending:
@@ -326,7 +335,7 @@ def run_cycle(every: int = DUTY_EVERY) -> Dict[str, Any]:
     else:
         grid = buildup.candidate_grid(f["params"])
         last_titles = {h.get("title") for h in (doc.get("hypotheses") or []) if h.get("data_fingerprint") == fp}
-        fresh = [g for g in grid if g["title"] not in last_titles]
+        fresh = [g for g in grid if g["title"] not in last_titles] if daily else []
         if fresh:
             item = fresh[0]
             hypothesis = buildup.record_hypothesis(doc, item, owner=2 if item["axis"] == "ENTRY_FILTER" else 2,
@@ -409,7 +418,7 @@ def run_cycle(every: int = DUTY_EVERY) -> Dict[str, Any]:
                       "applied": bool(verdict and verdict.get("applied"))}
     else:
         # 측정할 새 후보가 없다 — 데이터가 그대로라는 사실을 남기고 끝낸다(가짜 활동 금지).
-        subject = "재측정 불필요 — 데이터 동일"
+        subject = "재측정 불필요 — 데이터 동일" if daily else "검증 대기 — 측정할 후보 없음"
         if not _recent_message(bus, subject, hours=6):
             collab_bus.post(bus, 7, name(7), "FEEDBACK", subject,
                             (f"일봉 캐시 기준일 {as_of}(지문 {fp})에서 이번 후보군은 모두 측정 이력이 있습니다. "
