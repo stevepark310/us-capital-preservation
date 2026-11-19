@@ -112,7 +112,7 @@ class CubeOrchestrator:
         self.full_report: Dict[str, Any] = {}
 
     # ------------------------------------------------------------------ context
-    def build_context(self, force_refresh: bool = False) -> Dict[str, Any]:
+    def build_context(self, force_refresh: bool = False, *, refresh_news: bool = False) -> Dict[str, Any]:
         clock = market_clock.resolve()
         snap = market_snapshot.build_snapshot(force_history=force_refresh)
 
@@ -137,7 +137,7 @@ class CubeOrchestrator:
                 stale = age_min > NEWS_TTL_MIN
             except Exception:
                 stale = True
-        if stale or force_refresh:
+        if stale or force_refresh or refresh_news:
             payload = news_engine.fetch_all(quiet=True)
         senti = news_engine.aggregate(payload, snap)
 
