@@ -45,8 +45,8 @@ def test_regular_session_runs_all_stages_in_order(sandbox, monkeypatch):
     (tmp / "avg_anchor_plan.json").write_text(json.dumps({"ladders": [{"ticker": "NVDA"}]}), encoding="utf-8")
     out = cc.market_cycle()
     names = [c[0] for c in calls]
-    assert names == ["원장 동기화", "유령 포지션 점검", "무인 집행", "브래킷 감시(읽기 전용)", "원장 재동기화",
-                     "평단 계획 재생성", "유령 포지션 재점검", "집행 상태 최신화", "대시보드 데이터 발행"]
+    assert names == ["원장 동기화", "유령 포지션 점검", "10인 업무보고", "10인 협업 검증", "무인 집행", "브래킷 감시(읽기 전용)", "원장 재동기화",
+                     "평단 계획 재생성", "유령 포지션 재점검", "집행 상태 최신화", "성과·학습 후보 평가", "대시보드 데이터 발행"]
     auto = dict(calls)["무인 집행"]
     assert auto[-1] == "--dry-run"
     assert dict(calls)["브래킷 감시(읽기 전용)"][-1] == "--dry-run"
@@ -69,7 +69,7 @@ def test_pulse_runs_collab_and_writes_status(sandbox, monkeypatch):
     out = cc.pulse_cycle()
     names = [c[0] for c in calls]
     assert names == ["원장 동기화", "유령 포지션 점검", "집행 상태 최신화", "가격 캐시 갱신",
-                     "10인 업무보고", "협업·빌드업 사이클", "대시보드 렌더"]
+                     "10인 업무보고", "협업·빌드업 사이클", "성과·학습 후보 평가", "대시보드 렌더"]
     saved = json.loads((tmp / "cloud_status.json").read_text(encoding="utf-8"))
     assert saved["pulse"]["result"] == "OK"
     assert saved["last_run"]["mode"] == "pulse"
@@ -113,6 +113,7 @@ def test_enabled_gate_requires_successful_nh_preflight(sandbox, monkeypatch):
     tmp, calls = sandbox
     monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: REGULAR)
     (tmp / "live_execution_gate.json").write_text('{"enabled":true}', encoding="utf-8")
+    monkeypatch.setattr(cc, "_team_preflight", lambda: {"ok": True})
     monkeypatch.setattr(cc, "_live_account_preflight",
                         lambda: {"ok": False, "reason": "NH account mismatch"})
     out = cc.market_cycle()
@@ -125,6 +126,7 @@ def test_enabled_gate_with_preflight_runs_only_one_execution_engine(sandbox, mon
     tmp, calls = sandbox
     monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: REGULAR)
     (tmp / "live_execution_gate.json").write_text('{"enabled":true}', encoding="utf-8")
+    monkeypatch.setattr(cc, "_team_preflight", lambda: {"ok": True})
     monkeypatch.setattr(cc, "_live_account_preflight", lambda: {"ok": True})
     out = cc.market_cycle()
     assert out["result"] == "OK"
@@ -143,9 +145,37 @@ def test_failed_execution_blocks_followup_stages(sandbox, monkeypatch):
     monkeypatch.setattr(cc, "run", fail_execute)
     out = cc.market_cycle()
     assert out["result"] == "BLOCKED_EXECUTION"
-    assert len(calls) == 3
+    assert len(calls) == 5
 
 
 def test_partial_cycle_returns_nonzero_exit_code(sandbox, monkeypatch):
     monkeypatch.setattr(cc, "pulse_cycle", lambda: {"result": "PARTIAL"})
     assert cc.main(["pulse"]) == 1
+
+
+def test_live_execution_fails_closed_on_stale_agent_reporting(sandbox, monkeypatch):
+    tmp, calls = sandbox
+    monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: REGULAR)
+    (tmp / "live_execution_gate.json").write_text('{"enabled":true}', encoding="utf-8")
+    monkeypatch.setattr(cc, "_team_preflight",
+                        lambda: {"ok": False, "reason": "stale", "missing_agents": [4]})
+    monkeypatch.setattr(cc, "_live_account_preflight",
+                        lambda: pytest.fail("NH should not be called when team is stale"))
+    out = cc.market_cycle()
+    assert out["result"] == "BLOCKED_TEAM"
+    assert all("--execute" not in cmd for _, cmd in calls)
+
+
+def test_all_ten_agent_reports_are_required(sandbox):
+    tmp, calls = sandbox
+    now = cc.now_str()
+    state = {str(i): {"line": "ok", "ts_kst": now} for i in range(1, 11)}
+    (tmp / "agent_collab_bus.json").write_text(
+        json.dumps({"agent_state": state}), encoding="utf-8")
+    (tmp / "collab_cycle.json").write_text(
+        json.dumps({"hard_lock": {"ok": True}, "cycle": 8}), encoding="utf-8")
+    assert cc._team_preflight()["ok"] is True
+    state["6"]["line"] = ""
+    (tmp / "agent_collab_bus.json").write_text(
+        json.dumps({"agent_state": state}), encoding="utf-8")
+    assert cc._team_preflight()["missing_agents"] == [6]
