@@ -368,7 +368,8 @@ class OrderRouter:
                 return record
 
         dup = self._recent_duplicate(key)
-        if dup and dup.get("status") in ("SUBMITTED", "DISPATCHED", "PENDING"):
+        if dup and dup.get("status") in ("SUBMITTED", "DISPATCHED", "PENDING",
+                                         "UNKNOWN_NEEDS_RECONCILE", "RUN_NOT_FOUND", "UNPARSED"):
             record.update({"status": "DUPLICATE_BLOCKED", "duplicate_of": dup})
             self._append_log(record)
             return record
