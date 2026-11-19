@@ -168,6 +168,9 @@ def test_cloud_pretrade_blocks_insufficient_cash(tmp_path, monkeypatch):
         '{"cash_deposit_usd":160}', encoding="utf-8")
     from execution import nh_trader
     monkeypatch.setattr(nh_trader, "NHBroker", lambda dry_run=False: type("FakeNH", (), {
+        "get_order_capacity": lambda self, ticker, side, price: {
+            "rsp_cd": "00166", "currency": "USD", "orderable_usd": 500,
+            "sellable_qty": 1},
         "get_portfolio_state": lambda self, include_raw=False: {
             "rsp_cd": "00166", "equity": 300, "cash": 200, "positions": {}}})())
     result = ob.OrderRouter(dry_run=False)._live_pretrade_check("SOXL", "BUY", 1, 40)
@@ -180,6 +183,9 @@ def test_cloud_pretrade_blocks_unsellable_shares(tmp_path, monkeypatch):
     (tmp_path / "gate.json").write_text('{"enabled":true}', encoding="utf-8")
     from execution import nh_trader
     monkeypatch.setattr(nh_trader, "NHBroker", lambda dry_run=False: type("FakeNH", (), {
+        "get_order_capacity": lambda self, ticker, side, price: {
+            "rsp_cd": "00166", "currency": "USD", "orderable_usd": 500,
+            "sellable_qty": 1},
         "get_portfolio_state": lambda self, include_raw=False: {
             "rsp_cd": "00166", "equity": 300, "cash": 20,
             "positions": {"NVDA": {"qty": 2, "sellable_qty": 1}}}})())
@@ -193,6 +199,9 @@ def test_cloud_pretrade_blocks_failed_nh_response(tmp_path, monkeypatch):
     (tmp_path / "gate.json").write_text('{"enabled":true}', encoding="utf-8")
     from execution import nh_trader
     monkeypatch.setattr(nh_trader, "NHBroker", lambda dry_run=False: type("FakeNH", (), {
+        "get_order_capacity": lambda self, ticker, side, price: {
+            "rsp_cd": "00166", "currency": "USD", "orderable_usd": 500,
+            "sellable_qty": 1},
         "get_portfolio_state": lambda self, include_raw=False: {
             "rsp_cd": "ERROR", "equity": 300, "cash": 200, "positions": {}}})())
     assert ob.OrderRouter(dry_run=False)._live_pretrade_check("SOXL", "BUY", 1, 40)["ok"] is False
