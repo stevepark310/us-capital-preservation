@@ -6,6 +6,12 @@ import pytest
 from execution import order_bridge as ob
 
 
+@pytest.fixture(autouse=True)
+def isolated_github_actions(monkeypatch):
+    # Legacy fake-dispatch tests must not inherit the real CI runner environment.
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+
+
 LOG_BUY = """execute-nh-trade\tRun NH Trade / Monitor\t2026-11-17T02:15:13.3747836Z Token issued: True
 execute-nh-trade\tRun NH Trade / Monitor\t2026-11-17T02:15:13.3752396Z {
 execute-nh-trade\tRun NH Trade / Monitor\t2026-11-17T02:15:13.3755203Z   "Output_0": {
