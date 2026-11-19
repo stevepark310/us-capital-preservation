@@ -39,7 +39,7 @@ DATA = os.path.join(BASE_DIR, "data")
 CLOUD_PATH = os.path.join(DATA, "cloud_status.json")
 
 MARKET_CRON = "*/10 13-21 * * 1-5"
-PULSE_CRON = "*/30 * * * *"
+PULSE_CRON = "*/10 * * * *"
 LIVE_GATE_PATH = os.path.join(BASE_DIR, "config", "live_execution_gate.json")
 
 
@@ -86,7 +86,7 @@ def write_status(mode: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     doc["updated_at_kst"] = now_str()
     doc["schedule"] = {"market_cron_utc": MARKET_CRON, "pulse_cron_utc": PULSE_CRON,
                        "market_note": "UTC 13–21시 = KST 22시~익일 07시 (EDT/EST 모두 커버). 정규장 판정은 market_clock.",
-                       "pulse_note": "24/7 매 30분"}
+                       "pulse_note": "24/7 매 10분"}
     doc["stale_after_min"] = {"market": 25, "pulse": 75}
     if mode == "market":
         doc["market"] = payload
@@ -138,6 +138,33 @@ def _live_account_preflight() -> Dict[str, Any]:
         return {"ok": False, "reason": "NH preflight error: " + type(exc).__name__}
 
 
+def _team_preflight() -> Dict[str, Any]:
+    """Demand current duty notes from every agent and no collaboration hard-lock failures."""
+    try:
+        collab = _load(os.path.join(DATA, "agent_collab_bus.json"), {})
+        state = collab.get("agent_state") or {}
+        now = now_kst()
+        missing = []
+        for agent_id in range(1, 11):
+            record = state.get(str(agent_id)) or {}
+            stamp = str(record.get("ts_kst") or "")
+            try:
+                age = (now - datetime.strptime(stamp[:19], "%Y-%m-%d %H:%M:%S")).total_seconds()
+            except (ValueError, TypeError):
+                age = float("inf")
+            if not record.get("line") or not -60 <= age <= 900:
+                missing.append(agent_id)
+        cycle = _load(os.path.join(DATA, "collab_cycle.json"), {})
+        lock = cycle.get("hard_lock") or {}
+        if missing or lock.get("ok") is not True:
+            return {"ok": False, "reason": "Missing/stale agent reports or failed risk hard-lock",
+                    "missing_agents": missing, "hard_lock": lock}
+        return {"ok": True, "agents": 10, "cycle": cycle.get("cycle"),
+                "validation": (cycle.get("validation") or {}).get("status")}
+    except Exception as exc:
+        return {"ok": False, "reason": "Team validation error: " + type(exc).__name__}
+
+
 def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
     from core import market_clock
     clock = market_clock.resolve()
@@ -164,12 +191,22 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
     py = sys.executable
     stages.append(run("원장 동기화", [py, "scripts/sync_live_portfolio.py"], 300))
     stages.append(run("유령 포지션 점검", [py, "-m", "core.position_reconciler", "--apply"], 120))
+    # Refresh all ten duty reports and validation before each market decision.
+    stages.append(run("10인 업무보고", [py, "scripts/update_feed.py"], 360))
+    stages.append(run("10인 협업 검증", [py, "scripts/run_collab_cycle.py"], 180))
     if not all(stage["ok"] for stage in stages):
         base.update({"result": "BLOCKED_DEPENDENCY", "seconds": round(time.time() - t0, 1),
                      "stages": stages, "note": "원장/조정 실패 — 자동주문 실행 차단"})
         write_status("market", base)
         return base
     if not base["dry_run"]:
+        team = _team_preflight()
+        base["team_preflight"] = team
+        if not team["ok"]:
+            base.update({"result": "BLOCKED_TEAM", "seconds": round(time.time() - t0, 1),
+                         "stages": stages, "note": team["reason"]})
+            write_status("market", base)
+            return base
         preflight = _live_account_preflight()
         base["preflight"] = preflight
         if not preflight["ok"]:
@@ -191,6 +228,7 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
     stages.append(run("평단 계획 재생성", [py, "-m", "core.avg_anchor_engine"], 300))
     stages.append(run("유령 포지션 재점검", [py, "-m", "core.position_reconciler", "--apply"], 120))
     stages.append(run("집행 상태 최신화", [py, "scripts/autotrader.py", "--refresh-status"], 120))
+    stages.append(run("성과·학습 후보 평가", [py, "scripts/agent_performance.py"], 120))
     stages.append(run("대시보드 데이터 발행", [py, "scripts/build_dashboard.py", "--data-only"], 240))
 
     status = _load(os.path.join(DATA, "autotrader_status.json"), {}) or {}
@@ -225,6 +263,7 @@ def pulse_cycle() -> Dict[str, Any]:
     stages.append(run("가격 캐시 갱신", [py, "scripts/refresh_price_cache.py"], 240))
     stages.append(run("10인 업무보고", [py, "scripts/update_feed.py"], 600))
     stages.append(run("협업·빌드업 사이클", [py, "scripts/run_collab_cycle.py"], 300))
+    stages.append(run("성과·학습 후보 평가", [py, "scripts/agent_performance.py"], 120))
     stages.append(run("대시보드 렌더", [py, "scripts/build_full_cube.py"], 300))
     base = {"last_cycle_kst": now_str(), "result": "OK" if all(s["ok"] for s in stages) else "PARTIAL",
             "seconds": round(time.time() - t0, 1), "stages": stages}
