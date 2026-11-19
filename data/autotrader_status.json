@@ -1,9 +1,9 @@
 {
   "engine": "AUTONOMOUS_INTRADAY",
-  "generated_at_kst": "2026-11-20 03:29:40",
+  "generated_at_kst": "2026-11-20 03:32:08",
   "phase": "REGULAR",
   "session_date": "2026-11-19",
-  "mode": "DRY_RUN",
+  "mode": "EXECUTE",
   "policy": {
     "enabled": true,
     "ask_before_trade": false,
@@ -76,7 +76,7 @@
       }
     },
     "daily_loss_limit_usd": 25.0,
-    "vix": 27.83,
+    "vix": 27.92,
     "vix_scale": 0.5,
     "strategy_risk_scale": 0.761,
     "budget_scale_total": 0.381,
@@ -109,8 +109,36 @@
   "halted": false,
   "halt_reason": null,
   "entries_today": 0,
-  "orders_today": 0,
-  "pending_orders": [],
+  "orders_today": 2,
+  "pending_orders": [
+    {
+      "ticker": "NVDA",
+      "side": "SELL",
+      "qty": 1,
+      "limit_price": 148.91,
+      "reason": "STOP/TRAIL ($149.36 ≤ $150.00, stop)",
+      "post": {
+        "sl_triggered": true,
+        "closed": true
+      },
+      "order_no": 243066,
+      "ts_kst": "2026-11-20 03:31:59",
+      "source": "exit",
+      "dry_run": false
+    },
+    {
+      "ticker": "SQQQ",
+      "side": "BUY",
+      "qty": 1,
+      "limit_price": 48.19,
+      "reason": "BEAR_ALPHA_HEDGE",
+      "post": {},
+      "order_no": 243089,
+      "ts_kst": "2026-11-20 03:32:05",
+      "source": "BEAR_ALPHA_HEDGE",
+      "dry_run": false
+    }
+  ],
   "reconcile": {
     "checked": 0,
     "confirmed": 0
@@ -120,10 +148,10 @@
       "ticker": "NVDA",
       "side": "SELL",
       "qty": 1,
-      "price": 148.93,
-      "reason": "STOP/TRAIL ($149.38 ≤ $150.00, stop)",
-      "status": "DRY_RUN",
-      "order_no": null,
+      "price": 148.91,
+      "reason": "STOP/TRAIL ($149.36 ≤ $150.00, stop)",
+      "status": "SUBMITTED",
+      "order_no": 243066,
       "run_id": null
     }
   ],
@@ -132,16 +160,16 @@
       "ticker": "SQQQ",
       "side": "BUY",
       "qty": 1,
-      "price": 48.17,
+      "price": 48.19,
       "source": "BEAR_ALPHA_HEDGE",
-      "status": "DRY_RUN",
-      "order_no": null,
+      "status": "SUBMITTED",
+      "order_no": 243089,
       "run_id": null,
       "sizing": {
         "qty": 1,
-        "notional_usd": 48.07,
+        "notional_usd": 48.09,
         "budget_usd": 60.0,
-        "sl_pct": 4.55,
+        "sl_pct": 4.54,
         "risk_usd": 2.19,
         "risk_cap_usd": 26.36,
         "cash_after_reserve_usd": 276.63,
@@ -249,43 +277,43 @@
     "cash_usd": 426.63
   },
   "next_gate": "신규 진입 마감 04:30 전",
-  "elapsed_sec": 1.2,
+  "elapsed_sec": 12.0,
   "events": [
     {
-      "ts_kst": "2026-11-20 03:29:38",
+      "ts_kst": "2026-11-20 03:31:59",
       "kind": "EXIT_ORDER",
       "ticker": "NVDA",
       "side": "SELL",
       "qty": 1,
-      "price": 148.93,
-      "reason": "STOP/TRAIL ($149.38 ≤ $150.00, stop)",
-      "status": "DRY_RUN",
-      "order_no": null,
+      "price": 148.91,
+      "reason": "STOP/TRAIL ($149.36 ≤ $150.00, stop)",
+      "status": "SUBMITTED",
+      "order_no": 243066,
       "run_id": null
     },
     {
-      "ts_kst": "2026-11-20 03:29:38",
+      "ts_kst": "2026-11-20 03:31:59",
       "kind": "ENTRY_SKIP",
       "ticker": "SOXS",
       "source": "BEAR_ALPHA_HEDGE",
       "reason": "수량 0 (예산/리스크)"
     },
     {
-      "ts_kst": "2026-11-20 03:29:38",
+      "ts_kst": "2026-11-20 03:32:05",
       "kind": "ENTRY_ORDER",
       "ticker": "SQQQ",
       "side": "BUY",
       "qty": 1,
-      "price": 48.17,
+      "price": 48.19,
       "source": "BEAR_ALPHA_HEDGE",
-      "status": "DRY_RUN",
-      "order_no": null,
+      "status": "SUBMITTED",
+      "order_no": 243089,
       "run_id": null,
       "sizing": {
         "qty": 1,
-        "notional_usd": 48.07,
+        "notional_usd": 48.09,
         "budget_usd": 60.0,
-        "sl_pct": 4.55,
+        "sl_pct": 4.54,
         "risk_usd": 2.19,
         "risk_cap_usd": 26.36,
         "cash_after_reserve_usd": 276.63,
@@ -294,10 +322,10 @@
     }
   ],
   "status_sync": {
-    "refreshed_at_kst": "2026-11-20 03:29:40",
+    "refreshed_at_kst": "2026-11-20 03:32:08",
     "by": "cloud",
-    "previous_generated_at_kst": "2026-11-20 03:29:38",
+    "previous_generated_at_kst": "2026-11-20 03:32:05",
     "note": "시계·phase·보유·예산만 원장과 시장시계에서 다시 읽었습니다. 주문·브래킷 변경 없음.",
-    "seconds_since_previous": 2.165403
+    "seconds_since_previous": 3.257549
   }
 }
