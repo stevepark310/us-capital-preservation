@@ -13,6 +13,7 @@ OFF = dict(REGULAR, phase="OFF_HOURS", now_kst="2026-11-19 10:49:00")
 
 @pytest.fixture()
 def sandbox(tmp_path, monkeypatch):
+    monkeypatch.delenv("CUBE_CLOUD_DRY_RUN", raising=False)
     monkeypatch.setattr(cc, "CLOUD_PATH", str(tmp_path / "cloud_status.json"))
     monkeypatch.setattr(cc, "DATA", str(tmp_path))
     monkeypatch.setattr(cc, "LIVE_GATE_PATH", str(tmp_path / "live_execution_gate.json"))
