@@ -19,6 +19,7 @@ from typing import Dict, Any, List
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
+from core import news_engine
 from agents.cube_orchestrator import CubeOrchestrator
 from core import market_clock, market_snapshot, ledger as ledger_mod
 
@@ -69,7 +70,7 @@ def _post(agent_id: int, clock: Dict[str, Any], badge: str, title: str, content:
     st = AGENT_STYLE[agent_id]
     ts = ts or _now_kst()
     return {
-        "id": f"post-{agent_id:02d}-{ts.strftime('%Y%m%d%H')}",
+        "id": f"post-{agent_id:02d}-{ts.strftime('%Y%m%d%H%M')}",
         "agent_id": agent_id,
         "agent_name": NAMES[agent_id],
         "agent_person": agent_profiles.profile(agent_id)["name"],
@@ -115,14 +116,25 @@ def post_agent1(r: Dict[str, Any], clock) -> Dict[str, Any]:
         top = (s.get("top_headlines") or [{}])[0].get("title", "")
         sec_lines.append(f"• {s.get('label')}: {s.get('sentiment_score')}점 ({s.get('grade','').split(' (')[0]}) · "
                          f"헤드라인 {s.get('headline_count')}건 (+{s.get('positive')}/-{s.get('negative')}) — {top[:70]}")
+    community_lines = []
+    for name, source in (r.get("community") or {}).items():
+        if source["status"] != "OK":
+            community_lines.append(f"• {name}: 수집 실패")
+            continue
+        community_lines.append(f"• {name}: 최근 24시간 {source['count']}건")
+        community_lines.extend(f"    → {row['title'][:110]}" for row in source["highlights"])
+    news_health = r.get("data_sources", {}).get("source_health") or "확인 불가"
+    news_time = r.get("news_fetched_at_kst") or "기록 없음"
     wk = r.get("weekend_block", {})
     content = (
-        f"실시간 뉴스 {r.get('data_sources', {}).get('news_items')}건(24시간 내 {r.get('data_sources', {}).get('items_last_24h')}건)을 "
+        f"뉴스 출처 상태 {news_health} · 뉴스 데이터 기준 {news_time} (KST).\n"
+        f"뉴스 {r.get('data_sources', {}).get('news_items')}건(24시간 내 {r.get('data_sources', {}).get('items_last_24h')}건)을 "
         f"수집해 종목별로 점수화했습니다. 시장 내재 리스크 점수 {r.get('market_implied_anchor', {}).get('score')}/100 "
         f"({r.get('market_implied_anchor', {}).get('label')})와 블렌딩한 종합 센티먼트는 {r.get('average_sentiment_score')}점, "
         f"판정 {r.get('overall_market_mood')}.\n\n" + "\n".join(lines) + "\n\n"
         "[섹터별 분리 센티먼트 — 채권/연준 · 외환 · 크립토]\n" + ("\n".join(sec_lines) or "• 해당 섹터 헤드라인 없음") + "\n\n"
         "[매크로 헤드라인]\n" + ("\n".join(macro_lines) if macro_lines else "• 특이 매크로 헤드라인 없음") + "\n\n"
+        "[커뮤니티 · 공개 게시물]\n" + ("\n".join(community_lines) or "• 수집 기록 없음") + "\n\n"
         f"[주말 데이터] BTC {_fmt(wk.get('crypto_24_7', {}).get('btc'))} ({_fmt(wk.get('crypto_24_7', {}).get('btc_change_pct'))}%), "
         f"ETH {_fmt(wk.get('crypto_24_7', {}).get('eth'))} ({_fmt(wk.get('crypto_24_7', {}).get('eth_change_pct'))}%), "
         f"원/달러 {_fmt(wk.get('fx_open', {}).get('usd_krw'))}원. 주식·선물은 휴장이라 마지막 종가 기준입니다."
@@ -130,7 +142,7 @@ def post_agent1(r: Dict[str, Any], clock) -> Dict[str, Any]:
     bond_s = (sec.get("BONDS_FED") or {}).get("sentiment_score")
     fx_s = (sec.get("FX") or {}).get("sentiment_score")
     crypto_s = (sec.get("CRYPTO") or {}).get("sentiment_score")
-    return _post(1, clock, "📰 뉴스·센티먼트 (주식+채권+외환+크립토 분리)",
+    post = _post(1, clock, "📰 뉴스·센티먼트 (주식+채권+외환+크립토 분리)",
                  f"[{clock['now_kst'][11:16]} 뉴스 스캔] 종목 평균 {r.get('average_sentiment_score')}점 · 채권 {bond_s} / 외환 {fx_s} / 코인 {crypto_s} · 시장 내재 {r.get('market_implied_anchor', {}).get('score')}점",
                  content,
                  [{"label": "뉴스 수집", "value": f"{r.get('data_sources', {}).get('news_items')}건", "highlight": True},
@@ -138,6 +150,11 @@ def post_agent1(r: Dict[str, Any], clock) -> Dict[str, Any]:
                   {"label": "외환 센티", "value": f"{fx_s}점"},
                   {"label": "코인 센티", "value": f"{crypto_s}점"}],
                  "브래킷 값은 core/exit_planner가 실측 ATR·센티먼트로 재계산합니다. 섹터 점수는 헤드라인 키워드 기반(50=중립)입니다.")
+    source_summary = (macro_lines or sec_lines or [f"종목 센티먼트 {r.get('average_sentiment_score', '—')}점"])[0]
+    if news_health in ("FAILED", "DEGRADED_CACHE", "확인 불가"):
+        source_summary = "뉴스 수집 상태 확인 필요"
+    post["summary"] = source_summary.removeprefix("• ")
+    return post
 
 
 def post_agent2(r: Dict[str, Any], clock) -> Dict[str, Any]:
@@ -704,7 +721,9 @@ def directive_posts(clock) -> List[Dict[str, Any]]:
 def main():
     clock = market_clock.resolve()
     orch = CubeOrchestrator()
-    report = orch.run_daily_pipeline(quiet=True)
+    context = orch.build_context(refresh_news=True)
+    context["community"] = news_engine.fetch_community()
+    report = orch.run_daily_pipeline(context=context, quiet=True)
     agents = {a["agent_id"]: a.get("report", {}) for a in report.get("agents", [])}
 
     posts = []
