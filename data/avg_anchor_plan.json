@@ -2,16 +2,16 @@
   "engine": "AVG_ANCHOR_PROFIT_DESK",
   "engine_ko": "평단 기준 일일 수익 엔진",
   "version": "1.0",
-  "generated_at_kst": "2026-11-20 03:32:07 KST",
+  "generated_at_kst": "2026-11-20 06:05:10 KST",
   "directive": {
     "given_at_kst": "2026-11-17 11:12",
     "quote": "체결됬는데 지금 계좌 호출해서 최신화해줘. 잔고에서 보면 되잖아. 그리고 지금 평단가 기준으로 오늘 수익을 내야하니까 전반적으로 모든 직원들에게 강력한 수익 알고리즘을 창출할 수 있도록 지시해줘.",
     "interpretation": "실계좌 체결 평단을 기준점으로 오늘 세션에서 실현 수익을 만들며, 손실은 짧게 자른다."
   },
   "market": {
-    "phase": "REGULAR",
+    "phase": "POST_MARKET",
     "next_open_kst": "2026-11-17 23:30 KST",
-    "vix": 27.92,
+    "vix": 27.14,
     "earnings": {
       "ticker": "NVDA",
       "at_kst": "2026-11-18 06:20"
@@ -60,10 +60,41 @@
   },
   "positions_source": "data/live_portfolio.json (원장 보유 정본)",
   "holdings": {
-    "NVDA": 1,
-    "SGOV": 1
+    "SGOV": 1,
+    "SQQQ": 1
   },
-  "ladders": [],
+  "ladders": [
+    {
+      "ticker": "SQQQ",
+      "qty": 1,
+      "avg_price": 48.18,
+      "market_price": 49.68,
+      "atr_pct": 6.0,
+      "breakeven": 48.34,
+      "tp1": 49.19,
+      "tp1_pct": 2.1,
+      "tp2": 50.2,
+      "tp2_pct": 4.2,
+      "sl": 47.46,
+      "sl_pct": -1.5,
+      "tp1_qty": 1,
+      "tp2_qty": 0,
+      "runner_qty": 0,
+      "levels_locked": false,
+      "force_exit_kst": null,
+      "sl_active_after_kst": "23:45",
+      "expected_pnl_usd": {
+        "tp1": 1.01,
+        "tp2": 0.0,
+        "sl_full": -0.72
+      },
+      "reward_risk": 1.4,
+      "measured": {
+        "available": false
+      },
+      "note": "평단 $48.18 기준 ATR 6.00% → TP1 2.1% / TP2 4.2% / SL -1.5%"
+    }
+  ],
   "excluded": {
     "carry_parking": [
       "SGOV"
@@ -71,10 +102,10 @@
     "note": "SGOV는 무위험 캐리 파킹으로 익절·손절 대상에서 제외"
   },
   "cash_engine": {
-    "cash_available_usd": 426.63,
+    "cash_available_usd": 626.86,
     "budget_usd": 85.0,
     "budget_range_usd": [
-      63.99,
+      85.0,
       85.0
     ],
     "budget_pct_of_cash": 20.0,
@@ -98,7 +129,7 @@
     ],
     "max_notional_usd": 60.0,
     "armed": true,
-    "vix": 27.92
+    "vix": 27.14
   },
   "guards": {
     "sl_active_after_kst": "23:45",
@@ -110,26 +141,24 @@
     "bear_alpha_gate": "VIX >= 24.0 + 확인 2개 (변경 금지)"
   },
   "summary": {
-    "positions_under_management": [],
-    "expected_tp_total_usd": 0,
-    "max_loss_at_sl_usd": 0,
+    "positions_under_management": [
+      "SQQQ"
+    ],
+    "expected_tp_total_usd": 1.01,
+    "max_loss_at_sl_usd": -0.72,
     "scalp_expected_usd": 0.0,
     "scalp_suspended": true,
     "scalp_evidence": "5분봉 VWAP 상향 돌파 + 90분 스캘핑(+1.8%/-1.2%)은 60일 실측에서 건당 총기대 -0.049%(SOXL)/-0.056%(TQQQ), 왕복 0.24% 수수료 차감 후 -0.29%/-0.30%로 음의 기대값 → 기계적 반복 회전 중단(2026-11-17 실측)",
     "scalp_note": "현금은 SGOV 파킹 또는 DIP_SWING 등급 신호 1회에만 사용한다.",
-    "expected_best_case_usd": 0,
-    "expected_worst_case_usd": 0,
+    "expected_best_case_usd": 1.01,
+    "expected_worst_case_usd": -0.72,
     "locked_positions_risk_usd": 0,
-    "locked_positions_note": "사용자 잠금 포지션(NVDA TP $173.0 / SL $150.0)은 사다리 기대값에서 제외되지만, 손절 시 노출은 $23.30입니다.",
+    "locked_positions_note": "사용자 잠금 포지션(NVDA TP $173.0 / SL $150.0)은 사다리 기대값에서 제외되지만, 손절 시 노출은 $0.00입니다.",
     "daily_target_usd": 1.32,
     "daily_target_rule": "자산의 0.15% — 실측 기대값(아래)과 같은 자릿수의 목표. 0.5% 목표는 소액 포지션에서 비현실적이어서 하향했다.",
     "measured_expected_usd_per_session": 0.0,
     "measured_basis": "1년 일봉 실측 TP/SL 도달확률로 계산한 하루 기대 실현손익. 2주·1주 소액 포지션에서는 0.5% 목표($4.46)에 구조적으로 미달하며, 자본(포지션 크기)을 늘리지 않는 한 하루 +$1 내외가 현실적 상한이다.",
-    "capital_constraint": "평가자산 $878.60 중 레버리지 노출이 $0.00뿐이다. 이 크기에서 사다리 기대값은 하루 $+0.00 수준이며, 하루 $1.32을 넘기려면 포지션 확대(리스크 증가) 또는 2차 익절까지 가는 날이 필요하다.",
-    "daily_target_note": "오늘 목표는 1차 익절 최소 1건(+$1.5 내외) 이상 실현. 실측 기대(+0.00)를 넘기려면 2차 익절(TP2 도달률 SOXL 42.6%)까지 가는 날이 필요하다.",
-    "recomputed_from_ledger_at_kst": "2026-11-20 03:41:07"
-  },
-  "positions_under_management": [],
-  "reconciled_at_kst": "2026-11-20 03:41:07",
-  "reconciled_note": "원장(live_portfolio.json) 기준 재정리 — 청산 완료 종목 사다리 제거, 수량·기대값 재합산"
+    "capital_constraint": "평가자산 $877.98 중 레버리지 노출이 $48.18뿐이다. 이 크기에서 사다리 기대값은 하루 $+0.00 수준이며, 하루 $1.32을 넘기려면 포지션 확대(리스크 증가) 또는 2차 익절까지 가는 날이 필요하다.",
+    "daily_target_note": "오늘 목표는 1차 익절 최소 1건(+$1.5 내외) 이상 실현. 실측 기대(+0.00)를 넘기려면 2차 익절(TP2 도달률 SOXL 42.6%)까지 가는 날이 필요하다."
+  }
 }

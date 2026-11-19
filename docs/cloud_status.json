@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at_kst": "2026-11-20 03:29:40",
+  "updated_at_kst": "2026-11-20 03:32:09",
   "schedule": {
     "market_cron_utc": "*/10 13-21 * * 1-5",
     "pulse_cron_utc": "*/10 * * * *",
@@ -68,62 +68,77 @@
   },
   "last_run": {
     "workflow": "CUBE Market Autotrade (10m)",
-    "run_id": "44588155050",
+    "run_id": "44588486180",
     "event": "push",
     "attempt": "1",
     "runner": "github_actions",
-    "sha": "12522ab9",
-    "at_kst": "2026-11-20 03:29:40",
+    "sha": "8e47d51f",
+    "at_kst": "2026-11-20 03:32:09",
     "mode": "market",
     "result": "OK"
   },
   "market": {
-    "last_cycle_kst": "2026-11-20 03:28:51",
+    "last_cycle_kst": "2026-11-20 03:30:51",
     "phase": "REGULAR",
     "session_date": "2026-11-19",
     "kst_shift_min": 0,
     "next_open_kst": "2026-11-20 23:30 KST",
-    "dry_run": true,
-    "live_gate_enabled": false,
-    "live_gate_reason": "live gate disabled",
-    "note": "실주문 비활성 — live gate disabled",
+    "dry_run": false,
+    "live_gate_enabled": true,
+    "live_gate_reason": null,
+    "note": "오늘 미국장 기간한정 실주문 게이트 활성",
+    "team_preflight": {
+      "ok": true,
+      "agents": 10,
+      "cycle": 22,
+      "validation": null
+    },
+    "preflight": {
+      "ok": true,
+      "nh_positions": {
+        "SGOV": 1,
+        "NVDA": 1
+      },
+      "nh_equity_usd": 876.69,
+      "nh_cash_usd": 626.86
+    },
     "result": "OK",
-    "seconds": 48.8,
+    "seconds": 78.1,
     "stages": [
       {
         "name": "원장 동기화",
-        "seconds": 22.1,
+        "seconds": 20.3,
         "rc": 0,
         "ok": true,
-        "tail": "✅ live_portfolio synced 2026-11-20 03:29:13 KST | equity $878.60 (1,176,272원) | cash $426.63 (571,172원) | fx 1338.8 | CONSISTENT"
+        "tail": "✅ live_portfolio synced 2026-11-20 03:31:11 KST | equity $878.60 (1,176,272원) | cash $426.63 (571,172원) | fx 1338.8 | CONSISTENT"
       },
       {
         "name": "유령 포지션 점검",
-        "seconds": 0.0,
+        "seconds": 1.4,
         "rc": 0,
         "ok": true,
         "tail": "[reconciler] CONSISTENT · 보유 {'NVDA': 1, 'SGOV': 1} · 사다리 유령 0 · 브래킷 유령 0 · 수량보정 0 · 대기주문취소 0"
       },
       {
         "name": "10인 업무보고",
-        "seconds": 23.9,
+        "seconds": 36.2,
         "rc": 0,
         "ok": true,
-        "tail": "✅ feed updated 2026-11-20 03:29:13 KST [REGULAR] posts 20 (agents 10/10)"
+        "tail": "✅ feed updated 2026-11-20 03:31:14 KST [REGULAR] posts 20 (agents 10/10)"
       },
       {
         "name": "10인 협업 검증",
-        "seconds": 0.3,
+        "seconds": 0.4,
         "rc": 0,
         "ok": true,
-        "tail": "  버스 225건 (스레드 12, 인계 180) · 하드락 OK"
+        "tail": "  버스 242건 (스레드 12, 인계 194) · 하드락 OK"
       },
       {
         "name": "무인 집행",
-        "seconds": 1.3,
+        "seconds": 12.5,
         "rc": 0,
         "ok": true,
-        "tail": "  다음 게이트: 신규 진입 마감 04:30 전 · 1.2s"
+        "tail": "  다음 게이트: 신규 진입 마감 04:30 전 · 12.0s"
       },
       {
         "name": "브래킷 감시(읽기 전용)",
@@ -134,10 +149,10 @@
       },
       {
         "name": "원장 재동기화",
-        "seconds": 0.3,
+        "seconds": 0.7,
         "rc": 0,
         "ok": true,
-        "tail": "✅ live_portfolio synced 2026-11-20 03:29:39 KST | equity $878.60 (1,176,272원) | cash $426.63 (571,172원) | fx 1338.8 | CONSISTENT"
+        "tail": "✅ live_portfolio synced 2026-11-20 03:32:07 KST | equity $878.60 (1,176,272원) | cash $426.63 (571,172원) | fx 1338.8 | CONSISTENT"
       },
       {
         "name": "평단 계획 재생성",
@@ -148,35 +163,35 @@
       },
       {
         "name": "유령 포지션 재점검",
-        "seconds": 0.0,
+        "seconds": 0.3,
         "rc": 0,
         "ok": true,
         "tail": "[reconciler] CONSISTENT · 보유 {'NVDA': 1, 'SGOV': 1} · 사다리 유령 0 · 브래킷 유령 0 · 수량보정 0 · 대기주문취소 0"
       },
       {
         "name": "집행 상태 최신화",
-        "seconds": 0.1,
+        "seconds": 0.2,
         "rc": 0,
         "ok": true,
-        "tail": "✅ autotrader_status.json 최신화 2026-11-20 03:29:40 · phase=REGULAR · session=2026-11-19 · 보유 1종목 · 예산 $149.32"
+        "tail": "✅ autotrader_status.json 최신화 2026-11-20 03:32:08 · phase=REGULAR · session=2026-11-19 · 보유 1종목 · 예산 $149.32"
       },
       {
         "name": "성과·학습 후보 평가",
-        "seconds": 0.0,
+        "seconds": 0.1,
         "rc": 0,
         "ok": true,
         "tail": "[agent-performance] 10/10 latest reports; 2 confirmed trades; proposed policy only"
       },
       {
         "name": "대시보드 데이터 발행",
-        "seconds": 0.0,
+        "seconds": 1.4,
         "rc": 0,
         "ok": true,
-        "tail": "✅ 대시보드 데이터 발행(docs/*.json) · index.html 재렌더 생략 · 2026-11-20 03:29:40 KST"
+        "tail": "✅ 대시보드 데이터 발행(docs/*.json) · index.html 재렌더 생략 · 2026-11-20 03:32:08 KST"
       }
     ],
     "execution": {
-      "mode": "DRY_RUN",
+      "mode": "EXECUTE",
       "positions": {
         "NVDA": {
           "qty": 1,
@@ -190,7 +205,7 @@
       },
       "exits": 1,
       "entries": 1,
-      "pending": 0,
+      "pending": 2,
       "realized_today_usd": 0.0,
       "budget_usd": 149.32,
       "next_gate": "신규 진입 마감 04:30 전"
