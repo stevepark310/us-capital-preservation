@@ -388,7 +388,8 @@ class AutonomousTrader:
             })
             self._record_trade(tk, entry, px, int(p.get("qty") or 0), pnl, p.get("reason") or "",
                                b.get("atr_pct_at_plan") or (b.get("ladder_params") or {}).get("atr_pct"),
-                               p.get("source") or b.get("bracket_version"))
+                               b.get("entry_source") or b.get("exit_mode") or
+                               b.get("bracket_version") or p.get("source"))
         self._emit("FILL_CONFIRMED", ticker=tk, side=side, qty=p.get("qty"), price=round(px, 2),
                    pnl_usd=(round((px - float(b.get("entry_price") or 0)) * int(p.get("qty") or 0), 2)
                             if side == "SELL" else None))
