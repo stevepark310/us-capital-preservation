@@ -167,8 +167,9 @@ def test_cloud_pretrade_blocks_insufficient_cash(tmp_path, monkeypatch):
     (tmp_path / "data" / "live_portfolio.json").write_text(
         '{"cash_deposit_usd":160}', encoding="utf-8")
     from execution import nh_trader
-    monkeypatch.setattr(nh_trader.NHBroker, "get_portfolio_state", lambda self, include_raw=False: {
-        "rsp_cd": "00166", "equity": 300, "cash": 200, "positions": {}})
+    monkeypatch.setattr(nh_trader, "NHBroker", lambda dry_run=False: type("FakeNH", (), {
+        "get_portfolio_state": lambda self, include_raw=False: {
+            "rsp_cd": "00166", "equity": 300, "cash": 200, "positions": {}}})())
     result = ob.OrderRouter(dry_run=False)._live_pretrade_check("SOXL", "BUY", 1, 40)
     assert result["ok"] is False
     assert "cash" in result["reason"]
@@ -178,9 +179,10 @@ def test_cloud_pretrade_blocks_unsellable_shares(tmp_path, monkeypatch):
     monkeypatch.setattr(ob, "LIVE_GATE_PATH", str(tmp_path / "gate.json"))
     (tmp_path / "gate.json").write_text('{"enabled":true}', encoding="utf-8")
     from execution import nh_trader
-    monkeypatch.setattr(nh_trader.NHBroker, "get_portfolio_state", lambda self, include_raw=False: {
-        "rsp_cd": "00166", "equity": 300, "cash": 20,
-        "positions": {"NVDA": {"qty": 2, "sellable_qty": 1}}})
+    monkeypatch.setattr(nh_trader, "NHBroker", lambda dry_run=False: type("FakeNH", (), {
+        "get_portfolio_state": lambda self, include_raw=False: {
+            "rsp_cd": "00166", "equity": 300, "cash": 20,
+            "positions": {"NVDA": {"qty": 2, "sellable_qty": 1}}}})())
     result = ob.OrderRouter(dry_run=False)._live_pretrade_check("NVDA", "SELL", 2, 150)
     assert result["ok"] is False
     assert result["sellable_qty"] == 1
@@ -190,8 +192,9 @@ def test_cloud_pretrade_blocks_failed_nh_response(tmp_path, monkeypatch):
     monkeypatch.setattr(ob, "LIVE_GATE_PATH", str(tmp_path / "gate.json"))
     (tmp_path / "gate.json").write_text('{"enabled":true}', encoding="utf-8")
     from execution import nh_trader
-    monkeypatch.setattr(nh_trader.NHBroker, "get_portfolio_state", lambda self, include_raw=False: {
-        "rsp_cd": "ERROR", "equity": 300, "cash": 200, "positions": {}})
+    monkeypatch.setattr(nh_trader, "NHBroker", lambda dry_run=False: type("FakeNH", (), {
+        "get_portfolio_state": lambda self, include_raw=False: {
+            "rsp_cd": "ERROR", "equity": 300, "cash": 200, "positions": {}}})())
     assert ob.OrderRouter(dry_run=False)._live_pretrade_check("SOXL", "BUY", 1, 40)["ok"] is False
 
 
