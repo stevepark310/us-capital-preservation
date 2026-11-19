@@ -38,8 +38,8 @@ sys.path.insert(0, BASE_DIR)
 DATA = os.path.join(BASE_DIR, "data")
 CLOUD_PATH = os.path.join(DATA, "cloud_status.json")
 
-MARKET_CRON = "*/10 13-21 * * 1-5"
-PULSE_CRON = "*/10 * * * *"
+MARKET_CRON = "4-59/10 13-21 * * 1-5"
+PULSE_CRON = "9-59/10 * * * *"
 LIVE_GATE_PATH = os.path.join(BASE_DIR, "config", "live_execution_gate.json")
 
 
