@@ -107,6 +107,17 @@ def main(argv=None) -> int:
         return 0
 
     execute = "--execute" in args
+    if execute:
+        # The CLI itself must not bypass the cloud-level approval gate.
+        gate_path = os.path.join(BASE_DIR, "config", "live_execution_gate.json")
+        try:
+            with open(gate_path, "r", encoding="utf-8") as handle:
+                live_gate = json.load(handle)
+        except (OSError, ValueError):
+            live_gate = {}
+        if not isinstance(live_gate, dict) or live_gate.get("enabled") is not True:
+            print("[autotrader] BLOCKED: explicit live execution gate is disabled")
+            return 2
     if not execute and "--dry-run" not in args:
         print("사용법: python3 scripts/autotrader.py --execute | --dry-run | --status")
         return 2
