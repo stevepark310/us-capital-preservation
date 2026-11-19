@@ -332,13 +332,13 @@ def _last_two(frame: pd.DataFrame) -> Dict[str, Any]:
     }
 
 
-def _intraday_last(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
-    """Latest intraday price for live sessions (5m bars, 1 day)."""
+def _intraday_last(symbols: List[str], interval: str = "5m") -> Dict[str, Dict[str, Any]]:
+    """Latest intraday close and its bar timestamp."""
     if not symbols:
         return {}
     try:
         import yfinance as yf
-        dl = yf.download(symbols, period="1d", interval="5m", progress=False,
+        dl = yf.download(symbols, period="1d", interval=interval, progress=False,
                          auto_adjust=False, group_by="column", threads=True)
         frames = _normalize_download(dl, symbols)
         out = {}
@@ -349,7 +349,7 @@ def _intraday_last(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
             if len(c):
                 out[sym] = {
                     "price": round(float(c.iloc[-1]), 4),
-                    "bar_time": str(f.index[-1]),
+                    "bar_time": str(c.index[-1]),
                     "bars": int(len(c)),
                 }
         return out
