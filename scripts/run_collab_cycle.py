@@ -38,7 +38,7 @@ from core import buildup, collab_bus, desk_lab, market_clock, strategy_evolver  
 
 DATA = os.path.join(BASE_DIR, "data")
 CYCLE_PATH = os.path.join(DATA, "collab_cycle.json")
-DUTY_EVERY = 3          # 3사이클(≈90분)마다 업무보고 메시지
+DUTY_EVERY = 1          # 협업 사이클마다 10인 업무보고 메시지
 
 
 def _load(path: str, default: Any) -> Any:

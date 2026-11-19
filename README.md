@@ -195,7 +195,7 @@ python3 scripts/monitor_and_exit.py --dry-run
 | 구성 | 파일 | 역할 |
 |---|---|---|
 | 장중 10분 집행 | `.github/workflows/market_autotrade.yml` | 정규장이면 `autotrader --execute` + `monitor_and_exit --execute` + 원장·상태 동기화, `data/`·`docs/` 커밋 |
-| 24/7 협업 펄스 | `.github/workflows/cube_pulse.yml` | 30분마다 원장 → 상태 → 10인 업무보고 → 협업·빌드업 → 대시보드 |
+| 24/7 협업 펄스 | `.github/workflows/cube_pulse.yml` | 10분마다 원장 → 상태 → 10인 업무보고 → 협업·빌드업 → 대시보드 |
 | 실행기 | `scripts/cloud_cycle.py` | `market` / `pulse` / `status` — 단계 순서와 실패 처리를 한 곳에 |
 | 시장 시계 | `core/market_clock.py` | 미국 동부 DST 규칙으로 세션 판정(EDT 22:30 KST 개장까지 자동) |
 | 유령 포지션 정리 | `core/position_reconciler.py` | 원장(`live_portfolio.json`)만 보유 정본 — 사다리·브래킷·대기주문을 맞춘다 |
@@ -297,3 +297,12 @@ python3 scripts/run_13f_ab_backtest.py --refresh       # 개선안 A/B(2년 일�
   (`config/swing_approval.json` → `smart_money_13f_review`).
 - 13F 매집 종목(SOXX·AMZN·GOOGL·STX 등)의 DIP_SWING 신호는 `data/13f_candidates.json`에 **제안 전용**으로 남는다
   (신규 종목 편입은 사용자 승인 항목).
+
+
+### 장중 1분 종목 스캔
+
+`python scripts/scan_market_minute.py`를 상시 실행 환경에서 실행하면 미국 정규장에
+`core.market_snapshot.EQUITY_UNIVERSE`의 모든 종목을 1분봉으로 조회한다.
+`--once`는 한 번만 실행한다. 표준 출력의 JSON에 누락되거나 오래된 시세의 종목을
+`missing_or_stale`로 기록한다. 장중 전체 종목의 유효한 시세를 확보했을 때만
+`OK`가 된다. 스캔은 주문과 계좌 상태 변경 없이 시세 수집 범위와 지연을 검증한다.

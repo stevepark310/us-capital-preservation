@@ -5,7 +5,7 @@ Cloud cycle — 피클 앱·토큰과 무관하게 GitHub Actions에서 도는 �
 두 가지 모드
 ------------
     python3 scripts/cloud_cycle.py market   # 장중 10분: 집행·청산·원장·상태
-    python3 scripts/cloud_cycle.py pulse    # 24/7 30분: 협업·빌드업·대시보드
+    python3 scripts/cloud_cycle.py pulse    # 24/7 10분: 협업·빌드업·대시보드
 
 `market`은 미국 정규장(서머타임 포함)일 때만 실제로 돌고, 그 밖의 시간에는
 `SKIPPED_OFF_HOURS`로 끝난다(크론 창을 넓게 잡아도 주문이 나가지 않는다).
@@ -39,7 +39,7 @@ DATA = os.path.join(BASE_DIR, "data")
 CLOUD_PATH = os.path.join(DATA, "cloud_status.json")
 
 MARKET_CRON = "*/10 13-21 * * 1-5"
-PULSE_CRON = "*/30 * * * *"
+PULSE_CRON = "2-59/10 * * * *"
 LIVE_GATE_PATH = os.path.join(BASE_DIR, "config", "live_execution_gate.json")
 
 
@@ -86,8 +86,8 @@ def write_status(mode: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     doc["updated_at_kst"] = now_str()
     doc["schedule"] = {"market_cron_utc": MARKET_CRON, "pulse_cron_utc": PULSE_CRON,
                        "market_note": "UTC 13–21시 = KST 22시~익일 07시 (EDT/EST 모두 커버). 정규장 판정은 market_clock.",
-                       "pulse_note": "24/7 매 30분"}
-    doc["stale_after_min"] = {"market": 25, "pulse": 75}
+                       "pulse_note": "24/7 매 10분"}
+    doc["stale_after_min"] = {"market": 25, "pulse": 35}
     if mode == "market":
         doc["market"] = payload
     else:
