@@ -263,6 +263,10 @@ def _autotrader_pending() -> set:
 
 
 def run_check() -> List[Dict[str, Any]]:
+    # 이 보조 감시기의 별도 주문 경로는 접수와 체결을 구분하지 못하고
+    # 브래킷을 조기 종료할 수 있다. 주문은 체결 조정 기능을 가진 core/autotrader 한 곳에서만 집행.
+    if EXECUTE:
+        raise RuntimeError("monitor_and_exit --execute is disabled for safety; use scripts/autotrader.py --execute after live gate preflight")
     clock = market_clock.resolve()
     senti = sentiment_scores()
     snap = market_snapshot.build_snapshot(quiet=True)
@@ -366,7 +370,10 @@ def run_check() -> List[Dict[str, Any]]:
 
     if EXECUTE:
         _lease_write(None)
-    save_brackets(brackets)
+    # 시뮬레이션은 TP/SL 체결 플래그와 closed 상태를 디스크에 남기지 않는다.
+    # 로그만 기록하고 실잔고와 매칭된 확정 체결만 core/autotrader가 반영한다.
+    if EXECUTE:
+        save_brackets(brackets)
     return actions
 
 

@@ -15,6 +15,7 @@ OFF = dict(REGULAR, phase="OFF_HOURS", now_kst="2026-11-19 10:49:00")
 def sandbox(tmp_path, monkeypatch):
     monkeypatch.setattr(cc, "CLOUD_PATH", str(tmp_path / "cloud_status.json"))
     monkeypatch.setattr(cc, "DATA", str(tmp_path))
+    monkeypatch.setattr(cc, "LIVE_GATE_PATH", str(tmp_path / "live_execution_gate.json"))
     calls = []
 
     def fake_run(name, cmd, timeout=900):
@@ -44,11 +45,11 @@ def test_regular_session_runs_all_stages_in_order(sandbox, monkeypatch):
     (tmp / "avg_anchor_plan.json").write_text(json.dumps({"ladders": [{"ticker": "NVDA"}]}), encoding="utf-8")
     out = cc.market_cycle()
     names = [c[0] for c in calls]
-    assert names == ["원장 동기화", "유령 포지션 점검", "무인 집행", "브래킷 감시", "원장 재동기화",
+    assert names == ["원장 동기화", "유령 포지션 점검", "무인 집행", "브래킷 감시(읽기 전용)", "원장 재동기화",
                      "평단 계획 재생성", "유령 포지션 재점검", "집행 상태 최신화", "대시보드 데이터 발행"]
     auto = dict(calls)["무인 집행"]
-    assert auto[-1] == "--execute"
-    assert dict(calls)["브래킷 감시"][-1] == "--execute"
+    assert auto[-1] == "--dry-run"
+    assert dict(calls)["브래킷 감시(읽기 전용)"][-1] == "--dry-run"
     # 장중 사이클은 index.html을 다시 굽지 않는다(저장소 비대화 방지)
     assert "--data-only" in dict(calls)["대시보드 데이터 발행"]
     assert out["result"] == "OK" and out["ladders"] == ["NVDA"]
@@ -60,7 +61,7 @@ def test_dry_run_flag_prevents_execute(sandbox, monkeypatch):
     out = cc.market_cycle(dry_run=True)
     assert out["dry_run"] is True
     assert dict(calls)["무인 집행"][-1] == "--dry-run"
-    assert "--execute" not in dict(calls)["브래킷 감시"]
+    assert "--execute" not in dict(calls)["브래킷 감시(읽기 전용)"]
 
 
 def test_pulse_runs_collab_and_writes_status(sandbox, monkeypatch):
@@ -83,3 +84,68 @@ def test_status_blocks_merge_instead_of_overwrite(sandbox, monkeypatch):
     saved = json.loads((tmp / "cloud_status.json").read_text(encoding="utf-8"))
     assert saved["market"]["result"] == "SKIPPED_OFF_HOURS"
     assert saved["pulse"]["result"] == "OK"
+
+
+def test_default_market_dry_run_never_calls_live_preflight(sandbox, monkeypatch):
+    tmp, calls = sandbox
+    monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: REGULAR)
+    monkeypatch.setattr(cc, "_live_account_preflight",
+                        lambda: pytest.fail("preflight must not run without explicit gate"))
+    out = cc.market_cycle()
+    assert out["result"] == "OK"
+    assert out["dry_run"] is True
+    assert all("--execute" not in cmd for _, cmd in calls)
+
+
+def test_failed_initial_sync_blocks_every_order(sandbox, monkeypatch):
+    tmp, calls = sandbox
+    monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: REGULAR)
+    monkeypatch.setattr(cc, "run",
+                        lambda name, cmd, timeout=900: (calls.append((name, list(cmd))) or
+                        {"name": name, "rc": 1 if name == "원장 동기화" else 0,
+                         "ok": name != "원장 동기화", "tail": "failed"}))
+    out = cc.market_cycle()
+    assert out["result"] == "BLOCKED_DEPENDENCY"
+    assert not any("autotrader.py" in " ".join(cmd) for _, cmd in calls)
+
+
+def test_enabled_gate_requires_successful_nh_preflight(sandbox, monkeypatch):
+    tmp, calls = sandbox
+    monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: REGULAR)
+    (tmp / "live_execution_gate.json").write_text('{"enabled":true}', encoding="utf-8")
+    monkeypatch.setattr(cc, "_live_account_preflight",
+                        lambda: {"ok": False, "reason": "NH account mismatch"})
+    out = cc.market_cycle()
+    assert out["result"] == "BLOCKED_PREFLIGHT"
+    assert out["dry_run"] is False
+    assert all("--execute" not in cmd for _, cmd in calls)
+
+
+def test_enabled_gate_with_preflight_runs_only_one_execution_engine(sandbox, monkeypatch):
+    tmp, calls = sandbox
+    monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: REGULAR)
+    (tmp / "live_execution_gate.json").write_text('{"enabled":true}', encoding="utf-8")
+    monkeypatch.setattr(cc, "_live_account_preflight", lambda: {"ok": True})
+    out = cc.market_cycle()
+    assert out["result"] == "OK"
+    assert dict(calls)["무인 집행"][-1] == "--execute"
+    assert dict(calls)["브래킷 감시(읽기 전용)"][-1] == "--dry-run"
+    assert sum("--execute" in cmd for _, cmd in calls) == 1
+
+
+def test_failed_execution_blocks_followup_stages(sandbox, monkeypatch):
+    tmp, calls = sandbox
+    monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: REGULAR)
+    def fail_execute(name, cmd, timeout=900):
+        calls.append((name, list(cmd)))
+        ok = name != "무인 집행"
+        return {"name": name, "rc": 0 if ok else 1, "ok": ok, "tail": "test"}
+    monkeypatch.setattr(cc, "run", fail_execute)
+    out = cc.market_cycle()
+    assert out["result"] == "BLOCKED_EXECUTION"
+    assert len(calls) == 3
+
+
+def test_partial_cycle_returns_nonzero_exit_code(sandbox, monkeypatch):
+    monkeypatch.setattr(cc, "pulse_cycle", lambda: {"result": "PARTIAL"})
+    assert cc.main(["pulse"]) == 1
