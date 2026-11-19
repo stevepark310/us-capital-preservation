@@ -1,0 +1,74 @@
+name: CUBE Market Autotrade (10m)
+
+# 미국 정규장 시간대에만 실제로 돈다. 크론 창은 UTC 13~21시로 잡아
+#   EDT(서머타임) 09:30–16:00 ET = 13:30–20:00 UTC
+#   EST(동절기)   09:30–16:00 ET = 14:30–21:00 UTC
+# 를 모두 덮는다. 실제 세션 판정은 `core/market_clock`(DST 자동)이 하고,
+# 정규장이 아니면 `cloud_cycle.py market`이 SKIPPED로 끝나 주문이 나가지 않는다.
+on:
+  schedule:
+    - cron: "*/10 13-21 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "판단만 실행(주문 없음)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: cube-repo-writer       # pulse 워크플로와 같은 그룹 → 동시에 쓰지 않는다
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  market-cycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TZ: Asia/Seoul
+      PYTHONUNBUFFERED: "1"
+      NH_APP_KEY: ${{ secrets.NH_APP_KEY }}
+      NH_APP_SECRET: ${{ secrets.NH_APP_SECRET }}
+      NH_ACT_NO: ${{ secrets.NH_ACT_NO }}
+      NH_IS_MOCK: "false"
+      CUBE_CLOUD_DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true') && '1' || '0' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # rebase 푸시에 전체 이력이 필요하다
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --quiet --upgrade pip
+          pip install --quiet -r requirements.txt
+
+      - name: Market cycle (autotrader · monitor · ledger · status)
+        run: python3 scripts/cloud_cycle.py market
+
+      - name: Commit & push (data + docs)
+        if: always()
+        run: |
+          set -e
+          git config user.name "cube-cloud-bot"
+          git config user.email "cube-cloud-bot@users.noreply.github.com"
+          git add data docs
+          if git diff --staged --quiet; then
+            echo "변경 없음 — 푸시 생략"
+            exit 0
+          fi
+          git commit -m "chore(cloud): market cycle $(TZ=Asia/Seoul date '+%m-%d %H:%M') KST"
+          for i in 1 2 3; do
+            if git push origin HEAD:main; then echo "pushed"; exit 0; fi
+            echo "push 재시도 $i — rebase 후 재시도"
+            git pull --rebase --autostash origin main || true
+          done
+          echo "::warning::push 실패 — 다음 사이클에서 다시 시도합니다."
