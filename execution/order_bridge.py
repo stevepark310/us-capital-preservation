@@ -295,6 +295,9 @@ class OrderRouter:
             cash = float(acct["cash"])
             if not (0 < equity < 1e12 and 0 <= cash < 1e12):
                 return {"ok": False, "reason": "NH balance is invalid"}
+            capacity = NHBroker(dry_run=False).get_order_capacity(ticker, side, price)
+            if str(capacity.get("rsp_cd")) != "00166":
+                return {"ok": False, "reason": "NH order-capacity inquiry failed"}
             holdings = acct.get("positions")
             if not isinstance(holdings, dict):
                 return {"ok": False, "reason": "NH holdings are unavailable"}
@@ -306,7 +309,12 @@ class OrderRouter:
                 ledger_cash = ledger.get("cash_deposit_usd", ledger.get("cash_buffer_usd"))
                 if ledger_cash is None:
                     return {"ok": False, "reason": "Ledger cash is missing"}
-                spendable = min(cash, float(ledger_cash))
+                if capacity.get("currency") != "USD" or capacity.get("orderable_usd") is None:
+                    return {"ok": False, "reason": "NH USD orderable cash not confirmed"}
+                orderable = float(capacity["orderable_usd"])
+                if not (0 <= orderable < 1e12):
+                    return {"ok": False, "reason": "NH orderable cash invalid"}
+                spendable = min(cash, float(ledger_cash), orderable)
                 reserve = 150.0
                 if qty * price > max(0.0, spendable - reserve) + 1e-6:
                     return {"ok": False, "reason": "Fresh NH/ledger cash minus reserve cannot cover order",
@@ -316,7 +324,9 @@ class OrderRouter:
                 return {"ok": True, "nh_equity_usd": round(equity, 2),
                         "nh_cash_usd": round(cash, 2), "conservative_cash_usd": round(spendable, 2)}
             holding = holdings.get(ticker) or {}
-            sellable = int(holding.get("sellable_qty") or 0)
+            if capacity.get("sellable_qty") is None:
+                return {"ok": False, "reason": "NH sellable quantity is missing"}
+            sellable = min(int(holding.get("sellable_qty") or 0), int(capacity["sellable_qty"]))
             if sellable < qty:
                 return {"ok": False, "reason": "NH sellable shares insufficient",
                         "sellable_qty": sellable}
