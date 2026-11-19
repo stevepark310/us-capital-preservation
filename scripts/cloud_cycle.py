@@ -192,6 +192,11 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
 
     stages: List[Dict[str, Any]] = []
     py = sys.executable
+    # Confirm previous-cycle fills before comparing live NH holdings to the
+    # ledger. Otherwise a successful trade makes the next preflight fail.
+    pending = (_load(os.path.join(DATA, "autotrader_state.json"), {}) or {}).get("pending") or []
+    if pending:
+        stages.append(run("NH 체결 확정(주문 없음)", [py, "scripts/reconcile_confirmed_fills.py"], 240))
     stages.append(run("원장 동기화", [py, "scripts/sync_live_portfolio.py"], 300))
     stages.append(run("유령 포지션 점검", [py, "-m", "core.position_reconciler", "--apply"], 120))
     # Refresh all ten duty reports and validation before each market decision.
