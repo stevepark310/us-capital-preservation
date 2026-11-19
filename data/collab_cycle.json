@@ -1,8 +1,8 @@
 {
-  "generated_at_kst": "2026-11-19 16:12:13",
-  "cycle": 19,
-  "phase": "OFF_HOURS",
-  "session_date": "2026-11-18",
+  "generated_at_kst": "2026-11-20 03:24:59",
+  "cycle": 20,
+  "phase": "REGULAR",
+  "session_date": "2026-11-19",
   "kst_shift_min": 0,
   "desks": {
     "research": [
@@ -25,39 +25,39 @@
   "handoffs": [
     {
       "from": 1,
-      "correlation_id": "T00019-INS1",
+      "correlation_id": "T00020-INS1",
       "ask": "entry_filters 조이기 후보의 OOS 기대값 비교",
-      "subject": "센티먼트 58.2점 — 진입 필터를 조일 근거인가"
+      "subject": "센티먼트 29.2점 — 진입 필터를 조일 근거인가"
     },
     {
       "from": 2,
-      "correlation_id": "T00019-INS2",
+      "correlation_id": "T00020-INS2",
       "ask": "일봉 스윙 손절 배수 A/B",
-      "subject": "SOXL ATR 23.84% — 손절·익절 폭이 변동성에 맞는가"
+      "subject": "SOXL ATR 25.0% — 손절·익절 폭이 변동성에 맞는가"
     },
     {
       "from": 3,
-      "correlation_id": "T00019-INS3",
+      "correlation_id": "T00020-INS3",
       "ask": "블랙아웃 규칙의 실전 기여도",
       "subject": "실적 캘린더 — 반응일 블랙아웃이 실제로 손실을 줄였는가"
     },
     {
       "from": 4,
-      "correlation_id": "T00019-INS4",
+      "correlation_id": "T00020-INS4",
       "ask": "국면별 예산·계수 조정",
-      "subject": "CUBE-LEI 101.0 — 리스크 계수 축소가 필요한가"
+      "subject": "CUBE-LEI 100.7 — 리스크 계수 축소가 필요한가"
     },
     {
       "from": 5,
-      "correlation_id": "T00019-INS5",
+      "correlation_id": "T00020-INS5",
       "ask": "신용·수급 기반 노출 축소",
-      "subject": "기관 포지셔닝 P/C None — 반도체 수급 리스크"
+      "subject": "기관 포지셔닝 P/C 1.01 — 반도체 수급 리스크"
     }
   ],
   "validation": {},
   "data": {
-    "as_of": "2026-11-18",
-    "fingerprint": "74389dcc33d1ad4e",
+    "as_of": null,
+    "fingerprint": "da39a3ee5e6b4b0d",
     "measured_now": false
   },
   "counters": {
@@ -78,15 +78,104 @@
   },
   "cloud": {
     "market": {
-      "last_cycle_kst": "2026-11-19 11:30:48",
-      "phase": "OFF_HOURS",
-      "session_date": "2026-11-18",
+      "last_cycle_kst": "2026-11-20 01:29:12",
+      "phase": "REGULAR",
+      "session_date": "2026-11-19",
       "kst_shift_min": 0,
-      "next_open_kst": "2026-11-19 23:30 KST",
-      "dry_run": false,
-      "result": "SKIPPED_OFF_HOURS",
-      "seconds": 0.0,
-      "note": "phase=OFF_HOURS — 정규장이 아니므로 주문·집행을 하지 않습니다."
+      "next_open_kst": "2026-11-20 23:30 KST",
+      "dry_run": true,
+      "live_gate_enabled": false,
+      "note": "실주문 비활성 — config/live_execution_gate.json enabled=true가 필요",
+      "result": "OK",
+      "seconds": 25.1,
+      "stages": [
+        {
+          "name": "원장 동기화",
+          "seconds": 22.6,
+          "rc": 0,
+          "ok": true,
+          "tail": "✅ live_portfolio synced 2026-11-20 01:29:35 KST | equity $878.60 (1,176,272원) | cash $426.63 (571,172원) | fx 1338.8 | CONSISTENT"
+        },
+        {
+          "name": "유령 포지션 점검",
+          "seconds": 0.0,
+          "rc": 0,
+          "ok": true,
+          "tail": "[reconciler] CONSISTENT · 보유 {'NVDA': 1, 'SGOV': 1} · 사다리 유령 0 · 브래킷 유령 0 · 수량보정 0 · 대기주문취소 0"
+        },
+        {
+          "name": "무인 집행",
+          "seconds": 1.3,
+          "rc": 0,
+          "ok": true,
+          "tail": "  다음 게이트: 신규 진입 마감 04:30 전 · 1.2s"
+        },
+        {
+          "name": "브래킷 감시(읽기 전용)",
+          "seconds": 0.5,
+          "rc": 0,
+          "ok": true,
+          "tail": "Total actions: 0 (mode=DRY_RUN)"
+        },
+        {
+          "name": "원장 재동기화",
+          "seconds": 0.3,
+          "rc": 0,
+          "ok": true,
+          "tail": "✅ live_portfolio synced 2026-11-20 01:29:37 KST | equity $878.60 (1,176,272원) | cash $426.63 (571,172원) | fx 1338.8 | CONSISTENT"
+        },
+        {
+          "name": "평단 계획 재생성",
+          "seconds": 0.3,
+          "rc": 0,
+          "ok": true,
+          "tail": "  · 기대 최대 $0 / 최악 $0 / 목표 $1.32"
+        },
+        {
+          "name": "유령 포지션 재점검",
+          "seconds": 0.0,
+          "rc": 0,
+          "ok": true,
+          "tail": "[reconciler] CONSISTENT · 보유 {'NVDA': 1, 'SGOV': 1} · 사다리 유령 0 · 브래킷 유령 0 · 수량보정 0 · 대기주문취소 0"
+        },
+        {
+          "name": "집행 상태 최신화",
+          "seconds": 0.1,
+          "rc": 0,
+          "ok": true,
+          "tail": "✅ autotrader_status.json 최신화 2026-11-20 01:29:37 · phase=REGULAR · session=2026-11-19 · 보유 1종목 · 예산 $149.32"
+        },
+        {
+          "name": "대시보드 데이터 발행",
+          "seconds": 0.0,
+          "rc": 0,
+          "ok": true,
+          "tail": "✅ 대시보드 데이터 발행(docs/*.json) · index.html 재렌더 생략 · 2026-11-20 01:29:37 KST"
+        }
+      ],
+      "execution": {
+        "mode": "DRY_RUN",
+        "positions": {
+          "NVDA": {
+            "qty": 1,
+            "entry": 173.3,
+            "sl": 150.0,
+            "exit_mode": "fill_anchored_v2",
+            "bracket_class": null,
+            "trail_atr_mult": null,
+            "entry_source": null
+          }
+        },
+        "exits": 0,
+        "entries": 2,
+        "pending": 0,
+        "realized_today_usd": 0.0,
+        "budget_usd": 149.32,
+        "next_gate": "신규 진입 마감 04:30 전"
+      },
+      "ladders": [
+        "NVDA"
+      ]
     },
     "pulse": {
       "last_cycle_kst": "2026-11-19 11:30:11",
@@ -145,95 +234,95 @@
     }
   },
   "bus": {
-    "total": 189,
+    "total": 208,
     "by_kind": {
-      "DUTY_REPORT": 20,
-      "INSIGHT": 95,
+      "DUTY_REPORT": 30,
+      "INSIGHT": 100,
       "HYPOTHESIS": 7,
       "VALIDATION_REQUEST": 7,
       "VALIDATION_RESULT": 7,
       "HOLD": 7,
       "EXECUTION_REVIEW": 7,
-      "FEEDBACK": 20,
-      "CLOUD_STATUS": 19
+      "FEEDBACK": 23,
+      "CLOUD_STATUS": 20
     },
     "by_kind_ko": {
-      "업무보고": 20,
-      "인사이트": 95,
+      "업무보고": 30,
+      "인사이트": 100,
       "가설": 7,
       "검증 요청": 7,
       "검증 결과": 7,
       "보류": 7,
       "체결 복기": 7,
-      "피드백": 20,
-      "클라우드 상태": 19
+      "피드백": 23,
+      "클라우드 상태": 20
     },
     "by_desk": {
-      "RESEARCH": 113,
-      "VALIDATION": 25,
-      "EXECUTIVE": 51
+      "RESEARCH": 123,
+      "VALIDATION": 30,
+      "EXECUTIVE": 55
     },
     "by_desk_ko": {
-      "리서치·시그널": 113,
-      "검증·리스크": 25,
-      "총괄·집행": 51
+      "리서치·시그널": 123,
+      "검증·리스크": 30,
+      "총괄·집행": 55
     },
     "threads": 12,
-    "handoffs": 150,
+    "handoffs": 166,
     "last_per_agent": {
       "1": {
-        "ts_kst": "2026-11-19 16:12:13",
+        "ts_kst": "2026-11-20 03:24:59",
         "kind": "INSIGHT",
-        "subject": "센티먼트 58.2점 — 진입 필터를 조일 근거인가"
+        "subject": "센티먼트 29.2점 — 진입 필터를 조일 근거인가"
       },
       "2": {
-        "ts_kst": "2026-11-19 16:12:13",
+        "ts_kst": "2026-11-20 03:24:59",
         "kind": "INSIGHT",
-        "subject": "SOXL ATR 23.84% — 손절·익절 폭이 변동성에 맞는가"
+        "subject": "SOXL ATR 25.0% — 손절·익절 폭이 변동성에 맞는가"
       },
       "3": {
-        "ts_kst": "2026-11-19 16:12:13",
+        "ts_kst": "2026-11-20 03:24:59",
         "kind": "INSIGHT",
         "subject": "실적 캘린더 — 반응일 블랙아웃이 실제로 손실을 줄였는가"
       },
       "4": {
-        "ts_kst": "2026-11-19 16:12:13",
+        "ts_kst": "2026-11-20 03:24:59",
         "kind": "INSIGHT",
-        "subject": "CUBE-LEI 101.0 — 리스크 계수 축소가 필요한가"
+        "subject": "CUBE-LEI 100.7 — 리스크 계수 축소가 필요한가"
       },
       "5": {
-        "ts_kst": "2026-11-19 16:12:13",
+        "ts_kst": "2026-11-20 03:24:59",
         "kind": "INSIGHT",
-        "subject": "기관 포지셔닝 P/C None — 반도체 수급 리스크"
+        "subject": "기관 포지셔닝 P/C 1.01 — 반도체 수급 리스크"
       },
       "6": {
-        "ts_kst": "2026-11-19 11:52:52",
-        "kind": "VALIDATION_REQUEST",
-        "subject": "H-0007 측정 설계"
+        "ts_kst": "2026-11-20 03:24:59",
+        "kind": "DUTY_REPORT",
+        "subject": "검증·리스크 업무 현황"
       },
       "7": {
-        "ts_kst": "2026-11-19 11:52:53",
+        "ts_kst": "2026-11-20 03:24:59",
         "kind": "FEEDBACK",
-        "subject": "재측정 불필요 — 데이터 동일"
+        "subject": "검증 대기 — 측정할 후보 없음"
       },
       "8": {
-        "ts_kst": "2026-11-19 11:52:52",
-        "kind": "HOLD",
-        "subject": "H-0007 보류"
+        "ts_kst": "2026-11-20 03:24:59",
+        "kind": "DUTY_REPORT",
+        "subject": "검증·리스크 업무 현황"
       },
       "9": {
-        "ts_kst": "2026-11-19 16:12:13",
+        "ts_kst": "2026-11-20 03:24:59",
         "kind": "FEEDBACK",
-        "subject": "[19사이클] 데스크 종합"
+        "subject": "[20사이클] 데스크 종합"
       },
       "10": {
-        "ts_kst": "2026-11-19 16:12:13",
+        "ts_kst": "2026-11-20 03:24:59",
         "kind": "CLOUD_STATUS",
         "subject": "클라우드 상시 가동 상태"
       }
     },
-    "last_message_at_kst": "2026-11-19 16:12:13",
-    "cycle": 19
+    "last_message_at_kst": "2026-11-20 03:24:59",
+    "cycle": 20
   },
-  "messages_in_bus": 189
+  "messages_in_bus": 208
 }
