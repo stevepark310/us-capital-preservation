@@ -73,6 +73,7 @@ GATE: Dict[str, Any] = {
     "ev_improvement_pct": 0.10,
     "min_oos_profit_factor": 1.2,
     "max_mdd_worsening_pp": 2.0,
+    "max_all_mdd_worsening_pp": 3.0,   # 전체 표본 MDD도 못 나빠진다(2026-11-19 추가)
     "max_is_regression_pct": 0.50,
     "apply_cooldown_hours": 12,
 }
@@ -323,6 +324,11 @@ def gate(ev: Dict[str, Any]) -> Dict[str, Any]:
     worse = float(ev.get("mdd_worsening_pp") or 0.0)
     add("OOS MDD 악화", worse, worse <= GATE["max_mdd_worsening_pp"],
         f"≤ +{GATE['max_mdd_worsening_pp']}%p")
+    all_ = (ev.get("candidate") or {}).get("all") or {}
+    base_all = (ev.get("baseline") or {}).get("all") or {}
+    worse_all = round(float(base_all.get("mdd_pct") or 0.0) - float(all_.get("mdd_pct") or 0.0), 2)
+    add("전체 MDD 악화", worse_all, worse_all <= GATE["max_all_mdd_worsening_pp"],
+        f"≤ +{GATE['max_all_mdd_worsening_pp']}%p")
     is_delta = round(float(is_.get("ev_pct") or 0.0) - float(base_is.get("ev_pct") or 0.0), 3)
     add("IS 후퇴 폭", is_delta, is_delta >= -GATE["max_is_regression_pct"],
         f"≥ -{GATE['max_is_regression_pct']}%p")
