@@ -175,6 +175,17 @@ details.src pre{white-space:pre-wrap;word-break:break-word;font-family:var(--mon
 .emp.sel .halo{opacity:1}
 .emp .halo{position:absolute;left:50%;bottom:-6%;width:150%;aspect-ratio:1;transform:translate(-50%,0);
   border-radius:50%;border:2px solid rgba(56,189,248,.85);opacity:0;transition:opacity .3s;pointer-events:none}
+.report-bubble{position:absolute;z-index:7;width:10.2%;box-sizing:border-box;transform:translate(-50%,-100%);
+  display:grid;gap:3px;text-align:left;padding:5px 6px;border:1px solid #566984;border-top:2px solid var(--report-accent);
+  border-radius:9px;background:#111c30;color:#f2f6ff;box-shadow:0 4px 10px #02061780;cursor:pointer}
+.report-bubble::after{content:"";position:absolute;left:calc(50% - 4px);bottom:-5px;width:8px;height:8px;
+  background:inherit;border:solid #566984;border-width:0 1px 1px 0;transform:rotate(45deg)}
+.report-bubble:hover,.report-bubble[aria-pressed="true"]{background:#1d304a}
+.report-bubble:focus-visible{outline:2px solid #7dd3fc;outline-offset:2px}
+.report-person{font-size:10px;font-weight:800;line-height:1.1;white-space:nowrap}
+.report-summary{font-size:clamp(10px,.82vw,13px);line-height:1.24;min-height:3.72em;overflow:hidden;
+  overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.report-time{font-size:8px;color:#a8b5cb;line-height:1.1;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .emp-tag{position:absolute;transform:translate(-50%,0);font-size:8.6px;font-weight:800;letter-spacing:.02em;
   color:#e6eefc;background:rgba(2,6,23,.66);border:1px solid rgba(148,163,184,.28);border-radius:999px;
   padding:0.5px 5px;white-space:nowrap;pointer-events:none;z-index:5;backdrop-filter:blur(4px);opacity:.94}
@@ -994,17 +1005,34 @@ function empSvg(e){
   </svg>`;
 }
 
+function renderReportBubbles(stage){
+  TEAM.forEach(e => {
+    const bubble = stage.querySelector('[data-report-emp="' + e.id + '"]');
+    const post = latestOf(e.id);
+    const summary = String(post?.summary || post?.title || "")
+      .replace(/^\[[^\]]*\d{2}:\d{2}[^\]]*\]\s*/, "").trim() || "아직 업무보고가 없습니다";
+    const stamp = String(post?.timestamp || "");
+    const time = stamp.match(/\b\d{2}:\d{2}\b/)?.[0];
+    bubble.setAttribute("aria-pressed", String(S.selected === e.id));
+    bubble.title = e.name + " · " + summary + (time ? " · " + stamp + " KST" : "");
+    bubble.innerHTML = '<span class="report-person">' + esc(e.name) + '</span>' +
+      '<span class="report-summary">' + esc(summary) + '</span>' +
+      '<span class="report-time">' + (time ? esc(time) + ' KST' : '보고 대기') + '</span>';
+  });
+}
+
 function renderOffice(){
   const stage = $("stage");
   if (!stage.dataset.built){
     const seats = TEAM.map(e => `<div class="emp" data-emp="${e.id}" style="left:${e.seat.x}%;top:${e.seat.y}%" title="${esc(e.name)} · ${esc(e.title)}">
         <div class="halo"></div>${empSvg(e)}</div>
+        <button type="button" class="report-bubble" data-report-emp="${e.id}" style="left:${e.seat.x}%;top:${e.seat.y - 5.8}%;--report-accent:${e.accent}"></button>
         <div class="emp-tag" data-tag="${e.id}" style="left:${e.seat.x}%;top:${e.seat.y + 2.7}%;border-color:${e.accent}66">${esc(e.name)}</div>`).join("");
     stage.insertAdjacentHTML("beforeend", seats);
     stage.dataset.built = "1";
     stage.addEventListener("click", ev => {
-      const box = ev.target.closest(".emp"); if (!box) return;
-      selectEmployee(+box.dataset.emp);
+      const box = ev.target.closest("[data-report-emp], .emp"); if (!box) return;
+      selectEmployee(+(box.dataset.reportEmp || box.dataset.emp));
     });
     $("emp-select").innerHTML = TEAM.map(e => `<button data-sel="${e.id}"><span>${e.icon}</span>${esc(e.name)}<small>${esc(e.title.split(" ")[0])}</small></button>`).join("");
     $("emp-select").addEventListener("click", ev => {
@@ -1014,6 +1042,7 @@ function renderOffice(){
   applyDayNight();
   paintPostures();
   paintSelection();
+  renderReportBubbles(stage);
   const p = SNAP.pulse || {};
   const fp = feed().pulse || {};
   const cyc = fp.cycle_kst || p.generated_at_kst || "";
@@ -1699,6 +1728,17 @@ setInterval(() => {
   if (S.tab === "office") paintPostures();
 }, 9000);
 
+/* 사무실에서 최신 업무보고를 주기적으로 읽는다. */
+async function refreshOfficeReports(){
+  if (S.tab !== "office" || document.hidden || S.loading) return;
+  const result = await getJSON(ENDPOINTS.feed);
+  if (!result.ok || !Array.isArray(result.data.posts) || S.loading) return;
+  if ((parseTs(result.data.last_updated) || 0) <= (parseTs(feed().last_updated) || 0)) return;
+  SNAP.feed = result.data;
+  if (S.tab === "office") renderOffice();
+}
+setInterval(refreshOfficeReports, 60000);
+
 /* 시계 · 자동 낮/밤 */
 setInterval(() => {
   renderHeader();
@@ -1721,6 +1761,7 @@ window.addEventListener("resize", syncHdrHeight);
   renderAll();
   if (h.startsWith("emp-")) { setTab("office", false); selectEmployee(+h.slice(4)); }
   else setTab(h || "office", false);
+  void refreshOfficeReports();
   const stale = (SNAP.feed || {}).last_updated;
   if (stale) console.log("[CUBE] feed", stale, "· build", SNAP.meta && SNAP.meta.built_at_kst);
 })();
