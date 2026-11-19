@@ -282,6 +282,41 @@ class NHBroker:
             payload["wtm_cur_knd_cd"] = "1"
         return self._call_api(endpoint, payload)
 
+    def get_order_capacity(self, ticker: str, side: str, price: float) -> dict:
+        """Fresh NH orderable funds / sellable shares for the *exact* symbol and limit.
+
+        NH's overseas inquiry endpoint uses pcs_dit=1 for buyable amount and
+        pcs_dit=3 for sellable quantity. All cash amounts must be USD; if the
+        server returns another currency or omits it, block rather than convert.
+        """
+        side = str(side or "").upper()
+        if side not in ("BUY", "SELL") or not ticker or price <= 0:
+            raise ValueError("Valid side, ticker and limit price are required")
+        payload = {
+            "act_no": self._acct(),
+            "pcs_dit": "1" if side == "BUY" else "3",
+            "fc_sec_trd_nat_cd": "200",
+            "iem_cd": ticker.upper(),
+            "wtm_cur_knd_cd": "1",  # USD only; do not convert KRW buying power implicitly
+            "oss_orr_knd_cd": "1",
+            "ahi_nmn_pr_tp_cd": "00",
+            "fc_orr_uit_pr": round(float(price), 2),
+        }
+        response = self._call_api("/gbstock/inquiry/v1/buyableAmount", payload)
+        out = response.get("Output_0") or {}
+        if not isinstance(out, dict):
+            out = {}
+        result = {"rsp_cd": str(response.get("rsp_cd") or ""),
+                  "rsp_msg": response.get("rsp_msg"), "side": side}
+        if side == "BUY":
+            if out.get("orr_pbl_amt") is not None:
+                result["orderable_usd"] = _num(out["orr_pbl_amt"])
+            result["currency"] = str(out.get("wtm_cur_cd") or "")
+        else:
+            if out.get("sll_pbl_qty") is not None:
+                result["sellable_qty"] = _int(out["sll_pbl_qty"])
+        return result
+
     def _acct(self) -> str:
         """11-digit account number for API payloads (dashes stripped)."""
         return self.act_no_norm or (self.act_no or "").replace("-", "").strip()
