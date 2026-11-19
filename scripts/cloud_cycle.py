@@ -143,7 +143,7 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
     clock = market_clock.resolve()
     t0 = time.time()
     gate = _load(LIVE_GATE_PATH, {})
-    live_enabled = gate.get("enabled") is True
+    live_enabled = isinstance(gate, dict) and gate.get("enabled") is True
     requested_dry = bool(dry_run if dry_run is not None else os.getenv("CUBE_CLOUD_DRY_RUN") == "1")
     base: Dict[str, Any] = {"last_cycle_kst": now_str(), "phase": clock.get("phase"),
                             "session_date": clock.get("session_date"),
