@@ -157,3 +157,63 @@ def test_account_state_parsed_from_dispatch(tmp_path, monkeypatch):
     assert state["found"] is True
     assert state["cash_usd"] == 636.01
     assert state["positions"]["SOXL"]["avg_price"] == 50.43
+
+
+def test_cloud_pretrade_blocks_insufficient_cash(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "LIVE_GATE_PATH", str(tmp_path / "gate.json"))
+    monkeypatch.setattr(ob, "BASE_DIR", str(tmp_path))
+    (tmp_path / "gate.json").write_text('{"enabled":true}', encoding="utf-8")
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "live_portfolio.json").write_text(
+        '{"cash_deposit_usd":160}', encoding="utf-8")
+    from execution import nh_trader
+    monkeypatch.setattr(nh_trader.NHBroker, "get_portfolio_state", lambda self, include_raw=False: {
+        "rsp_cd": "00166", "equity": 300, "cash": 200, "positions": {}})
+    result = ob.OrderRouter(dry_run=False)._live_pretrade_check("SOXL", "BUY", 1, 40)
+    assert result["ok"] is False
+    assert "cash" in result["reason"]
+
+
+def test_cloud_pretrade_blocks_unsellable_shares(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "LIVE_GATE_PATH", str(tmp_path / "gate.json"))
+    (tmp_path / "gate.json").write_text('{"enabled":true}', encoding="utf-8")
+    from execution import nh_trader
+    monkeypatch.setattr(nh_trader.NHBroker, "get_portfolio_state", lambda self, include_raw=False: {
+        "rsp_cd": "00166", "equity": 300, "cash": 20,
+        "positions": {"NVDA": {"qty": 2, "sellable_qty": 1}}})
+    result = ob.OrderRouter(dry_run=False)._live_pretrade_check("NVDA", "SELL", 2, 150)
+    assert result["ok"] is False
+    assert result["sellable_qty"] == 1
+
+
+def test_cloud_pretrade_blocks_failed_nh_response(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "LIVE_GATE_PATH", str(tmp_path / "gate.json"))
+    (tmp_path / "gate.json").write_text('{"enabled":true}', encoding="utf-8")
+    from execution import nh_trader
+    monkeypatch.setattr(nh_trader.NHBroker, "get_portfolio_state", lambda self, include_raw=False: {
+        "rsp_cd": "ERROR", "equity": 300, "cash": 200, "positions": {}})
+    assert ob.OrderRouter(dry_run=False)._live_pretrade_check("SOXL", "BUY", 1, 40)["ok"] is False
+
+
+def test_cloud_route_blocks_live_order_without_gate(tmp_path, monkeypatch):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(ob, "LIVE_GATE_PATH", str(tmp_path / "no-gate.json"))
+    monkeypatch.setattr(ob, "ORDERS_LOG", str(tmp_path / "orders.jsonl"))
+    monkeypatch.setattr(ob, "DISPATCH_STATE", str(tmp_path / "dispatch.json"))
+    runner = Runner()
+    result = fast_router(run_cmd=runner).place("SOXL", "BUY", 1, 50, "test", dry_run=False)
+    assert result["status"] == "BLOCKED_PREFLIGHT"
+    assert not runner.commands
+
+
+def test_ambiguous_direct_outcome_does_not_dispatch(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "ORDERS_LOG", str(tmp_path / "orders.jsonl"))
+    monkeypatch.setattr(ob, "DISPATCH_STATE", str(tmp_path / "dispatch.json"))
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    runner = Runner()
+    router = fast_router(run_cmd=runner)
+    monkeypatch.setattr(router, "_try_direct", lambda *a: {
+        "status": "UNKNOWN_NEEDS_RECONCILE", "error": "TimeoutError"})
+    result = router.place("SOXL", "BUY", 1, 50, "test", dry_run=False)
+    assert result["status"] == "UNKNOWN_NEEDS_RECONCILE"
+    assert not any(c[:3] == ["gh", "workflow", "run"] for c in runner.commands)
