@@ -1,11 +1,16 @@
 {
   "enabled": false,
-  "reason": "실계좌 자동매매 배포 직후 기본값은 안전한 dry-run입니다. 검증 이후 명시적 승인 시 enabled=true로 변경합니다.",
+  "session_date": "2026-11-19",
+  "expires_at_kst": "2026-11-20 06:00:00",
+  "max_buy_order_usd": 65,
+  "max_session_buy_usd": 120,
+  "max_session_buy_orders": 2,
+  "reason": "2026-11-19 ET 정규장 한정. 검증 전에는 disabled, 실주문 자동 만료. NH 주문가능금액·10인 협업·보유수량 점검 실패 시 차단.",
   "requirements": [
-    "pytest -q 테스트 통과",
-    "NH 계좌 사전조회 및 실제 보유수량 대조",
-    "장중 dry-run 사이클 1회 성공",
-    "청산·부분체결·API 타임아웃 예외 검증"
+    "NH 읽기 전용 주문가능금액 API 성공",
+    "GitHub CI green",
+    "미국 장중 only",
+    "주문 직전 NH 주문가능 현금 및 매도가능수량 확인"
   ],
   "updated_at": "2026-11-20"
 }
