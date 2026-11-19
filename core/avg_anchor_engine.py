@@ -279,6 +279,9 @@ def build_plan(positions: List[Dict[str, Any]], techs: Dict[str, Any], cash_usd:
                          if not l.get("levels_locked")), 2)
     sl_total = round(sum((l.get("expected_pnl_usd") or {}).get("sl_full", 0.0) for l in ladders
                          if not l.get("levels_locked")), 2)
+    # 사용자 잠금 포지션(NVDA)은 사다리 합계에서 빼지만, 손실 노출은 따로 표시한다.
+    locked_risk = round(sum((l.get("expected_pnl_usd") or {}).get("sl_full", 0.0) for l in ladders
+                            if l.get("levels_locked")), 2)
     scalp_expect = round(scalp_budget * sc["tp_pct"] / 100.0 * min(2, sc["max_rounds"]), 2)
     daily_target = round(float(equity_usd or 0) * 0.0015, 2)
     measured_usd = 0.0
@@ -301,6 +304,9 @@ def build_plan(positions: List[Dict[str, Any]], techs: Dict[str, Any], cash_usd:
         "market": {"phase": phase, "next_open_kst": next_open_kst, "vix": vix,
                    "earnings": {"ticker": "NVDA", "at_kst": PARAMS["earnings_kst"]}},
         "params": PARAMS,
+        "positions_source": "data/live_portfolio.json (원장 보유 정본)",
+        "holdings": {str(p.get("ticker")).upper(): int(p.get("qty") or 0)
+                     for p in (positions or []) if isinstance(p, dict) and p.get("ticker")},
         "ladders": ladders,
         "excluded": {"carry_parking": sorted(CARRY_TICKERS),
                      "note": "SGOV는 무위험 캐리 파킹으로 익절·손절 대상에서 제외"},
@@ -337,6 +343,9 @@ def build_plan(positions: List[Dict[str, Any]], techs: Dict[str, Any], cash_usd:
             "scalp_note": "현금은 SGOV 파킹 또는 DIP_SWING 등급 신호 1회에만 사용한다.",
             "expected_best_case_usd": round(tp_total, 2),
             "expected_worst_case_usd": round(sl_total, 2),
+            "locked_positions_risk_usd": locked_risk,
+            "locked_positions_note": ("사용자 잠금 포지션(NVDA TP $173.0 / SL $150.0)은 사다리 기대값에서 제외되지만, "
+                                      f"손절 시 노출은 ${abs(locked_risk):.2f}입니다."),
             "daily_target_usd": daily_target,
             "daily_target_rule": "자산의 0.15% — 실측 기대값(아래)과 같은 자릿수의 목표. 0.5% 목표는 소액 포지션에서 비현실적이어서 하향했다.",
             "measured_expected_usd_per_session": measured_usd,
@@ -379,17 +388,31 @@ def build_v2_bracket(lad: Dict[str, Any], prev: Dict[str, Any]) -> Dict[str, Any
     }
 
 
-def apply_to_brackets(plan: Dict[str, Any], brackets: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def apply_to_brackets(plan: Dict[str, Any], brackets: Optional[Dict[str, Any]] = None,
+                      holdings: Optional[Dict[str, int]] = None) -> Dict[str, Any]:
     """평단 기준 브래킷 등록.
 
     이미 브래킷이 있는 종목은 기존 방식(v1 사다리/검증 레벨)을 그대로 유지하고,
     새로 등록되는 종목만 v2(샹들리에) 청산 규칙을 쓴다 — 열린 포지션의 주문 레벨을
     조용히 바꾸지 않기 위해서다.
+
+    `holdings`(ticker → qty)를 넘기면 원장에 없는 종목의 브래킷은 만들지 않는다
+    (유령 포지션 재발 방지). `ghost`로 표시된 브래킷은 절대 되살리지 않는다.
     """
     brackets = dict(brackets or {})
     for lad in plan.get("ladders", []):
         tk = lad["ticker"]
+        try:
+            lad_qty = int(lad.get("qty") or 0)
+        except (TypeError, ValueError):
+            lad_qty = 0
+        if lad_qty <= 0:
+            continue
+        if holdings is not None and tk.upper() not in {str(k).upper() for k in holdings}:
+            continue                      # 원장에 없는 종목 — 브래킷 등록 금지
         prev = brackets.get(tk) or {}
+        if isinstance(prev, dict) and prev.get("ghost"):
+            continue                      # 유령으로 정리된 브래킷은 되살리지 않는다
         is_new = not prev
         if is_new and not lad.get("levels_locked"):
             brackets[tk] = build_v2_bracket(lad, prev)
@@ -492,7 +515,9 @@ def main(argv: Optional[List[str]] = None) -> Dict[str, Any]:
 
     if apply:
         brackets = _load(BRACKETS_PATH)
-        merged = apply_to_brackets(plan, brackets)
+        holdings = {p.get("ticker"): int(p.get("qty") or 0) for p in (live.get("positions") or [])
+                    if isinstance(p, dict) and p.get("ticker")}
+        merged = apply_to_brackets(plan, brackets, holdings=holdings)
         with open(BRACKETS_PATH, "w", encoding="utf-8") as f:
             json.dump(merged, f, ensure_ascii=False, indent=2)
         print(f"✅ 브래킷 등록: {BRACKETS_PATH}")

@@ -30,6 +30,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
 from agents import agent_profiles  # noqa: E402
+from core import collab_bus  # noqa: E402
 
 DATA = os.path.join(BASE_DIR, "data")
 DOCS = os.path.join(BASE_DIR, "docs")
@@ -205,7 +206,13 @@ def mirror_to_widget() -> bool:
 
 
 # ------------------------------------------------------------------ main render
-def render(also_widget: bool = True) -> dict:
+def render(also_widget: bool = True, data_only: bool = False) -> dict:
+    """data_only=True면 index.html을 다시 굽지 않고 docs/*.json만 발행한다.
+
+    장중 10분 사이클은 거래 상태 JSON만 갱신하고(대시보드는 '전체 최신화' 버튼이 docs에서
+    직접 받아 그린다), index.html은 30분 펄스에서만 다시 굽는다 — 매 10분 370KB HTML을
+    커밋하면 저장소가 하루 50MB씩 불어난다.
+    """
     feed = load(os.path.join(DATA, "agent_feed.json"), {}) or {}
     report = load(os.path.join(DATA, "cube_report.json"), {}) or {}
     portfolio = load(os.path.join(DATA, "live_portfolio.json"), {}) or {}
@@ -213,6 +220,15 @@ def render(also_widget: bool = True) -> dict:
     autotrader = load(os.path.join(DATA, "autotrader_status.json"), {}) or {}
     pulse = load(os.path.join(DATA, "cube_pulse.json"), {}) or {}
     board = build_board(load(os.path.join(DATA, "market_snapshot.json"), {}) or {})
+    # 2026-11-19 협업·빌드업 — 버스/장부/클라우드/정리 리포트
+    full_bus = load(os.path.join(DATA, "agent_collab_bus.json"), {}) or {}
+    threads = collab_bus.build_threads(full_bus.get("messages") or [], limit=14)
+    collab = {k: v for k, v in full_bus.items() if k != "messages"}      # 전체 메시지는 docs에서 직접 받는다
+    collab["recent_messages"] = list(reversed(full_bus.get("messages") or []))[:40]
+    buildup = load(os.path.join(DATA, "strategy_buildup.json"), {}) or {}
+    cloud = load(os.path.join(DATA, "cloud_status.json"), {}) or {}
+    collab_cycle = load(os.path.join(DATA, "collab_cycle.json"), {}) or {}
+    recon = load(os.path.join(DATA, "position_reconciliation.json"), {}) or {}
 
     if not report.get("team"):
         report["team"] = agent_profiles.as_list()
@@ -237,6 +253,12 @@ def render(also_widget: bool = True) -> dict:
         "autotrader": autotrader,
         "pulse": pulse,
         "board": board,
+        "collab": collab,
+        "collab_threads": threads,
+        "buildup": buildup,
+        "cloud": cloud,
+        "collab_cycle": collab_cycle,
+        "recon": recon,
         # 최신화 버튼이 다시 받아갈 파일 목록(경로는 docs/ 기준)
         "endpoints": {
             "feed": "agent_feed.json",
@@ -246,6 +268,12 @@ def render(also_widget: bool = True) -> dict:
             "leading": "leading_indicators.json",
             "autotrader": "autotrader_status.json",
             "pulse": "cube_pulse.json",
+            "collab": "agent_collab_bus_full.json",
+            "collab_threads": "collab_threads.json",
+            "buildup": "strategy_buildup.json",
+            "cloud": "cloud_status.json",
+            "collab_cycle": "collab_cycle.json",
+            "recon": "position_reconciliation.json",
         },
     }
 
@@ -253,36 +281,50 @@ def render(also_widget: bool = True) -> dict:
     save(os.path.join(DOCS, "market_board.json"), board)
     save(os.path.join(DOCS, "autotrader_status.json"), autotrader)
     save(os.path.join(DOCS, "cube_pulse.json"), pulse)
+    # 협업·빌드업: 전체 버스(메시지 포함)는 docs에서 직접 받아가게 발행한다.
+    save(os.path.join(DOCS, "agent_collab_bus_full.json"), full_bus)
+    save(os.path.join(DOCS, "collab_threads.json"), threads)
+    save(os.path.join(DOCS, "strategy_buildup.json"), buildup)
+    save(os.path.join(DOCS, "cloud_status.json"), cloud)
+    save(os.path.join(DOCS, "collab_cycle.json"), collab_cycle)
+    save(os.path.join(DOCS, "position_reconciliation.json"), recon)
 
     with open(TEMPLATE, "r", encoding="utf-8") as f:
         tpl = f.read()
-    payload = json.dumps(snap, ensure_ascii=False, default=str)
-    # </script>가 JSON 문자열 안에 들어가도 스크립트가 끊기지 않게 이스케이프
-    payload = payload.replace("</", "<\\/")
-    html = tpl.replace("__SNAP_JSON__", payload)
+    if not data_only:
+        payload = json.dumps(snap, ensure_ascii=False, default=str)
+        # </script>가 JSON 문자열 안에 들어가도 스크립트가 끊기지 않게 이스케이프
+        payload = payload.replace("</", "<\\/")
+        html = tpl.replace("__SNAP_JSON__", payload)
 
-    with open(INDEX, "w", encoding="utf-8") as f:
-        f.write(html)
+        with open(INDEX, "w", encoding="utf-8") as f:
+            f.write(html)
 
-    for rel, target, label in STUBS:
-        with open(os.path.join(BASE_DIR, rel), "w", encoding="utf-8") as f:
-            f.write(_stub(target, label))
-    for rel, target, label in DOCS_STUBS:
-        path = os.path.join(BASE_DIR, rel)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(_stub(target, label))
+        for rel, target, label in STUBS:
+            with open(os.path.join(BASE_DIR, rel), "w", encoding="utf-8") as f:
+                f.write(_stub(target, label))
+        for rel, target, label in DOCS_STUBS:
+            path = os.path.join(BASE_DIR, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(_stub(target, label))
 
-    copied = ensure_assets()
-    widget = mirror_to_widget() if also_widget else False
+        copied = ensure_assets()
+        widget = mirror_to_widget() if also_widget else False
+    else:
+        copied, widget = 0, False
 
     info = {
-        "index_bytes": os.path.getsize(INDEX),
+        "index_bytes": os.path.getsize(INDEX) if os.path.exists(INDEX) else 0,
         "posts": len(feed.get("posts") or []),
         "built_at_kst": snap["meta"]["built_at_kst"],
-        "assets_copied": len(copied),
+        "assets_copied": len(copied) if isinstance(copied, list) else int(copied or 0),
         "widget_mirrored": widget,
+        "data_only": bool(data_only),
     }
+    if data_only:
+        print(f"✅ 대시보드 데이터 발행(docs/*.json) · index.html 재렌더 생략 · {info['built_at_kst']} KST")
+        return info
     print(f"✅ 통합 대시보드 index.html {info['index_bytes'] / 1024:.0f}KB · "
           f"업무보고 {info['posts']}건 · 직원 {len(agent_profiles.EMPLOYEES)}명 · "
           f"{info['built_at_kst']} KST" + (f" · 위젯 번들 동기화" if widget else ""))
@@ -292,5 +334,7 @@ def render(also_widget: bool = True) -> dict:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-widget", action="store_true")
+    ap.add_argument("--data-only", action="store_true")
     a = ap.parse_args()
-    render(also_widget=not a.no_widget)
+    render(also_widget=not a.no_widget, data_only=a.data_only)
+

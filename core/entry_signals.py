@@ -403,7 +403,7 @@ def earnings_reaction_dates(calendar: Optional[Dict[str, Any]] = None) -> Dict[s
         report = str(e.get("report_at_kst") or "")
         try:
             t = datetime.strptime(report[:16], "%Y-%m-%d %H:%M")
-            et = t - timedelta(hours=14)
+            et = market_clock.kst_to_et(t)          # 서머타임 반영(KST→ET)
             reaction = (market_clock.next_trading_day(et.date()) if et.time() >= datetime.strptime("16:00", "%H:%M").time()
                         else et.date())
         except Exception:

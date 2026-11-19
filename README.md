@@ -182,6 +182,40 @@ python3 scripts/reconcile_ledger.py --fix
 python3 scripts/monitor_and_exit.py --dry-run
 ```
 
+---
+
+## 5-b. 클라우드 상시 자동매매 · 10인 협업 빌드업 (2026-11-19 개편)
+
+동훈님 지시(2026-11-19): *"결함 해결해주고 피클 토큰을 다 써도 장중 자동으로 매수매도가 되도록
+모든 직원이 상시로 계속 일하면서 서로 업무 결과를 주고 받고 지속 빌드업 하면서 투자 수익을
+지속 향상시킬 수 있도록 만들어줘"* — 피클 앱과 무관하게 GitHub Actions만으로 도는 실행 구조와,
+직원 간 **실제 핸드오프**(가설 → 실측 검증 → 승인/보류 → 적용·복기)를 넣었습니다.
+자세한 내용은 [`docs/cloud_automation.md`](docs/cloud_automation.md).
+
+| 구성 | 파일 | 역할 |
+|---|---|---|
+| 장중 10분 집행 | `.github/workflows/market_autotrade.yml` | 정규장이면 `autotrader --execute` + `monitor_and_exit --execute` + 원장·상태 동기화, `data/`·`docs/` 커밋 |
+| 24/7 협업 펄스 | `.github/workflows/cube_pulse.yml` | 30분마다 원장 → 상태 → 10인 업무보고 → 협업·빌드업 → 대시보드 |
+| 실행기 | `scripts/cloud_cycle.py` | `market` / `pulse` / `status` — 단계 순서와 실패 처리를 한 곳에 |
+| 시장 시계 | `core/market_clock.py` | 미국 동부 DST 규칙으로 세션 판정(EDT 22:30 KST 개장까지 자동) |
+| 유령 포지션 정리 | `core/position_reconciler.py` | 원장(`live_portfolio.json`)만 보유 정본 — 사다리·브래킷·대기주문을 맞춘다 |
+| 집행 상태 최신화 | `core/autotrader.py::refresh_status` | 시계·phase·보유·예산을 매 사이클 다시 쓴다(14:32 정지 결함) |
+| 협업 버스 | `core/collab_bus.py` | 10인의 발신/수신 메시지·스레드(`data/agent_collab_bus.json`) |
+| 검증 실험실 | `core/desk_lab.py` | 2년 일봉 캐시로 In/Out-of-Sample 실측(왕복 0.24% 차감) |
+| 빌드업 장부 | `core/buildup.py` | 가설·측정·게이트·적용 이력 + 하드 락(`data/strategy_buildup.json`) |
+
+```bash
+python3 scripts/cloud_cycle.py status        # 클라우드 가동 상태
+python3 scripts/run_collab_cycle.py          # 협업 한 사이클(가설→검증→승인/보류)
+python3 -m core.buildup                      # 누적 가설·적용·승인대기 요약
+python3 scripts/autotrader.py --refresh-status    # 상태 파일(autotrader_status.json) 최신화
+```
+
+**자동 개선의 범위**: OOS 게이트(표본 20건·OOS 8건·ΔEV +0.10%p·PF 1.2·MDD 악화 2%p 이내)를
+통과한 **진입 필터 조이기**만 자동 적용합니다. 손절·익절 폭 같은 브래킷 규격은 측정·기록만 하고
+**사용자 승인 대기(RECOMMENDED)** 로 남깁니다. RVOL 필수·손절 상한 15%·3세션·현금 $150·예산 $220·
+일일 손실 -$25·NVDA 잠금·물타기 금지·프리마켓 금지는 하드 락으로 어떤 경로로도 완화되지 않습니다.
+
 ### 매매 로직 변경 요약
 - 브래킷을 **계획가가 아니라 실제 체결가**에 고정하고, 목표 폭을 종목 ATR에 비례해 재산정.
 - TP1 이후 **본전+수수료(0.34%) 래칫**, TP2 이후 러너는 **샹들리에(0.9ATR)와 EMA20 중 타이트한 쪽**으로 추적하며 최소 +1.5% 이익을 잠금.

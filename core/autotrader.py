@@ -1030,3 +1030,101 @@ class AutonomousTrader:
         if not session_time.time_reached(clock, self.guard.get("no_new_entry_after_kst")):
             return f"신규 진입 마감 {self.guard.get('no_new_entry_after_kst')} 전"
         return "신호 대기"
+
+
+# --------------------------------------------------------------------------- status
+def refresh_status(by: str = "pulse") -> Dict[str, Any]:
+    """`data/autotrader_status.json`을 '지금' 기준으로 다시 만든다 (주문·상태 변경 없음).
+
+    왜 필요한가: 2026-11-18 14:32 파일이 그대로 남아 다음 두 세션(11-18·11-19) 동안
+    대시보드·직원 보고가 `OFF_HOURS 14:32`라는 죽은 시계를 계속 보여 줬다. 상태 파일은
+    집행 사이클이 돌 때만 갱신됐기 때문에, 앱이 꺼지거나 감시가 멈추면 시계도 멈췄다.
+
+    이 함수는 집행 판단을 하지 않고 다음만 다시 읽는다.
+      · 현재 시각·phase·세션일        (market_clock)
+      · 실제 보유·미확인 주문          (active_brackets / autotrader_state)
+      · 원장 자산·현금, 1회 예산, 가드레일 (ledger / execution_policy)
+      · 이번 세션 실현손익·진입 건수
+    `mode`·`exits`·`entries`·`evolution`처럼 '직전 집행 사이클의 결과'인 값은 그대로 보존하고,
+    이 함수로 덮어쓰지 않는다(마지막 실제 집행 기록을 지우지 않기 위해서).
+    """
+    policy = execution_policy.load_policy()
+    clock = market_clock.resolve()
+    session_date = str(clock.get("session_date") or _now_kst().strftime("%Y-%m-%d"))
+    prev = _load(STATUS_PATH, {}) or {}
+
+    st = _load(STATE_PATH, {}) or {}
+    if not st or st.get("session_date") != session_date:
+        # 세션이 바뀌었으면 일일 카운터는 0에서 시작한다(미확인 주문만 이월).
+        carried = [p for p in (st.get("pending") or [])
+                   if (lambda a: a is not None and a <= 72 * 60)(_age_min_of(p.get("ts_kst")))]
+        st = {"session_date": session_date, "entries": [], "orders": [], "realized": [],
+              "realized_pnl_usd": 0.0, "halted": False, "halt_reason": None,
+              "cooldowns": {}, "pending": carried, "cycles": 0}
+    brackets = _load(os.path.join(DATA, "active_brackets.json"), {}) or {}
+    led = {}
+    try:
+        from core import ledger as ledger_mod
+        led = ledger_mod.summary()
+    except Exception:
+        led = {}
+
+    params = AutonomousTrader._strategy_params()
+    equity = float(led.get("equity_usd") or 0.0)
+    cash = float(led.get("cash_usd") or 0.0)
+    try:
+        snap_vix = (_load(os.path.join(DATA, "market_snapshot.json"), {}) or {}).get("quotes", {}).get("^VIX", {})
+        vix = snap_vix.get("last")
+    except Exception:
+        vix = None
+    desc = execution_policy.describe(policy, equity, cash, vix,
+                                     extra_scale=float(params.get("risk_scale") or 1.0))
+
+    helper = AutonomousTrader(policy=policy, dry_run=True)
+    positions = {tk: {"qty": exit_rules.remaining_qty(b), "entry": b.get("entry_price"),
+                      "sl": b.get("sl"), "exit_mode": b.get("exit_mode") or b.get("bracket_version"),
+                      "bracket_class": b.get("bracket_class"), "trail_atr_mult": b.get("trail_atr_mult"),
+                      "entry_source": b.get("entry_source")}
+                 for tk, b in brackets.items() if exit_rules.is_open(b)}
+
+    status = dict(prev)
+    status.update({
+        "engine": "AUTONOMOUS_INTRADAY",
+        "generated_at_kst": _now_str(),
+        "phase": clock.get("phase"),
+        "session_date": session_date,
+        # mode/exits/entries/evolution은 직전 집행 결과를 보존한다.
+        "mode": prev.get("mode") or "IDLE",
+        "policy": desc,
+        "loss_limit_usd": desc["daily_loss_limit_usd"],
+        "realized_pnl_today_usd": round(float(st.get("realized_pnl_usd") or 0.0), 2),
+        "halted": bool(st.get("halted")),
+        "halt_reason": st.get("halt_reason"),
+        "entries_today": len(st.get("entries") or []),
+        "orders_today": len(st.get("orders") or []),
+        "pending_orders": st.get("pending") or [],
+        "positions": positions,
+        "strategy_params": {k: params.get(k) for k in ("trail_atr_mult", "initial_sl_atr_mult",
+                                                       "risk_scale", "defensive_mode", "entry_filters")},
+        "c5_pilot": helper._c5_status(st, brackets, clock),
+        "ledger": {"equity_usd": equity, "cash_usd": cash},
+        "next_gate": helper._next_gate(clock, st),
+        "status_sync": {
+            "refreshed_at_kst": _now_str(),
+            "by": by,
+            "previous_generated_at_kst": prev.get("generated_at_kst"),
+            "note": "시계·phase·보유·예산만 원장과 시장시계에서 다시 읽었습니다. 주문·브래킷 변경 없음.",
+            "seconds_since_previous": _age_min_of(prev.get("generated_at_kst"), unit="s"),
+        },
+    })
+    status["elapsed_sec"] = prev.get("elapsed_sec", 0.0)
+    _save(STATUS_PATH, status)
+    return status
+
+
+def _age_min_of(ts: Optional[str], unit: str = "min") -> Optional[float]:
+    t = _parse_kst(ts or "")
+    if not t:
+        return None
+    delta = (_now_kst() - t).total_seconds()
+    return delta if unit == "s" else delta / 60.0

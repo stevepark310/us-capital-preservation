@@ -399,8 +399,43 @@ class OrderRouter:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     # ------------------------------------------------------------------ account
+    def _try_direct_account(self) -> Optional[Dict[str, Any]]:
+        """로컬/러너에서 NH API가 열려 있으면 잔고·체결을 직접 읽는다(막혔으면 None)."""
+        if os.getenv("CUBE_FORCE_ACTIONS", "0") == "1":
+            return None
+        if not (os.getenv("NH_APP_KEY") and os.getenv("NH_APP_SECRET")):
+            return None
+        try:
+            from execution.nh_trader import NHBroker
+            broker = NHBroker(dry_run=False)
+            st = broker.get_portfolio_state(include_raw=True)
+            if not isinstance(st, dict) or not st:
+                return None
+            positions = {
+                sym: {"qty": int((p or {}).get("qty") or 0),
+                      "avg_price": (p or {}).get("avg_price"),
+                      "price": (p or {}).get("price"),
+                      "sellable_qty": (p or {}).get("sellable_qty")}
+                for sym, p in (st.get("positions") or {}).items() if isinstance(p, dict)
+            }
+            return {"found": True, "channel": "direct_nh",
+                    "equity_usd": st.get("equity"), "cash_usd": st.get("cash") or st.get("cash_usd"),
+                    "positions": positions,
+                    "positions_market_value_usd": st.get("positions_market_value_usd"),
+                    "recent_executions": st.get("recent_executions") or {},
+                    "rsp_cd": st.get("rsp_cd"), "rsp_msg": st.get("rsp_msg"),
+                    "fetched_at_kst": now_kst_str(),
+                    "fetched_ts_utc": datetime.now(timezone.utc).isoformat()}
+        except Exception:
+            return None
+
     def account_state(self, dry_run: Optional[bool] = None, refresh_min: float = 0.0) -> Dict[str, Any]:
-        """NH 잔고·보유수량 조회. `refresh_min` 안의 캐시가 있으면 그대로 쓴다."""
+        """NH 잔고·보유수량 조회. `refresh_min` 안의 캐시가 있으면 그대로 쓴다.
+
+        러너처럼 NH API가 직접 열린 환경에서는 디스패치 없이 바로 읽는다(2026-11-19).
+        중첩 workflow_dispatch는 `gh` 토큰과 러너 시간을 더 쓰고, 클라우드 10분 사이클의
+        체결 확인이 그만큼 늦어진다.
+        """
         dry = self.dry_run if dry_run is None else bool(dry_run)
         cached = _load(ACCOUNT_SNAPSHOT)
         if cached.get("found") and refresh_min > 0 and cached.get("fetched_ts_utc"):
@@ -412,6 +447,11 @@ class OrderRouter:
                 pass
         if dry:
             return {"found": False, "dry_run": True, "reason": "dry-run"}
+        direct = self._try_direct_account()
+        if direct is not None:
+            if direct.get("found"):
+                _save(ACCOUNT_SNAPSHOT, direct)
+            return direct
         cmd = self.build_command("test_balance")
         baseline = max([int(r.get("databaseId") or 0) for r in self._list_runs()] or [0])
         result = self._dispatch_and_wait(cmd, baseline)

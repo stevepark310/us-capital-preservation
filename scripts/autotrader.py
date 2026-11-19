@@ -26,7 +26,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
 from core import execution_policy  # noqa: E402
-from core.autotrader import AutonomousTrader, STATUS_PATH  # noqa: E402
+from core.autotrader import AutonomousTrader, STATUS_PATH, refresh_status  # noqa: E402
 
 COMMIT_PATHS = [
     "data/active_brackets.json", "data/autotrader_state.json", "data/autotrader_status.json",
@@ -97,6 +97,14 @@ def main(argv=None) -> int:
         except Exception as e:
             print(f"상태 파일 없음: {e}")
             return 1
+
+    if "--refresh-status" in args:
+        # 집행 판단 없이 상태 파일만 '지금' 기준으로 다시 만든다(10분 펄스·클라우드 사이클 공용).
+        st = refresh_status(by=("cloud" if os.getenv("GITHUB_ACTIONS") == "true" else "pulse"))
+        print(f"✅ autotrader_status.json 최신화 {st.get('generated_at_kst')} · "
+              f"phase={st.get('phase')} · session={st.get('session_date')} · "
+              f"보유 {len(st.get('positions') or {})}종목 · 예산 ${(st.get('policy') or {}).get('entry_budget', {}).get('budget_usd')}")
+        return 0
 
     execute = "--execute" in args
     if not execute and "--dry-run" not in args:

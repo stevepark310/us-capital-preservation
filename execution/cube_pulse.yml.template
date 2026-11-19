@@ -1,0 +1,66 @@
+name: CUBE Collab Pulse (24/7)
+
+# 피클 앱이나 모델 토큰이 없어도 10인이 계속 일하는 24/7 루프.
+# 30분마다: 원장 동기화 → 유령 포지션 정리 → 집행 상태 최신화 → 10인 업무보고
+#           → 협업·빌드업 사이클(가설→실측검증→승인/보류→적용·복기) → 대시보드 렌더
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: cube-repo-writer       # market 워크플로와 같은 그룹(동시 쓰기 방지)
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  pulse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TZ: Asia/Seoul
+      PYTHONUNBUFFERED: "1"
+      NH_APP_KEY: ${{ secrets.NH_APP_KEY }}
+      NH_APP_SECRET: ${{ secrets.NH_APP_SECRET }}
+      NH_ACT_NO: ${{ secrets.NH_ACT_NO }}
+      NH_IS_MOCK: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --quiet --upgrade pip
+          pip install --quiet -r requirements.txt
+
+      - name: Collab pulse (agents · buildup · dashboard)
+        run: python3 scripts/cloud_cycle.py pulse
+
+      - name: Commit & push (data + docs + dashboard)
+        if: always()
+        run: |
+          set -e
+          git config user.name "cube-cloud-bot"
+          git config user.email "cube-cloud-bot@users.noreply.github.com"
+          git add data docs index.html cube.html feed.html strategy.html scenarios.html assets
+          if git diff --staged --quiet; then
+            echo "변경 없음 — 푸시 생략"
+            exit 0
+          fi
+          git commit -m "chore(cube): cloud pulse $(TZ=Asia/Seoul date '+%m-%d %H:%M') KST"
+          for i in 1 2 3; do
+            if git push origin HEAD:main; then echo "pushed"; exit 0; fi
+            echo "push 재시도 $i — rebase 후 재시도"
+            git pull --rebase --autostash origin main || true
+          done
+          echo "::warning::push 실패 — 다음 펄스에서 다시 시도합니다."

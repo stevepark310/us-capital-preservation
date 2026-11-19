@@ -338,6 +338,7 @@ footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);font-si
   <button class="tab" data-tab="cross">🔀 크로스마켓</button>
   <button class="tab" data-tab="scenarios">📐 시나리오</button>
   <button class="tab" data-tab="strategy">🧭 전략·정책</button>
+  <button class="tab" data-tab="collab">🤝 협업·빌드업<span class="cnt" id="tab-collab-cnt">—</span></button>
   <button class="tab" data-tab="feed">💬 업무보고</button>
 </div></nav>
 
@@ -484,6 +485,38 @@ footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);font-si
     </div>
   </section>
 
+  <!-- ============================================ 협업·빌드업 -->
+  <section class="panel" id="p-collab">
+    <div class="sec">
+      <div class="sec-h"><h2>클라우드 상시 가동 (GitHub Actions)</h2><span class="line"></span>
+        <span class="note" id="collab-cloud-note">피클 앱·토큰과 무관하게 도는 실행기</span></div>
+      <div class="grid g-3" id="collab-cloud"></div>
+    </div>
+    <div class="sec">
+      <div class="sec-h"><h2>10인 협업 흐름</h2><span class="line"></span>
+        <span class="note">리서치 → 검증 → 총괄·집행 · 직원별 최신 발신 메시지</span></div>
+      <div class="grid g-3" id="collab-desks"></div>
+    </div>
+    <div class="sec">
+      <div class="sec-h"><h2>핸드오프 스레드</h2><span class="line"></span><span class="note" id="collab-thread-note"></span></div>
+      <div id="collab-threads"></div>
+    </div>
+    <div class="sec">
+      <div class="sec-h"><h2>지속 빌드업 · 수익 향상 기록</h2><span class="line"></span><span class="note" id="collab-buildup-note"></span></div>
+      <div class="grid g-kpi" id="collab-kpis"></div>
+      <div class="grid g-2" style="margin-top:12px">
+        <div class="card" id="collab-gate"></div>
+        <div class="card" id="collab-lock"></div>
+      </div>
+      <div id="collab-improvements" style="margin-top:12px"></div>
+      <div id="collab-hypotheses" style="margin-top:12px"></div>
+    </div>
+    <div class="sec">
+      <div class="sec-h"><h2>유령 포지션 · 원장 일치</h2><span class="line"></span><span class="note">live_portfolio.json 정본 대조</span></div>
+      <div class="card" id="collab-recon"></div>
+    </div>
+  </section>
+
   <!-- ============================================ 업무보고 -->
   <section class="panel" id="p-feed">
     <div class="sec">
@@ -591,6 +624,16 @@ const at = () => SNAP.autotrader || {};
 const board = () => SNAP.board || {};
 const leading = () => SNAP.leading || {};
 
+function cloudFreshText(){
+  const c = SNAP.cloud || {};
+  const pu = (c.pulse || {}).last_cycle_kst, mk = (c.market || {}).last_cycle_kst;
+  if (!pu && !mk) return '<span class="tag y">상태 없음</span>';
+  const t = parseTs(pu || mk);
+  const mins = t ? Math.round((Date.now() - t) / 60000) : 1e9;
+  const ok = mins <= 75;
+  return `<span class="tag ${ok ? "g" : "y"}">${ok ? "가동" : "지연"}</span> <span class="dim">펄스 ${ago(pu)} · 마켓 ${ago(mk)}</span>`;
+}
+
 function compositeScore(){
   const r9 = (agentSummaries()[9] || {}).report || {};
   return r9.composite_score ?? (report().executive_summary || {}).composite_score ?? null;
@@ -645,7 +688,7 @@ function renderHeader(){
 }
 
 function setTab(name, push = true){
-  const known = ["overview","office","macro","cross","scenarios","strategy","feed"];
+  const known = ["overview","office","macro","cross","scenarios","strategy","collab","feed"];
   if (!known.includes(name)) name = "office";
   S.tab = name;
   document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
@@ -710,6 +753,7 @@ function renderOverview(){
     <div class="kv"><span>시장 태세</span><b>${esc(exec.market_stance || "—")} · 5축 ${num(compositeScore(),1)}</b></div>
     <div class="kv"><span>집행 모드</span><b>${esc(exec.execution_mode || "—")}</b></div>
     <div class="kv"><span>업무보고</span><b>${posts().length}건 · ${esc(feed().last_updated || "—")}</b></div>
+    <div class="kv"><span>클라우드 상시</span><b>${cloudFreshText()}</b></div>
     <details class="src"><summary>데이터 출처 · 무결성</summary><pre>${esc(JSON.stringify(rep.data_provenance || {}, null, 1))}</pre></details>`;
 
   /* 포지션 */
@@ -740,7 +784,10 @@ function renderOverview(){
 const ENDPOINTS = {
   feed: "agent_feed.json", report: "cube_report.json", portfolio: "live_portfolio.json",
   board: "market_board.json", leading: "leading_indicators.json",
-  autotrader: "autotrader_status.json", pulse: "cube_pulse.json"
+  autotrader: "autotrader_status.json", pulse: "cube_pulse.json",
+  collab: "agent_collab_bus.json", buildup: "strategy_buildup.json",
+  cloud: "cloud_status.json", collab_cycle: "collab_cycle.json",
+  recon: "position_reconciliation.json"
 };
 let DATA_BASE = null;
 
@@ -1449,9 +1496,171 @@ function renderFeed(){
 /* ==========================================================================
    12. 이벤트 · 부트
    ========================================================================== */
+/* ==========================================================================
+   12. 협업·빌드업 (2026-11-19 신설)
+   ========================================================================== */
+const collabBus = () => SNAP.collab || {};
+const buildupDoc = () => SNAP.buildup || {};
+const cloudDoc = () => SNAP.cloud || {};
+const collabCycle = () => SNAP.collab_cycle || {};
+const reconDoc = () => SNAP.recon || {};
+
+function deskOf(id){ return id <= 5 ? "RESEARCH" : (id <= 8 ? "VALIDATION" : "EXECUTIVE"); }
+const DESK_LABEL = {RESEARCH:"🔬 리서치·시그널", VALIDATION:"🧪 검증·리스크", EXECUTIVE:"🧬 총괄·집행"};
+const KIND_TAG = {APPROVAL:"g", HOLD:"y", REJECTED:"r", VALIDATION_RESULT:"b", HYPOTHESIS:"b",
+                  INSIGHT:"", DUTY_REPORT:"", FEEDBACK:"", EXECUTION_REVIEW:"", CLOUD_STATUS:"", VALIDATION_REQUEST:""};
+
+function freshTag(ts, limitMin){
+  const t = parseTs(ts); if (!t) return `<span class="tag">—</span>`;
+  const mins = Math.max(0, Math.round((Date.now() - t) / 60000));
+  return mins <= limitMin ? `<span class="tag g">가동 · ${ago(ts)}</span>` : `<span class="tag y">지연 · ${ago(ts)}</span>`;
+}
+
+function renderCollabCloud(){
+  const c = cloudDoc(), b = collabBus(), cy = collabCycle();
+  const mk = c.market || {}, pu = c.pulse || {}, last = c.last_run || {};
+  $("collab-cloud-note").textContent = `스케줄 ${(c.schedule || {}).market_cron_utc || "—"} (UTC) · 마지막 실행 ${last.workflow || "—"}#${last.run_id || "—"}`;
+  const runRow = (lab, f, stale) => `<div class="kv"><span>${lab}</span><b>${esc(f.last_cycle_kst || "—")}<br><span class="dim" style="font-weight:600">${ago(f.last_cycle_kst)}</span></b></div>`;
+  $("collab-cloud").innerHTML = `
+    <div class="card tight">
+      <div class="sec-h" style="margin-bottom:8px"><h2 style="font-size:12px">장중 10분 집행</h2><span class="line"></span>
+        ${freshTag(mk.last_cycle_kst, 25)}</div>
+      ${runRow("마지막 사이클", mk, 25)}
+      <div class="kv"><span>결과</span><b>${esc(mk.result || "—")} <span class="dim">${esc(mk.phase || "")}</span></b></div>
+      <div class="kv"><span>보유·주문</span><b>${Object.keys((mk.execution || {}).positions || {}).length}종목 · 매도 ${num((mk.execution || {}).exits, 0)} / 매수 ${num((mk.execution || {}).entries, 0)}</b></div>
+      <div class="kv"><span>소요</span><b>${num(mk.seconds, 1)}s</b></div>
+      <div class="dim" style="font-size:11px;margin-top:6px">${esc((c.schedule || {}).market_note || "")}</div>
+    </div>
+    <div class="card tight">
+      <div class="sec-h" style="margin-bottom:8px"><h2 style="font-size:12px">24/7 협업 펄스</h2><span class="line"></span>
+        ${freshTag(pu.last_cycle_kst, 75)}</div>
+      ${runRow("마지막 사이클", pu, 75)}
+      <div class="kv"><span>결과</span><b>${esc(pu.result || "—")}</b></div>
+      <div class="kv"><span>협업 사이클</span><b>#${num((pu.collab || {}).cycle, 0)} · ${esc((pu.collab || {}).status || "—")}</b></div>
+      <div class="kv"><span>소요</span><b>${num(pu.seconds, 1)}s</b></div>
+      <div class="dim" style="font-size:11px;margin-top:6px">${esc((c.schedule || {}).pulse_note || "")} · 러너 ${esc(last.runner || "—")}</div>
+    </div>
+    <div class="card tight">
+      <div class="sec-h" style="margin-bottom:8px"><h2 style="font-size:12px">협업 버스</h2><span class="line"></span>
+        <span class="tag b">${num((b.stats || {}).total, 0)}건</span></div>
+      <div class="kv"><span>누적 사이클</span><b>#${num(b.cycle, 0)}</b></div>
+      <div class="kv"><span>스레드·인계</span><b>${num((b.stats || {}).threads, 0)} / ${num((b.stats || {}).handoffs, 0)}</b></div>
+      <div class="kv"><span>데이터 기준일</span><b>${esc((cy.data || {}).as_of || "—")}</b></div>
+      <div class="kv"><span>하드락</span><b>${(buildupDoc().hard_lock || {}).ok === false ? '<span class="tag r">위반</span>' : '<span class="tag g">정상</span>'}</b></div>
+      <div class="dim" style="font-size:11px;margin-top:6px">마지막 메시지 ${esc(ago((b.stats || {}).last_message_at_kst))}</div>
+    </div>`;
+}
+
+function renderCollabDesks(){
+  const staff = collabBus().agent_state || {};
+  $("collab-desks").innerHTML = ["RESEARCH", "VALIDATION", "EXECUTIVE"].map(d => {
+    const rows = TEAM.filter(e => deskOf(e.id) === d).map(e => {
+      const st = staff[String(e.id)] || {};
+      return `<div class="kv" style="align-items:flex-start"><span style="flex:0 0 auto">${e.icon} <b style="color:#e2e8f0">${esc(e.name)}</b></span>
+        <b style="font-weight:600;color:#b6c5da;text-align:right;max-width:62%;white-space:normal">${esc((st.line || "보고 대기").slice(0, 150))}</b></div>`;
+    }).join("");
+    const n = (collabBus().stats || {}).by_desk || {};
+    return `<div class="card tight"><div class="sec-h" style="margin-bottom:6px"><h2 style="font-size:12px">${DESK_LABEL[d]}</h2>
+      <span class="line"></span><span class="note">발신 ${num(n[d], 0)}</span></div>${rows}</div>`;
+  }).join("");
+}
+
+function renderCollabThreads(){
+  const list = SNAP.collab_threads || [];
+  $("collab-thread-note").textContent = `${list.length}개 스레드 · 리서치 → 검증 → 총괄·집행`;
+  if (!list.length){ $("collab-threads").innerHTML = `<div class="card empty">아직 핸드오프 스레드가 없습니다 — 클라우드 펄스가 첫 사이클을 돌리면 채워집니다.</div>`; return; }
+  $("collab-threads").innerHTML = list.slice(0, 8).map(t => {
+    const steps = (t.steps || []).map(s => `<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px dashed rgba(30,41,59,.6)">
+        <span style="flex:0 0 58px;color:#64748b;font-family:var(--mono);font-size:10.5px">${esc((s.ts_kst || "").slice(11, 16))}</span>
+        <span style="flex:0 0 74px"><b style="font-size:11.5px;color:#e2e8f0">${esc(s.from_name || "")}</b></span>
+        <span style="flex:0 0 62px"><span class="tag ${KIND_TAG[s.kind] || ""}">${esc(s.kind_ko || s.kind || "")}</span></span>
+        <span style="flex:1;min-width:0;font-size:11.8px;color:#b6c5da;white-space:normal">${esc((s.body || "").slice(0, 220))}</span></div>`).join("");
+    const tag = t.status === "APPLIED" ? "g" : (t.status === "HELD" ? "y" : (t.status === "MEASURED" ? "b" : ""));
+    return `<div class="card tight" style="margin-bottom:10px">
+      <div class="sec-h" style="margin-bottom:6px"><h2 style="font-size:12px">${esc((t.subject || "").slice(0, 90))}</h2><span class="line"></span>
+        <span class="tag ${tag}">${esc(t.status || "")}</span><span class="note">${esc((t.started_at_kst || "").slice(5, 16))}</span></div>
+      ${steps}</div>`;
+  }).join("");
+}
+
+function renderCollabBuildup(){
+  const d = buildupDoc();
+  const c = d.counters || {};
+  const imps = d.improvements || [];
+  const hs = (d.hypotheses || []).slice().reverse();
+  $("collab-buildup-note").textContent = `가설 ${num(c.hypotheses, 0)}건 · 적용 ${num(c.applied, 0)} · 승인대기 ${num(c.recommended, 0)} · 보류 ${num((c.held || 0) + (c.rejected || 0), 0)}`;
+  const kpis = [
+    {lab: "누적 가설", val: num(c.hypotheses, 0) + "건", sub: `적용 ${num(c.applied, 0)} · 승인대기 ${num(c.recommended, 0)}`},
+    {lab: "게이트 보류", val: num((c.held || 0) + (c.rejected || 0), 0) + "건", sub: "기대값·PF·MDD 관문 미통과"},
+    {lab: "진입 필터", val: (d.ratchet || {}).pct_b_max !== undefined ? `%B ${num((d.ratchet || {}).pct_b_max, 2)}` : "—",
+     sub: `RSI2 ${num((d.ratchet || {}).rsi2_max, 0)} · RVOL ${num((d.ratchet || {}).rvol_min, 1)}`},
+    {lab: "검증 데이터", val: esc((collabCycle().data || {}).as_of || "—"), sub: `지문 ${esc((collabCycle().data || {}).fingerprint || "—")}`},
+  ];
+  $("collab-kpis").innerHTML = kpis.map(k => `<div class="card kpi"><div class="lab">${esc(k.lab)}</div>
+    <div class="val" style="font-size:18px">${k.val}</div><div class="sub">${esc(k.sub)}</div></div>`).join("");
+
+  const g = d.gate || {};
+  $("collab-gate").innerHTML = `<div class="sec-h" style="margin-bottom:6px"><h2 style="font-size:12px">적용 게이트 (Out-of-Sample)</h2><span class="line"></span></div>
+    <div class="kv"><span>최소 표본</span><b>${num(g.min_sample, 0)}건 (OOS ${num(g.min_oos_sample, 0)}건)</b></div>
+    <div class="kv"><span>OOS 기대값 개선</span><b>≥ +${num(g.ev_improvement_pct, 2)}%p</b></div>
+    <div class="kv"><span>OOS Profit Factor</span><b>≥ ${num(g.min_oos_profit_factor, 2)}</b></div>
+    <div class="kv"><span>OOS MDD 악화</span><b>≤ +${num(g.max_mdd_worsening_pp, 1)}%p</b></div>
+    <div class="kv"><span>IS 후퇴 허용</span><b>≥ -${num(g.max_is_regression_pct, 2)}%p</b></div>
+    <div class="dim" style="font-size:11px;margin-top:6px">측정은 일봉 2년 경로 근사(왕복 0.24% 차감, 같은 봉 SL·TP 동시 도달은 손절 우선).</div>`;
+
+  const lock = d.hard_lock || {};
+  const rules = lock.rules || {};
+  $("collab-lock").innerHTML = `<div class="sec-h" style="margin-bottom:6px"><h2 style="font-size:12px">하드 락 (자동 변경 금지)</h2><span class="line"></span>
+      ${lock.ok === false ? '<span class="tag r">위반 ' + (lock.violations || []).length + '</span>' : '<span class="tag g">정상</span>'}</div>
+    ${Object.entries(rules).slice(0, 12).map(([k, v]) => `<div class="kv"><span class="mono" style="font-size:11px">${esc(k)}</span><b style="font-size:11.5px">${esc(v)}</b></div>`).join("")}
+    ${(lock.violations || []).map(v => `<div class="kv"><span class="down">${esc(v.key)}</span><b>${esc(String(v.actual))} ≠ ${esc(String(v.expected))}</b></div>`).join("")}`;
+
+  $("collab-improvements").innerHTML = imps.length ? `
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>적용</th><th>가설</th><th>변경</th><th>OOS 기대값</th><th>기준선</th><th>PF</th><th>시각</th></tr></thead><tbody>
+    ${imps.slice().reverse().map(i => {
+      const e = i.evidence || {}, o = e.oos || {}, bo = e.baseline_oos || {};
+      const ch = Object.entries(i.changes || {}).map(([k, v]) => `${k.split(".").pop()} ${v.from}→${v.to}`).join(", ");
+      return `<tr><td>${esc(i.id)}</td><td style="text-align:left;white-space:normal;max-width:280px">${esc(i.title || "")}</td>
+        <td style="text-align:left">${esc(ch)}</td><td class="up">${num(o.ev_pct, 2)}%</td><td>${num(bo.ev_pct, 2)}%</td>
+        <td>${num(o.profit_factor, 2)}</td><td>${esc((i.applied_at_kst || "").slice(5, 16))}</td></tr>`;
+    }).join("")}</tbody></table></div>`
+    : `<div class="card empty">아직 자동 적용된 개선이 없습니다 — 게이트를 통과한 후보만 반영됩니다.</div>`;
+
+  $("collab-hypotheses").innerHTML = hs.length ? `
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>가설</th><th>상태</th><th>OOS ΔEV</th><th>OOS PF</th><th>표본</th><th>데이터</th><th>판정 사유</th></tr></thead><tbody>
+    ${hs.slice(0, 14).map(h => {
+      const m = h.measurement || {}, o = (m.candidate || {}).oos || {}, a = (m.candidate || {}).all || {};
+      const tag = h.status === "APPLIED" ? "g" : (["HELD", "RECOMMENDED"].includes(h.status) ? "y" : (h.status === "REJECTED" ? "r" : "b"));
+      return `<tr><td><span class="tk">${esc(h.id)}</span><small>${esc((h.title || "").slice(0, 62))}</small></td>
+        <td><span class="tag ${tag}">${esc(h.status)}</span></td><td class="${cls(m.delta_oos_ev_pct)}">${num(m.delta_oos_ev_pct, 2)}</td>
+        <td>${num(o.profit_factor, 2)}</td><td>${num(a.n, 0)}</td><td>${esc(m.data_as_of || "—")}</td>
+        <td style="text-align:left;white-space:normal;max-width:300px;font-size:11px;color:#93a3b8">${esc(((h.gate || {}).reason || "").slice(0, 150))}</td></tr>`;
+    }).join("")}</tbody></table></div>` : `<div class="card empty">가설 이력이 없습니다.</div>`;
+}
+
+function renderCollabRecon(){
+  const r = reconDoc();
+  const ghosts = r.ghost_positions || [];
+  const br = r.bracket_ghosts || [];
+  $("collab-recon").innerHTML = `
+    <div class="kv"><span>점검 시각</span><b>${esc(r.checked_at_kst || "—")} <span class="tag ${r.status === "CONSISTENT" ? "g" : (r.status === "RECONCILED" ? "b" : "y")}">${esc(r.status || "—")}</span></b></div>
+    <div class="kv"><span>원장 보유</span><b>${Object.entries(r.holdings || {}).map(([k, v]) => k + " " + v + "주").join(", ") || "—"}</b></div>
+    <div class="kv"><span>사다리 유령</span><b>${ghosts.length ? ghosts.map(g => g.ticker + " " + g.qty + "주").join(", ") : "0건"}</b></div>
+    <div class="kv"><span>브래킷 유령</span><b>${br.length ? br.map(g => g.ticker).join(", ") : "0건"}</b></div>
+    <div class="kv"><span>원장 일치</span><b>${r.ledger_match === true ? '<span class="tag g">일치</span>' : '<span class="tag y">확인 필요</span>'} <span class="dim">${esc(r.live_synced || "")}</span></b></div>
+    ${(r.notes || []).map(n => `<div class="dim" style="font-size:11px;margin-top:6px">${esc(n)}</div>`).join("")}`;
+}
+
+function renderCollab(){
+  renderCollabCloud(); renderCollabDesks(); renderCollabThreads();
+  renderCollabBuildup(); renderCollabRecon();
+  const n = ((collabBus().stats || {}).by_kind || {});
+  $("tab-collab-cnt").textContent = (n.APPROVAL || 0) + (n.HOLD || 0) + (n.HYPOTHESIS || 0) || "—";
+}
+
 function renderAll(){
   renderHeader(); renderOverview(); renderOffice(); renderMacro(); renderCross();
-  renderScenarios(); renderStrategy(); renderFeed();
+  renderScenarios(); renderStrategy(); renderCollab(); renderFeed();
 }
 
 $("tabs").addEventListener("click", e => { const b = e.target.closest(".tab"); if (b) setTab(b.dataset.tab); });

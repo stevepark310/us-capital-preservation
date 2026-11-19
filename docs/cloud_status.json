@@ -1,0 +1,91 @@
+{
+  "version": "1.0",
+  "updated_at_kst": "2026-11-19 11:30:48",
+  "schedule": {
+    "market_cron_utc": "*/10 13-21 * * 1-5",
+    "pulse_cron_utc": "*/30 * * * *",
+    "market_note": "UTC 13–21시 = KST 22시~익일 07시 (EDT/EST 모두 커버). 정규장 판정은 market_clock.",
+    "pulse_note": "24/7 매 30분"
+  },
+  "stale_after_min": {
+    "market": 25,
+    "pulse": 75
+  },
+  "pulse": {
+    "last_cycle_kst": "2026-11-19 11:30:11",
+    "result": "OK",
+    "seconds": 16.9,
+    "stages": [
+      {
+        "name": "원장 동기화",
+        "seconds": 3.1,
+        "rc": 0,
+        "ok": true,
+        "tail": "✅ live_portfolio synced 2026-11-19 11:29:57 KST | equity $878.60 (1,176,272원) | cash $426.63 (571,172원) | fx 1338.8 | CONSISTENT"
+      },
+      {
+        "name": "유령 포지션 점검",
+        "seconds": 0.1,
+        "rc": 0,
+        "ok": true,
+        "tail": "[reconciler] CONSISTENT · 보유 {'NVDA': 1, 'SGOV': 1} · 사다리 유령 0 · 브래킷 유령 0 · 수량보정 0 · 대기주문취소 0"
+      },
+      {
+        "name": "집행 상태 최신화",
+        "seconds": 0.2,
+        "rc": 0,
+        "ok": true,
+        "tail": "✅ autotrader_status.json 최신화 2026-11-19 11:29:57 · phase=OFF_HOURS · session=2026-11-18 · 보유 1종목 · 예산 $149.32"
+      },
+      {
+        "name": "10인 업무보고",
+        "seconds": 11.3,
+        "rc": 0,
+        "ok": true,
+        "tail": "✅ feed updated 2026-11-19 11:29:59 KST [OFF_HOURS] posts 20 (agents 10/10)"
+      },
+      {
+        "name": "협업·빌드업 사이클",
+        "seconds": 1.4,
+        "rc": 0,
+        "ok": true,
+        "tail": "  버스 32건 (스레드 12, 인계 29) · 하드락 OK"
+      },
+      {
+        "name": "대시보드 렌더",
+        "seconds": 0.8,
+        "rc": 0,
+        "ok": true,
+        "tail": "✅ cube.html·feed.html·docs/*.html 은 통합 대시보드(index.html)로 리다이렉트됩니다."
+      }
+    ],
+    "collab": {
+      "cycle": 2,
+      "hypothesis": "H-0002",
+      "status": "HELD",
+      "applied": false
+    }
+  },
+  "last_run": {
+    "workflow": "local",
+    "run_id": null,
+    "event": null,
+    "attempt": null,
+    "runner": "local",
+    "sha": null,
+    "at_kst": "2026-11-19 11:30:48",
+    "mode": "market",
+    "result": "SKIPPED_OFF_HOURS"
+  },
+  "market": {
+    "last_cycle_kst": "2026-11-19 11:30:48",
+    "phase": "OFF_HOURS",
+    "session_date": "2026-11-18",
+    "kst_shift_min": 0,
+    "next_open_kst": "2026-11-19 23:30 KST",
+    "dry_run": false,
+    "result": "SKIPPED_OFF_HOURS",
+    "seconds": 0.0,
+    "note": "phase=OFF_HOURS — 정규장이 아니므로 주문·집행을 하지 않습니다."
+  }
+}

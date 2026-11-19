@@ -48,23 +48,58 @@ ROLE_DUTIES = agent_profiles.ROLE_DUTIES
 
 
 def _profit_mandate() -> Dict[str, Any]:
+    """평단 사다리 — 원장 보유(live_portfolio.json)에 없는 종목은 빼고 보여 준다.
+
+    2026-11-19: 청산된 SOXL·TQQQ 사다리가 계속 '관리 대상'으로 남아 기대값·보유 수를
+    틀리게 보여 주던 결함. 이제 파일이 아니라 원장을 기준으로 유령 포지션을 걸러 낸다.
+    """
     try:
         with open(MANDATE_FILE, "r", encoding="utf-8") as f:
             plan = json.load(f)
     except Exception:
         return {"status": "MISSING", "file": MANDATE_FILE}
+    try:
+        from core.position_reconciler import live_holdings
+        holdings = live_holdings()
+    except Exception:
+        holdings = {}
+    raw_ladders = plan.get("ladders") or []
+    if holdings:
+        kept = [l for l in raw_ladders if str(l.get("ticker") or "").upper() in holdings]
+    else:
+        kept = raw_ladders              # 원장을 못 읽으면 파일을 그대로 신뢰한다
+    dropped = [l.get("ticker") for l in raw_ladders if l not in kept]
+    summary = dict(plan.get("summary") or {})
+    if dropped and summary:
+        summary["positions_under_management"] = [l.get("ticker") for l in kept]
+        summary["ghost_positions_filtered"] = dropped
+        summary["ghost_note"] = ("원장에 없는 종목(청산 완료)의 사다리는 집계에서 제외했습니다. "
+                                 "기대 익절·손실 합계는 실제 보유분만 반영합니다.")
     return {
         "status": "ACTIVE",
         "engine": plan.get("engine"),
         "given_at_kst": (plan.get("directive") or {}).get("given_at_kst"),
         "quote": (plan.get("directive") or {}).get("quote"),
+        "holdings": holdings or plan.get("holdings"),
         "ladders": [{k: l.get(k) for k in ("ticker", "qty", "avg_price", "tp1", "tp2", "sl",
                                            "force_exit_kst", "levels_locked")}
-                    for l in (plan.get("ladders") or [])],
-        "summary": plan.get("summary"),
+                    for l in kept],
+        "ghost_positions_filtered": dropped,
+        "summary": summary or plan.get("summary"),
         "guards": plan.get("guards"),
         "assignments": [{"agent_id": k, "duty": v} for k, v in sorted(ROLE_DUTIES.items())],
     }
+
+
+def _reconciliation() -> Dict[str, Any]:
+    """원장 대조 결과(유령 포지션 정리 상태) — 대시보드·직원 보고가 그대로 인용한다."""
+    try:
+        with open(os.path.join(BASE_DIR, "data", "position_reconciliation.json"), "r", encoding="utf-8") as f:
+            rep = json.load(f)
+    except Exception:
+        return {"status": "NOT_RUN"}
+    return {k: rep.get(k) for k in ("status", "checked_at_kst", "ghost_count", "holdings",
+                                    "bracket_ghosts", "qty_fixes", "ledger_match", "notes")}
 
 
 class CubeOrchestrator:
@@ -235,6 +270,7 @@ class CubeOrchestrator:
             "team": agent_profiles.as_list(),
             "office": agent_profiles.office_layout(),
             "profit_mandate": _profit_mandate(),
+            "reconciliation": _reconciliation(),
             "executive_summary": {
                 "macro_regime": (ctx.get("macro") or {}).get("macro_regime"),
                 "cube_lei": (ctx.get("leading") or {}).get("cube_lei"),

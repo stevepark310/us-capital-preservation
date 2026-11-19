@@ -35,24 +35,51 @@ def trader(tmp_trader):
 
 
 # ------------------------------------------------------------------ blackout
-def test_blackout_today_is_nvda_reaction_day():
-    today = entry_signals.c5_blackout("2026-11-18")
+# 2026-11-19: 테스트를 날짜 고정이 아니라 '달력 계산'으로 바꿨다. 이전 테스트는 11-18을
+# 하드코딩해 그 세션이 지나자 실패했는데(11-19 실측), 규칙은 그대로였다.
+EARNINGS_CAL = {"entries": {"NVDA": {"report_at_kst": "2026-11-18 06:20",
+                                     "earnings_date_et": "2026-11-17"},
+                            "AVGO": {"report_at_kst": "2026-12-10 06:00",
+                                     "earnings_date_et": "2026-12-09"}}}
+
+
+def test_blackout_on_after_close_earnings_next_session():
+    """마감 후 발표(06:20 KST = 16:20 ET)는 다음 거래일이 반응일이다."""
+    today = entry_signals.c5_blackout("2026-11-18", calendar=EARNINGS_CAL)
     assert today["blackout"] is True
-    assert today["explicit"] is True
     assert today["earnings_reaction"] == "NVDA"
     assert "실적 반응일" in today["reason"]
 
 
 def test_blackout_clear_on_normal_sessions():
     for d in ("2026-11-12", "2026-11-13", "2026-11-16", "2026-11-17"):
-        assert entry_signals.c5_blackout(d)["blackout"] is False
+        assert entry_signals.c5_blackout(d, calendar=EARNINGS_CAL)["blackout"] is False
 
 
 def test_earnings_reaction_dates_cover_calendar():
-    """달력의 모든 실적일은 '반응 세션'을 하나씩 남긴다(NVDA → 11-18)."""
-    dates = entry_signals.earnings_reaction_dates()
+    """달력의 모든 실적일은 '반응 세션'을 하나씩 남긴다(NVDA → 11-18, AVGO → 12-10)."""
+    dates = entry_signals.earnings_reaction_dates(EARNINGS_CAL)
     assert dates.get("2026-11-18") == "NVDA"
     assert dates.get("2026-12-10") == "AVGO"       # 12-10 06:00 KST = 12-09 16:00 ET → 다음 거래일
+
+
+def test_earnings_reaction_dates_are_dst_aware():
+    """서머타임(EDT, KST−13h)에서도 마감 후/개장 전 발표를 옳게 옮긴다."""
+    # 2026-06-17 05:30 KST = 2026-06-16 16:30 ET(EDT, 마감 후) → 다음 거래일 06-17
+    after_close = {"entries": {"TEST": {"report_at_kst": "2026-06-17 05:30"}}}
+    assert entry_signals.earnings_reaction_dates(after_close) == {"2026-06-17": "TEST"}
+    # 2026-06-17 21:00 KST = 2026-06-17 08:00 ET(개장 전) → 같은 날
+    before_open = {"entries": {"TEST2": {"report_at_kst": "2026-06-17 21:00"}}}
+    assert entry_signals.earnings_reaction_dates(before_open) == {"2026-06-17": "TEST2"}
+
+
+def test_real_calendar_still_parses():
+    """실데이터 캘린더(있을 때만)도 같은 규칙으로 반응일을 만든다."""
+    real = entry_signals.earnings_reaction_dates()
+    if not real:
+        pytest.skip("data/earnings_calendar.json 없음(캐시 파일)")
+    for d, sym in real.items():
+        assert entry_signals.c5_blackout(d)["earnings_reaction"] == sym
 
 
 # ------------------------------------------------------------------ direction

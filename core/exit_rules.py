@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from core.session_time import time_reached
+from core.session_time import late_session, time_reached
 
 
 def remaining_qty(bracket: Dict[str, Any]) -> int:
@@ -53,8 +53,8 @@ def is_open(bracket: Dict[str, Any]) -> bool:
 
 
 def _late(clock: Dict[str, Any]) -> bool:
-    """정규장 마감(06:00 KST) 15분 전 이후."""
-    return str(clock.get("now_kst", ""))[11:16] >= "05:45"
+    """정규장 마감 15분 전 이후 — 마감 시각은 clock의 서머타임 반영값을 쓴다."""
+    return late_session(clock, 15)
 
 
 def _roll_session(bracket: Dict[str, Any], clock: Dict[str, Any]) -> None:

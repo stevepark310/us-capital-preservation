@@ -8,12 +8,16 @@
 한 번의 실행이 하는 일
 ----------------------
 1. 실전 원장 동기화 (`scripts/sync_live_portfolio.py`, 캐시 기반 — 1초 내외)
-2. 10인 에이전트 파이프라인 + 피드 생성 (`scripts/update_feed.py`, 약 5초)
+   + 유령 포지션 정리(`core/position_reconciler`) — 원장에 없는 종목의 사다리·브래킷 제거
+2. 무인 집행 상태 최신화 (`scripts/autotrader.py --refresh-status`) — 시계·phase·보유·예산을
+   실제 값으로 다시 쓴다(2026-11-18 14:32에 멈춰 있던 결함 수정)
+3. 10인 에이전트 파이프라인 + 피드 생성 (`scripts/update_feed.py`, 약 5초)
    — 24시간 캐시된 백테스트는 다시 돌리지 않고 그대로 읽는다(Agent 7).
-3. 각 직원이 **자기 담당 업무의 현재 상태 + 다음 행동**을 10분 보고로 1건씩 추가
-   (무인 집행 현황·전략 자기점검 결과를 근거로 붙는다 — 수치를 만들지 않는다)
-4. 통합 대시보드 `index.html` 재렌더 + 위젯 번들 동기화 (약 1초)
-5. `--push`면 `main`에 커밋·푸시 (동시 푸시 충돌 시 rebase 후 1회 재시도)
+   + 각 직원이 **자기 담당 업무의 현재 상태 + 다음 행동**을 10분 보고로 1건씩 추가
+4. 협업·빌드업 사이클 (`scripts/run_collab_cycle.py`, 20분 이상 경과 시)
+   — 리서치→검증→총괄→집행 핸드오프와 실측 검증을 버스·빌드업 장부에 남긴다.
+5. 통합 대시보드 `index.html` 재렌더 + 위젯 번들 동기화 (약 1초)
+6. `--push`면 `main`에 커밋·푸시 (동시 푸시 충돌 시 rebase 후 1회 재시도)
 
 실행: python3 scripts/run_10m_pulse.py [--push] [--no-html]
 종료 코드 0 = 성공. 소요 시간은 마지막 줄에 초 단위로 찍힌다(목표 10~20초).
@@ -312,6 +316,20 @@ def build_pulse(clock, report, status, evolution, elapsed_stages):
     return posts
 
 
+def _collab_due(min_minutes: float = 20.0) -> bool:
+    """마지막 협업 사이클에서 min_minutes 이상 지났는가(파일 시각 기준)."""
+    doc = _load(os.path.join(DATA, "collab_cycle.json"), {}) or {}
+    ts = str(doc.get("generated_at_kst") or "")[:19]
+    if not ts:
+        return True
+    try:
+        last = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return True
+    now = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=9)
+    return (now - last).total_seconds() >= float(min_minutes) * 60.0
+
+
 def push_to_main(message):
     def git(*args):
         return subprocess.run(["git", *args], cwd=BASE_DIR, text=True, capture_output=True)
@@ -333,13 +351,31 @@ def main(argv=None):
     clock = market_clock.resolve()
     print(f"=== 10분 업무보고 파이프라인 {clock['now_kst']} KST phase={clock['phase']}")
 
-    ok, dt = _run([sys.executable, "scripts/sync_live_portfolio.py"], "1/4 원장 동기화")
+    ok, dt = _run([sys.executable, "scripts/sync_live_portfolio.py"], "1/6 원장 동기화")
     stages["ledger_sync"] = dt
-    ok2, dt = _run([sys.executable, "scripts/update_feed.py"], "2/4 10인 에이전트 업무보고")
+
+    # 유령 포지션(원장에 없는 사다리·브래킷) 정리 — 매 사이클 원장과 일치시킨다.
+    okr, dt = _run([sys.executable, "-m", "core.position_reconciler", "--apply"], "2/6 유령 포지션 점검")
+    stages["reconcile"] = dt
+
+    # 집행 상태 파일을 '지금' 기준으로 다시 쓴다(시계·phase·보유·예산).
+    oks, dt = _run([sys.executable, "scripts/autotrader.py", "--refresh-status"], "3/6 집행 상태 최신화")
+    stages["status_sync"] = dt
+
+    ok2, dt = _run([sys.executable, "scripts/update_feed.py"], "4/6 10인 에이전트 업무보고")
     stages["agents"] = dt
     if not ok2:
         print("RESULT: FAILED (agent pipeline)")
         return 1
+
+    # 협업·빌드업 사이클 — 10분 펄스마다 돌리면 같은 후보를 반복 측정하므로 20분 간격으로 제한한다.
+    if _collab_due(min_minutes=20):
+        okc, dt = _run([sys.executable, "scripts/run_collab_cycle.py"], "5/6 협업·빌드업 사이클")
+        stages["collab"] = dt
+    else:
+        print("  [5/6 협업·빌드업] 20분 미경과 — 이번 사이클은 건너뜁니다")
+        stages["collab"] = 0.0
+        okc = True
 
     report = _load(REPORT_PATH, {}) or {}
     status = _load(AUTOTRADER_STATUS, {}) or {}
@@ -366,7 +402,7 @@ def main(argv=None):
     _save(DOCS_FEED_PATH, feed)
 
     if build_html:
-        ok3, dt = _run([sys.executable, "scripts/build_full_cube.py"], "3/4 대시보드 렌더")
+        ok3, dt = _run([sys.executable, "scripts/build_full_cube.py"], "6/6 대시보드 렌더")
         stages["render"] = dt
         if os.path.isdir(WIDGET_BUNDLE):
             # 2026-11-18 통합 개편: 위젯도 같은 통합 대시보드(index.html)를 쓴다.
@@ -424,8 +460,7 @@ def main(argv=None):
     total = round(time.time() - t0, 1)
     print(f"RESULT: OK — 직원 10명 보고 + 자율집행 현황 · posts {len(feed['posts'])} · "
           f"stages {stages} · total {total}s" + (f" · pushed={pushed}" if do_push else ""))
-    return 0 if (ok and ok2 and ok3) else 1
-
+    return 0 if (ok and ok2 and ok3 and okc) else 1
 
 if __name__ == "__main__":
     sys.exit(main())
