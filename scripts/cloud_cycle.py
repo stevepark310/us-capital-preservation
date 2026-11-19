@@ -169,8 +169,10 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
     from core import market_clock
     clock = market_clock.resolve()
     t0 = time.time()
+    from core.live_session_gate import check_live_gate
     gate = _load(LIVE_GATE_PATH, {})
-    live_enabled = isinstance(gate, dict) and gate.get("enabled") is True
+    gate_check = check_live_gate(gate, clock)
+    live_enabled = gate_check["ok"]
     requested_dry = bool(dry_run if dry_run is not None else os.getenv("CUBE_CLOUD_DRY_RUN") == "1")
     base: Dict[str, Any] = {"last_cycle_kst": now_str(), "phase": clock.get("phase"),
                             "session_date": clock.get("session_date"),
@@ -178,8 +180,9 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
                             "next_open_kst": clock.get("next_open_kst"),
                             "dry_run": requested_dry or not live_enabled,
                             "live_gate_enabled": live_enabled,
-                            "note": ("실주문 비활성 — config/live_execution_gate.json enabled=true가 필요"
-                                     if not live_enabled else "실주문 게이트 활성")}
+                            "live_gate_reason": gate_check.get("reason"),
+                            "note": (f"실주문 비활성 — {gate_check.get('reason')}"
+                                     if not live_enabled else "오늘 미국장 기간한정 실주문 게이트 활성")}
     if clock.get("phase") != "REGULAR":
         base.update({"result": "SKIPPED_OFF_HOURS", "seconds": round(time.time() - t0, 1),
                      "note": f"phase={clock.get('phase')} — 정규장이 아니므로 주문·집행을 하지 않습니다."})
