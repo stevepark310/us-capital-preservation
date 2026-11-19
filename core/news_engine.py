@@ -18,6 +18,7 @@ import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from typing import Dict, Any, List, Optional
@@ -41,6 +42,10 @@ GLOBAL_FEEDS = [
     ("Investing.com", "https://www.investing.com/rss/news_25.rss"),
     ("Seeking Alpha", "https://seekingalpha.com/market_currents.xml"),
 ]
+COMMUNITY_FEEDS = {
+    "r/stocks": "https://www.reddit.com/r/stocks/new/.rss",
+    "r/investing": "https://www.reddit.com/r/investing/new/.rss",
+}
 GOOGLE_QUERIES = [
     ("Google News · semiconductors", "semiconductor stocks OR TSMC OR HBM OR \"SK hynix\""),
     ("Google News · nvidia", "NVIDIA stock OR Jensen Huang OR Blackwell"),
@@ -137,6 +142,11 @@ def _parse_date(raw: str) -> Optional[datetime]:
         return dt
     except Exception:
         pass
+    try:
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except ValueError:
+        pass
     for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d %H:%M:%S"):
         try:
             dt = datetime.strptime(raw, fmt)
@@ -205,6 +215,27 @@ def _tags_for(text: str) -> Dict[str, Any]:
     analysts = [f for f in FIRMS if f in low] if ANALYST_RE.search(low) else []
     return {"tickers": tickers, "topics": topics, "analysts": analysts,
             "is_analyst_action": bool(ANALYST_RE.search(low))}
+
+
+def fetch_community() -> Dict[str, Any]:
+    """Collect public discussion for reporting."""
+    with ThreadPoolExecutor(max_workers=len(COMMUNITY_FEEDS)) as pool:
+        bodies = list(pool.map(_get, COMMUNITY_FEEDS.values()))
+    now = datetime.now(timezone.utc)
+    groups = {}
+    for name, body in zip(COMMUNITY_FEEDS, bodies):
+        rows = _parse_feed(body or "", name)
+        recent = [
+            row for row in rows if row["published"]
+            and timedelta(0) <= now - datetime.fromisoformat(row["published"]) <= timedelta(hours=24)
+        ]
+        recent.sort(key=lambda row: datetime.fromisoformat(row["published"]), reverse=True)
+        groups[name] = {
+            "status": "OK" if rows else "UNAVAILABLE",
+            "count": len(recent),
+            "highlights": recent[:2],
+        }
+    return groups
 
 
 def fetch_all(quiet: bool = True) -> Dict[str, Any]:
