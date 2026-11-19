@@ -11,10 +11,12 @@ from __future__ import annotations
 import json
 import math
 import os
+import sys
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE)
 DATA = os.path.join(BASE, "data")
 LEDGER = os.path.join(DATA, "strategy_trade_ledger.json")
 BUS = os.path.join(DATA, "agent_collab_bus.json")
