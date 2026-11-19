@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at_kst": "2026-11-19 11:30:48",
+  "updated_at_kst": "2026-11-20 01:29:37",
   "schedule": {
     "market_cron_utc": "*/10 13-21 * * 1-5",
     "pulse_cron_utc": "*/30 * * * *",
@@ -67,25 +67,114 @@
     }
   },
   "last_run": {
-    "workflow": "local",
-    "run_id": null,
-    "event": null,
-    "attempt": null,
-    "runner": "local",
-    "sha": null,
-    "at_kst": "2026-11-19 11:30:48",
+    "workflow": "CUBE Market Autotrade (10m)",
+    "run_id": "44566529536",
+    "event": "workflow_dispatch",
+    "attempt": "1",
+    "runner": "github_actions",
+    "sha": "264b37e8",
+    "at_kst": "2026-11-20 01:29:37",
     "mode": "market",
-    "result": "SKIPPED_OFF_HOURS"
+    "result": "OK"
   },
   "market": {
-    "last_cycle_kst": "2026-11-19 11:30:48",
-    "phase": "OFF_HOURS",
-    "session_date": "2026-11-18",
+    "last_cycle_kst": "2026-11-20 01:29:12",
+    "phase": "REGULAR",
+    "session_date": "2026-11-19",
     "kst_shift_min": 0,
-    "next_open_kst": "2026-11-19 23:30 KST",
-    "dry_run": false,
-    "result": "SKIPPED_OFF_HOURS",
-    "seconds": 0.0,
-    "note": "phase=OFF_HOURS — 정규장이 아니므로 주문·집행을 하지 않습니다."
+    "next_open_kst": "2026-11-20 23:30 KST",
+    "dry_run": true,
+    "live_gate_enabled": false,
+    "note": "실주문 비활성 — config/live_execution_gate.json enabled=true가 필요",
+    "result": "OK",
+    "seconds": 25.1,
+    "stages": [
+      {
+        "name": "원장 동기화",
+        "seconds": 22.6,
+        "rc": 0,
+        "ok": true,
+        "tail": "✅ live_portfolio synced 2026-11-20 01:29:35 KST | equity $878.60 (1,176,272원) | cash $426.63 (571,172원) | fx 1338.8 | CONSISTENT"
+      },
+      {
+        "name": "유령 포지션 점검",
+        "seconds": 0.0,
+        "rc": 0,
+        "ok": true,
+        "tail": "[reconciler] CONSISTENT · 보유 {'NVDA': 1, 'SGOV': 1} · 사다리 유령 0 · 브래킷 유령 0 · 수량보정 0 · 대기주문취소 0"
+      },
+      {
+        "name": "무인 집행",
+        "seconds": 1.3,
+        "rc": 0,
+        "ok": true,
+        "tail": "  다음 게이트: 신규 진입 마감 04:30 전 · 1.2s"
+      },
+      {
+        "name": "브래킷 감시(읽기 전용)",
+        "seconds": 0.5,
+        "rc": 0,
+        "ok": true,
+        "tail": "Total actions: 0 (mode=DRY_RUN)"
+      },
+      {
+        "name": "원장 재동기화",
+        "seconds": 0.3,
+        "rc": 0,
+        "ok": true,
+        "tail": "✅ live_portfolio synced 2026-11-20 01:29:37 KST | equity $878.60 (1,176,272원) | cash $426.63 (571,172원) | fx 1338.8 | CONSISTENT"
+      },
+      {
+        "name": "평단 계획 재생성",
+        "seconds": 0.3,
+        "rc": 0,
+        "ok": true,
+        "tail": "  · 기대 최대 $0 / 최악 $0 / 목표 $1.32"
+      },
+      {
+        "name": "유령 포지션 재점검",
+        "seconds": 0.0,
+        "rc": 0,
+        "ok": true,
+        "tail": "[reconciler] CONSISTENT · 보유 {'NVDA': 1, 'SGOV': 1} · 사다리 유령 0 · 브래킷 유령 0 · 수량보정 0 · 대기주문취소 0"
+      },
+      {
+        "name": "집행 상태 최신화",
+        "seconds": 0.1,
+        "rc": 0,
+        "ok": true,
+        "tail": "✅ autotrader_status.json 최신화 2026-11-20 01:29:37 · phase=REGULAR · session=2026-11-19 · 보유 1종목 · 예산 $149.32"
+      },
+      {
+        "name": "대시보드 데이터 발행",
+        "seconds": 0.0,
+        "rc": 0,
+        "ok": true,
+        "tail": "✅ 대시보드 데이터 발행(docs/*.json) · index.html 재렌더 생략 · 2026-11-20 01:29:37 KST"
+      }
+    ],
+    "execution": {
+      "mode": "DRY_RUN",
+      "positions": {
+        "NVDA": {
+          "qty": 1,
+          "entry": 173.3,
+          "sl": 150.0,
+          "exit_mode": "fill_anchored_v2",
+          "bracket_class": null,
+          "trail_atr_mult": null,
+          "entry_source": null
+        }
+      },
+      "exits": 0,
+      "entries": 2,
+      "pending": 0,
+      "realized_today_usd": 0.0,
+      "budget_usd": 149.32,
+      "next_gate": "신규 진입 마감 04:30 전"
+    },
+    "ladders": [
+      "NVDA"
+    ]
   }
 }
