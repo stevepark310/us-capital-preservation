@@ -17,8 +17,9 @@ Cloud cycle — 피클 앱·토큰과 무관하게 GitHub Actions에서 도는 �
 ---------
 러너에서는 NH Open API가 직접 열려 있으므로 `OrderRouter`가 `_try_direct`로 바로
 발주한다(중첩 workflow_dispatch 없음). 실주문 여부는 `config/swing_approval.json`
-`autonomous_execution.enabled`(true)와 `data/autotrader_halt.json` 부재로 결정된다.
-`CUBE_CLOUD_DRY_RUN=1`을 주면 판단만 하고 주문하지 않는다(검증용).
+`autonomous_execution.enabled`와 `config/live_execution_gate.json`의 enabled=true를
+모두 만족해야 실주문을 수행한다(기본 false). `CUBE_CLOUD_DRY_RUN=1`은 항상 실주문을 막는다.
+정규장에서도 실계좌 조회·보유수량 검증이 실패하면 집행을 차단한다.
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ CLOUD_PATH = os.path.join(DATA, "cloud_status.json")
 
 MARKET_CRON = "*/10 13-21 * * 1-5"
 PULSE_CRON = "*/30 * * * *"
+LIVE_GATE_PATH = os.path.join(BASE_DIR, "config", "live_execution_gate.json")
 
 
 def now_kst() -> datetime:
@@ -104,15 +106,53 @@ def write_status(mode: str, payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # --------------------------------------------------------------------- market
+def _live_account_preflight() -> Dict[str, Any]:
+    """Fail closed unless the live NH account matches the checked-in ledger."""
+    required = ("NH_APP_KEY", "NH_APP_SECRET", "NH_ACT_NO")
+    missing = [key for key in required if not os.getenv(key)]
+    if missing:
+        return {"ok": False, "reason": "NH API credentials missing: " + ", ".join(missing)}
+    try:
+        from execution.nh_trader import NHBroker
+        account = NHBroker(dry_run=False).get_portfolio_state(include_raw=False)
+        if str(account.get("rsp_cd")) != "00166":
+            return {"ok": False, "reason": "NH balance query unsuccessful"}
+        if account.get("equity") is None or account.get("cash") is None:
+            return {"ok": False, "reason": "NH balance response missing equity/cash"}
+        if float(account["equity"]) <= 0 or float(account["cash"]) < 0:
+            return {"ok": False, "reason": "NH balance contains invalid equity/cash"}
+        live = _load(os.path.join(DATA, "live_portfolio.json"), {})
+        if live.get("api_status") != "CONNECTED":
+            return {"ok": False, "reason": "Local account ledger is not marked CONNECTED"}
+        broker_positions = {t: int(p.get("qty") or 0) for t, p in
+                            (account.get("positions") or {}).items() if int(p.get("qty") or 0) > 0}
+        ledger_positions = {p.get("ticker"): int(p.get("qty") or 0) for p in
+                            (live.get("positions") or []) if int(p.get("qty") or 0) > 0}
+        if broker_positions != ledger_positions:
+            return {"ok": False, "reason": "NH holdings differ from ledger; reconcile before trading",
+                    "nh_positions": broker_positions, "ledger_positions": ledger_positions}
+        return {"ok": True, "nh_positions": broker_positions,
+                "nh_equity_usd": round(float(account["equity"]), 2),
+                "nh_cash_usd": round(float(account["cash"]), 2)}
+    except Exception as exc:
+        return {"ok": False, "reason": "NH preflight error: " + type(exc).__name__}
+
+
 def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
     from core import market_clock
     clock = market_clock.resolve()
     t0 = time.time()
+    gate = _load(LIVE_GATE_PATH, {})
+    live_enabled = gate.get("enabled") is True
+    requested_dry = bool(dry_run if dry_run is not None else os.getenv("CUBE_CLOUD_DRY_RUN") == "1")
     base: Dict[str, Any] = {"last_cycle_kst": now_str(), "phase": clock.get("phase"),
                             "session_date": clock.get("session_date"),
                             "kst_shift_min": clock.get("kst_shift_min"),
                             "next_open_kst": clock.get("next_open_kst"),
-                            "dry_run": bool(dry_run if dry_run is not None else os.getenv("CUBE_CLOUD_DRY_RUN") == "1")}
+                            "dry_run": requested_dry or not live_enabled,
+                            "live_gate_enabled": live_enabled,
+                            "note": ("실주문 비활성 — config/live_execution_gate.json enabled=true가 필요"
+                                     if not live_enabled else "실주문 게이트 활성")}
     if clock.get("phase") != "REGULAR":
         base.update({"result": "SKIPPED_OFF_HOURS", "seconds": round(time.time() - t0, 1),
                      "note": f"phase={clock.get('phase')} — 정규장이 아니므로 주문·집행을 하지 않습니다."})
@@ -124,12 +164,29 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
     py = sys.executable
     stages.append(run("원장 동기화", [py, "scripts/sync_live_portfolio.py"], 300))
     stages.append(run("유령 포지션 점검", [py, "-m", "core.position_reconciler", "--apply"], 120))
-    auto_cmd = [py, "scripts/autotrader.py", "--execute"]
-    if base["dry_run"]:
-        auto_cmd = [py, "scripts/autotrader.py", "--dry-run"]
-    stages.append(run("무인 집행", auto_cmd, 780))
-    mon_cmd = [py, "scripts/monitor_and_exit.py"] + ([] if base["dry_run"] else ["--execute"])
-    stages.append(run("브래킷 감시", mon_cmd, 300))
+    if not all(stage["ok"] for stage in stages):
+        base.update({"result": "BLOCKED_DEPENDENCY", "seconds": round(time.time() - t0, 1),
+                     "stages": stages, "note": "원장/조정 실패 — 자동주문 실행 차단"})
+        write_status("market", base)
+        return base
+    if not base["dry_run"]:
+        preflight = _live_account_preflight()
+        base["preflight"] = preflight
+        if not preflight["ok"]:
+            base.update({"result": "BLOCKED_PREFLIGHT", "seconds": round(time.time() - t0, 1),
+                         "stages": stages, "note": preflight["reason"]})
+            write_status("market", base)
+            return base
+    auto_cmd = [py, "scripts/autotrader.py", "--dry-run" if base["dry_run"] else "--execute"]
+    auto_step = run("무인 집행", auto_cmd, 780)
+    stages.append(auto_step)
+    if not auto_step["ok"]:
+        base.update({"result": "BLOCKED_EXECUTION", "seconds": round(time.time() - t0, 1),
+                     "stages": stages, "note": "무인 집행 단계 실패 — 후속 주문 단계 차단"})
+        write_status("market", base)
+        return base
+    # 동일 브래킷을 두 엔진이 동시에 집행하지 않도록 보조 감시는 읽기 전용으로 둔다.
+    stages.append(run("브래킷 감시(읽기 전용)", [py, "scripts/monitor_and_exit.py", "--dry-run"], 300))
     stages.append(run("원장 재동기화", [py, "scripts/sync_live_portfolio.py"], 300))
     stages.append(run("평단 계획 재생성", [py, "-m", "core.avg_anchor_engine"], 300))
     stages.append(run("유령 포지션 재점검", [py, "-m", "core.position_reconciler", "--apply"], 120))
@@ -184,9 +241,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = list(argv if argv is not None else sys.argv[1:])
     mode = (args[0] if args else "").strip().lower()
     if mode == "market":
-        return 0 if market_cycle().get("result") in ("OK", "PARTIAL", "SKIPPED_OFF_HOURS") else 1
+        return 0 if market_cycle().get("result") in ("OK", "SKIPPED_OFF_HOURS") else 1
     if mode == "pulse":
-        return 0 if pulse_cycle().get("result") in ("OK", "PARTIAL") else 1
+        return 0 if pulse_cycle().get("result") == "OK" else 1
     if mode == "status":
         print(json.dumps(_load(CLOUD_PATH, {}), ensure_ascii=False, indent=2))
         return 0
