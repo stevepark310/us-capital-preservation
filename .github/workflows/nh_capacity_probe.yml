@@ -1,0 +1,29 @@
+name: NH Order Capacity Read-only Probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/nh_capacity_probe.yml'
+      - 'scripts/nh_capacity_probe.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  account-capacity-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      NH_APP_KEY: ${{ secrets.NH_APP_KEY }}
+      NH_APP_SECRET: ${{ secrets.NH_APP_SECRET }}
+      NH_ACT_NO: ${{ secrets.NH_ACT_NO }}
+      NH_IS_MOCK: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Read-only live order capacity probe (no buys or sells)
+        run: python3 scripts/nh_capacity_probe.py
