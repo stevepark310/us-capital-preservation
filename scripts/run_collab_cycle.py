@@ -5,7 +5,7 @@ CUBE 협업 사이클 — 10인이 서로 업무 결과를 주고받고 빌드�
 한 번의 실행이 하는 일
 ----------------------
 1. 실측 사실(facts) 수집 — 10인 보고서·원장·집행 상태·클라우드 상태에서 숫자만 뽑는다.
-2. 직원별 업무 현황을 버스(`agent_state`)에 갱신하고, 3사이클마다 업무보고 메시지를 올린다.
+2. 직원별 업무 현황을 버스(`agent_state`)에 갱신하고, 매 사이클마다 업무보고 메시지를 올린다.
 3. 리서치 데스크(1~5)가 **인사이트 → 가설**을 검증 데스크(6~8)로 핸드오프한다.
 4. 검증 데스크가 그 가설을 `core/desk_lab`으로 실제 측정(In/Out-of-Sample)하고,
    게이트를 통과한 것만 승인(APPROVAL) 또는 보류(HOLD)로 돌려준다.
@@ -38,7 +38,7 @@ from core import buildup, collab_bus, desk_lab, market_clock, strategy_evolver  
 
 DATA = os.path.join(BASE_DIR, "data")
 CYCLE_PATH = os.path.join(DATA, "collab_cycle.json")
-DUTY_EVERY = 3          # 3사이클(≈90분)마다 업무보고 메시지
+DUTY_EVERY = 1          # 10분 주기마다 10인 전원 업무보고
 
 
 def _load(path: str, default: Any) -> Any:
@@ -294,12 +294,11 @@ def run_cycle(every: int = DUTY_EVERY) -> Dict[str, Any]:
         state[str(aid)] = {"ts_kst": collab_bus._now_kst(), "line": d["line"],
                            "metrics": d["metrics"], "phase": f["phase"]}
         if cycle_no % max(1, int(every)) == 0 or not prev.get("line"):
-            if prev.get("line") != d["line"]:
-                collab_bus.post(bus, aid, name(aid), "DUTY_REPORT",
-                                f"{collab_bus.DESK_KO.get(collab_bus.DESKS[aid])} 업무 현황",
-                                d["line"], to=d.get("to") or [], metrics=d["metrics"],
-                                phase=f["phase"])
-                posted.append(f"DUTY-{aid}")
+            collab_bus.post(bus, aid, name(aid), "DUTY_REPORT",
+                            f"{collab_bus.DESK_KO.get(collab_bus.DESKS[aid])} 업무 현황",
+                            d["line"], to=d.get("to") or [], metrics=d["metrics"],
+                            phase=f["phase"])
+            posted.append(f"DUTY-{aid}")
 
     # 2) 리서치 데스크 인사이트 → 검증 데스크 핸드오프
     handoffs = []
