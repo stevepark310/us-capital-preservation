@@ -1,0 +1,56 @@
+name: NH Confirmed Fills Reconciliation (No Orders)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/reconcile_confirmed_fills.py'
+  workflow_dispatch:
+
+concurrency:
+  group: cube-repo-writer
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  confirm-fills:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NH_APP_KEY: ${{ secrets.NH_APP_KEY }}
+      NH_APP_SECRET: ${{ secrets.NH_APP_SECRET }}
+      NH_ACT_NO: ${{ secrets.NH_ACT_NO }}
+      NH_IS_MOCK: "false"
+      CUBE_CLOUD_DRY_RUN: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Python dependencies
+        run: pip install --quiet -r requirements.txt
+      - name: Broker-confirmed fill reconciliation (no trading)
+        run: |
+          python scripts/reconcile_confirmed_fills.py
+          python scripts/sync_live_portfolio.py
+          python -m core.position_reconciler --apply
+          python scripts/autotrader.py --refresh-status
+          python scripts/agent_performance.py
+      - name: Save verified ledger changes
+        if: always()
+        run: |
+          set -e
+          git config user.name "cube-cloud-bot"
+          git config user.email "cube-cloud-bot@users.noreply.github.com"
+          git add data docs
+          if git diff --staged --quiet; then exit 0; fi
+          git commit -m "chore(nh): reconcile confirmed broker fills"
+          for i in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            git pull --rebase --autostash origin main || true
+          done
+          exit 1
