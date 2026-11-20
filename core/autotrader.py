@@ -38,7 +38,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from core import execution_policy, exit_rules, market_clock, session_time
 from core import bracket_specs, entry_signals
-from core import exit_authority, exit_failsafe, live_integrity, regime_model, risk_guard
+from core import exit_authority, exit_failsafe, live_integrity, regime_model, risk_guard, portfolio_quant_risk
 
 
 def _shadow_model(market: Dict[str, Any]) -> Dict[str, Any]:
@@ -734,8 +734,13 @@ class AutonomousTrader:
         realized = float(st.get("realized_pnl_usd") or 0.0)
 
         # ---- 전역 게이트
+        # An unclosed expired intraday position indicates missed liquidation.
+        # Resolve that exposure first; never open a new leveraged position in parallel.
+        overdue_exit_tickers = portfolio_quant_risk.overdue_managed_exits(brackets, clock)
         global_block = None
-        if not self.policy.get("enabled"):
+        if overdue_exit_tickers:
+            global_block = "연체 강제청산 미해결 — 신규 매수 동결: " + ", ".join(overdue_exit_tickers)
+        elif not self.policy.get("enabled"):
             global_block = "위임 비활성(autonomous_execution.enabled=false)"
         elif execution_policy.halt_file_active(self.policy):
             global_block = "비상 정지 파일 존재"
@@ -843,11 +848,28 @@ class AutonomousTrader:
                 self._emit("ENTRY_SKIP", ticker=tk, source=src, reason="수량 0 (예산/리스크)")
                 continue
             limit = self._limit_price(price, "BUY")
+            portfolio_now = portfolio_quant_risk.positions_from_ledger(
+                led, brackets, quotes, pending=st.get("pending"), actions=actions)
+            quant = portfolio_quant_risk.assess_entry(
+                tk, qty, limit, equity, sizing["sl_pct"], portfolio_now,
+                history=(market.get("daily") or {}).get(tk))
+            if not quant["ok"]:
+                self._emit("ENTRY_BLOCKED_QUANT", ticker=tk, source=src,
+                           reason="; ".join(quant["reasons"]), quant=quant)
+                continue
+            if quant["approved_qty"] < qty:
+                qty = int(quant["approved_qty"])
+                sizing.update({"qty": qty, "notional_usd": round(qty * limit, 2),
+                               "risk_usd": round(qty * limit * sizing["sl_pct"] / 100.0, 2),
+                               "quant_reduced": True})
+                self._emit("ENTRY_SIZED_QUANT", ticker=tk, source=src, qty=qty,
+                           reason="; ".join(quant["reasons"]))
             res = self.router.place(tk, "BUY", qty, limit,
                                     f"AUTO BUY {src} — {cand.get('why')}",
                                     session_date=str(clock.get("session_date") or ""),
                                     dry_run=self.dry_run,
-                                    extra={"signal": cand.get("signal"), "sizing": sizing})
+                                    extra={"signal": cand.get("signal"), "sizing": sizing,
+                                           "portfolio_quant": quant})
             status = res.get("status")
             rec = {"ticker": tk, "side": "BUY", "qty": qty, "price": limit, "source": src,
                    "status": status, "order_no": res.get("orr_no"), "run_id": res.get("run_id"),
@@ -885,7 +907,7 @@ class AutonomousTrader:
             # 단 ① 현금보존 하한을 지키고 ② 1주 손절 리스크가 한도 안일 때만 허용한다.
             price_cap = float(cand.get("notional_cap") or price)
             if price <= max(0.0, cash - reserve) and price <= price_cap \
-                    and per_share_risk <= risk_cap:
+                    and per_share_risk <= risk_cap and price <= budget:
                 qty, min_one = 1, True
         return qty, {"qty": qty, "notional_usd": round(qty * price, 2), "budget_usd": round(budget, 2),
                      "sl_pct": round(sl_pct, 2), "risk_usd": round(per_share_risk * qty, 2),
