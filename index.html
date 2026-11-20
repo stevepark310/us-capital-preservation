@@ -382,8 +382,8 @@ footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);font-si
   <dialog id="desk-dialog" style="background:#111c30;color:#eef4ff;border:1px solid #54647c;border-radius:12px;width:min(650px,90vw);max-height:80vh;overflow:auto">
   <form method="dialog" style="float:right"><button class="btn sm">닫기</button></form>
   <h3>10인 업무 재실행</h3>
-  <p>GitHub에서 <b>Run workflow</b>를 눌러 main 브랜치 실행을 확인하세요. 완료된 업무보고는 이 창에 표시됩니다.</p>
-  <a class="btn primary sm" id="desk-start" target="_blank" rel="noopener noreferrer" href="https://github.com/stevepark310/us-capital-preservation/actions/workflows/cube_pulse.yml">GitHub에서 직원 업무 시작</a>
+  <p>이 PC의 GitHub CLI 인증으로 10인 업무보고를 실행합니다.</p>
+  <button class="btn primary sm" id="desk-start">다시 실행</button>
   <p role="status" id="desk-status"></p><div id="desk-results"></div>
 </dialog>
   <section class="panel on" id="p-office">
@@ -849,17 +849,26 @@ async function deskRequest(path){
 function openDesk(){
   const dialog = $("desk-dialog");
   if (!dialog.open) dialog.showModal();
+  if (!deskBusy) runDesk();
 
 }
 async function runDesk(){
   if (deskBusy) return;
   deskBusy = true;
   const status = $("desk-status"), results = $("desk-results");
-  const started = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  const requestId = crypto.randomUUID();
   const workflow = "/actions/workflows/cube_pulse.yml";
   $("desk-start").hidden = true;
   try {
     status.textContent = "GitHub 실행 확인을 기다리고 있습니다.";
+    let accepted;
+    try {
+      accepted = await fetch("http://127.0.0.1:41739/reports", {method:"POST", credentials:"omit",
+        headers:{"X-Cube-Request":requestId}, signal:AbortSignal.timeout(35000)});
+    } catch {
+      throw new Error("이 PC에서 python scripts/report_launcher.py 실행 여부와 브라우저의 로컬 네트워크 접근 권한을 확인하세요.");
+    }
+    if (!accepted.ok) throw new Error("로컬 실행기에서 gh 설치 및 gh auth status를 확인하세요. HTTP " + accepted.status);
     let run;
     const deadline = Date.now() + 45*60000;
     while (Date.now() < deadline){
@@ -867,19 +876,8 @@ async function runDesk(){
       await new Promise(resolve => setTimeout(resolve, 60000));
       if (run) run = await (await deskRequest("/actions/runs/" + run.id)).json();
       else {
-        const list = await (await deskRequest(workflow + "/runs?branch=main&event=workflow_dispatch&created=" + encodeURIComponent(">=" + started) + "&per_page=50")).json();
-        const candidates = list.workflow_runs.filter(x => x.created_at >= started);
-        if (candidates.length > 1){
-          status.textContent = "동시에 요청된 실행 중 이번 보고에 사용할 실행을 선택하세요.";
-          run = await new Promise(resolve => {
-            for (const item of candidates){
-              const button = document.createElement("button");
-              button.className = "btn sm"; button.textContent = "#" + item.run_number + " · " + item.actor.login;
-              button.onclick = () => { status.textContent = "실행 상태 확인 중"; resolve(item); };
-              status.append(button);
-            }
-          });
-        } else run = candidates[0];
+        const list = await (await deskRequest(workflow + "/runs?branch=main&event=workflow_dispatch&per_page=50")).json();
+        run = list.workflow_runs.find(item => item.display_title === "CUBE report " + requestId);
       }
       if (run?.status === "completed") break;
     }
