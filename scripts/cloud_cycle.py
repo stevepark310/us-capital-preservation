@@ -253,6 +253,7 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
     stages.append(run("집행 상태 최신화", [py, "scripts/autotrader.py", "--refresh-status"], 120))
     stages.append(run("성과·학습 후보 평가", [py, "scripts/agent_performance.py"], 120))
     stages.append(run("청산 페일세이프 점검", [py, "scripts/exit_watchdog.py", "--record"], 120))
+    stages.append(run("퀀트 포트폴리오 위험 감시", [py, "scripts/quant_monitor.py"], 120))
     stages.append(run("대시보드 데이터 발행", [py, "scripts/build_dashboard.py", "--data-only"], 240))
 
     status = _load(os.path.join(DATA, "autotrader_status.json"), {}) or {}
@@ -288,6 +289,7 @@ def pulse_cycle() -> Dict[str, Any]:
     stages.append(run("10인 업무보고", [py, "scripts/update_feed.py"], 600))
     stages.append(run("협업·빌드업 사이클", [py, "scripts/run_collab_cycle.py"], 300))
     stages.append(run("성과·학습 후보 평가", [py, "scripts/agent_performance.py"], 120))
+    stages.append(run("퀀트 포트폴리오 위험 감시", [py, "scripts/quant_monitor.py"], 120))
     stages.append(run("대시보드 렌더", [py, "scripts/build_full_cube.py"], 300))
     base = {"last_cycle_kst": now_str(), "result": "OK" if all(s["ok"] for s in stages) else "PARTIAL",
             "seconds": round(time.time() - t0, 1), "stages": stages}
