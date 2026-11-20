@@ -82,8 +82,10 @@ def test_entry_sizes_within_budget_and_cash_reserve(trader, tmp_trader):
     actions = trader.entries(st, brackets, market, ledger())
     assert len(actions) == 1
     buy = actions[0]
-    # 예산 149.32(현금 35%) ÷ $50 = 2주, 1주 리스크 ≤ 한도
-    assert buy["side"] == "BUY" and buy["qty"] == 2
+    # 기존 예산으로는 2주였지만, 신규 quant 손절 리스크(자산 1%)가 1주로 축소한다.
+    assert buy["side"] == "BUY" and buy["qty"] == 1
+    assert buy["sizing"]["quant_reduced"] is True
+    assert buy["sizing"]["risk_usd"] <= ledger()["equity_usd"] * 0.01 + 0.01
     assert buy["sizing"]["notional_usd"] <= 149.32 + 0.01
     call = trader.router.calls[0]
     assert call["price"] == pytest.approx(50.10)            # +20bp 지정가
