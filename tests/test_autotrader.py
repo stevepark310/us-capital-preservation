@@ -220,7 +220,8 @@ def test_exit_stop_places_sell_order(trader, tmp_trader):
     assert len(actions) == 1
     assert actions[0]["side"] == "SELL" and actions[0]["qty"] == 2
     assert trader.router.calls[0]["side"] == "SELL"
-    assert trader.router.calls[0]["price"] == pytest.approx(48.75, abs=0.01)   # -30bp
+    # 손절은 '체결 우선' — -120bp로 밀어 낸다(11-17 SOXL 손절 지연 -3.5% 재발방지)
+    assert trader.router.calls[0]["price"] == pytest.approx(48.90 * (1 - 0.012), abs=0.01)
     assert len(st["pending"]) == 1 and st["pending"][0]["side"] == "SELL"
 
 

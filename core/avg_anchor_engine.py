@@ -256,7 +256,8 @@ def build_ladder(ticker: str, qty: int, avg_price: float, atr_pct: float,
 
 def build_plan(positions: List[Dict[str, Any]], techs: Dict[str, Any], cash_usd: float,
                equity_usd: float, vix: Optional[float] = None,
-               phase: Optional[str] = None, next_open_kst: Optional[str] = None) -> Dict[str, Any]:
+               phase: Optional[str] = None, next_open_kst: Optional[str] = None,
+               brackets: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     ladders: List[Dict[str, Any]] = []
     for pos in positions or []:
         tk = str(pos.get("ticker") or "").upper()
@@ -291,7 +292,7 @@ def build_plan(positions: List[Dict[str, Any]], techs: Dict[str, Any], cash_usd:
             measured_usd += (m["ev_pct_per_share"] / 100.0) * l["avg_price"] * l["qty"]
     measured_usd = round(measured_usd, 2)
 
-    return {
+    plan = {
         "engine": "AVG_ANCHOR_PROFIT_DESK",
         "engine_ko": "평단 기준 일일 수익 엔진",
         "version": "1.0",
@@ -360,6 +361,10 @@ def build_plan(positions: List[Dict[str, Any]], techs: Dict[str, Any], cash_usd:
                                   f"실측 기대({measured_usd:+.2f})를 넘기려면 2차 익절(TP2 도달률 SOXL 42.6%)까지 가는 날이 필요하다."),
         },
     }
+    # 청산 권한 단일화 — 장중·헤지·파일럿 브래킷의 사다리는 '참고값'(advisory)일 뿐이다.
+    from core import exit_authority
+    exit_authority.annotate_plan(plan, brackets)
+    return plan
 
 
 def build_v2_bracket(lad: Dict[str, Any], prev: Dict[str, Any]) -> Dict[str, Any]:
@@ -398,8 +403,17 @@ def apply_to_brackets(plan: Dict[str, Any], brackets: Optional[Dict[str, Any]] =
 
     `holdings`(ticker → qty)를 넘기면 원장에 없는 종목의 브래킷은 만들지 않는다
     (유령 포지션 재발 방지). `ghost`로 표시된 브래킷은 절대 되살리지 않는다.
+
+    **청산 권한 단일화(2026-11-19 사고)**: 장중·헤지·파일럿 브래킷(SPEC)과 사용자 잠금
+    레벨은 평단 사다리가 덮어쓰지 않는다. 종전에는 기존 브래킷도 `sl`·`tp1`·
+    `force_exit_kst`를 사다리 값으로 갈아 끼워, SQQQ 같은 헤지 포지션의 05:40 강제청산이
+    사라지고 손절선이 47.46으로 당겨질 수 있었다. 이제 `exit_authority.can_ladder_write()`가
+    False를 주면 건너뛰고 그 사실을 plan에 남긴다.
     """
+    from core import exit_authority
+
     brackets = dict(brackets or {})
+    skipped: List[Dict[str, Any]] = []
     for lad in plan.get("ladders", []):
         tk = lad["ticker"]
         try:
@@ -413,6 +427,13 @@ def apply_to_brackets(plan: Dict[str, Any], brackets: Optional[Dict[str, Any]] =
         prev = brackets.get(tk) or {}
         if isinstance(prev, dict) and prev.get("ghost"):
             continue                      # 유령으로 정리된 브래킷은 되살리지 않는다
+        if prev and not exit_authority.can_ladder_write(tk, prev):
+            owner = exit_authority.owner_of(tk, prev)
+            skipped.append({"ticker": tk, "owner": owner["owner"], "exit_rule": owner["exit_rule"],
+                            "kept_levels": {"sl": prev.get("sl"), "force_exit_kst": prev.get("force_exit_kst")},
+                            "ladder_ignored": {"sl": lad.get("sl"), "force_exit_kst": lad.get("force_exit_kst")},
+                            "reason": "브래킷 규격/사용자 레벨 우선 — 평단 사다리는 참고값"})
+            continue
         is_new = not prev
         if is_new and not lad.get("levels_locked"):
             brackets[tk] = build_v2_bracket(lad, prev)
@@ -422,7 +443,7 @@ def apply_to_brackets(plan: Dict[str, Any], brackets: Optional[Dict[str, Any]] =
             "entry_price": lad["avg_price"],
             "planned_price": lad["avg_price"],
             "tp1": lad["tp1"],
-            "tp1_qty": int(lad["tp1_qty"]),
+            "tp1_qty": int(lad.get("tp1_qty") or 0),
             "tp1_filled": False,
             "tp2": lad.get("tp2"),
             "tp2_qty": int(lad["tp2_qty"] or 0),
@@ -455,6 +476,10 @@ def apply_to_brackets(plan: Dict[str, Any], brackets: Optional[Dict[str, Any]] =
             b["force_exit_kst"] = None     # NVDA는 실적을 맞는 유일한 포지션
             b["filled_at_kst"] = "2026-11-13 종가 체결"
         brackets[tk] = b
+    plan["apply_result"] = {"written": [l["ticker"] for l in plan.get("ladders", [])
+                                        if str(l["ticker"]).upper() not in {x["ticker"] for x in skipped}],
+                            "skipped": skipped,
+                            "rule": "한 포지션의 청산 규칙은 하나 — SPEC·사용자 레벨 우선"}
     return brackets
 
 
@@ -502,8 +527,10 @@ def main(argv: Optional[List[str]] = None) -> Dict[str, Any]:
         except Exception as e:
             print(f"[AAPD] 기술적 지표 계산 실패: {e}")
 
+    brackets_now = _load(BRACKETS_PATH) or {}
     plan = build_plan(positions, techs, cash, equity, vix=vix,
-                      phase=live.get("session_phase"), next_open_kst=_next_open_hint())
+                      phase=live.get("session_phase"), next_open_kst=_next_open_hint(),
+                      brackets=brackets_now)
     export(plan)
     print(f"✅ 평단 기준 수익 계획 저장: {PLAN_PATH}")
     for lad in plan["ladders"]:

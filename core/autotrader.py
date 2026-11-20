@@ -38,6 +38,25 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from core import execution_policy, exit_rules, market_clock, session_time
 from core import bracket_specs, entry_signals
+from core import exit_authority, exit_failsafe, live_integrity, regime_model, risk_guard
+
+
+def _shadow_model(market: Dict[str, Any]) -> Dict[str, Any]:
+    """신규 모델의 '그림자' 판정 — 참고용이며 주문에 쓰지 않는다."""
+    try:
+        return regime_model.live_state(market.get("snapshot") or {}, market.get("daily"),
+                                       market.get("vix"))
+    except Exception as exc:
+        return {"model": regime_model.MODEL, "error": type(exc).__name__}
+
+
+def exit_authority_report(brackets: Dict[str, Any]) -> Dict[str, Any]:
+    """청산 규칙 소유자 요약(주문 없음). 실패해도 사이클을 막지 않는다."""
+    try:
+        doc = exit_authority.report(brackets, persist=False)
+        return {k: doc.get(k) for k in ("owners", "conflicts", "ok")}
+    except Exception:
+        return {"ok": None}
 from execution.order_bridge import OrderRouter
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -52,6 +71,9 @@ DAILY_ENTRY_WINDOW_MIN = 90      # 세션 시작 후 90분까지 '다음 세션 
 DIP_UNIVERSE = ["SOXL", "TQQQ"]
 HEDGE_UNIVERSE = ["SOXS", "SQQQ"]
 HEDGE_NOTIONAL_CAP = 60.0        # config hedge.max_notional_usd
+HEDGE_SOURCES = {"BEAR_ALPHA_HEDGE", "NVDA_EARNINGS_GAP_SOXS"}
+BEAR_VIX_MIN = 24.0             # 헤지 게이트 하한(고정)
+STOP_LIMIT_OFFSET_BPS = 120     # 손절 주문 지정가 오프셋(체결 우선)
 
 
 def _now_kst() -> datetime:
@@ -209,8 +231,22 @@ class AutonomousTrader:
         quotes = snap.get("quotes") or {}
         # VIX는 스냅샷 macro 블록에도 있다(지수는 quotes에 없을 수 있음)
         vix = (snap.get("macro") or {}).get("vix") or {}
+        # 실시간 정합성(VIX·시세) — 틀린 숫자로는 주문하지 않는다(fail-closed).
+        broker_marks: Dict[str, float] = {}
+        try:
+            led_now = self._ledger()
+            for p in (led_now.get("positions") or []):
+                mark = p.get("broker_mark_price") or p.get("quote_last")
+                if p.get("ticker") and mark:
+                    broker_marks[str(p["ticker"]).upper()] = float(mark)
+        except Exception:
+            broker_marks = {}
+        integrity = live_integrity.evaluate(
+            snap, clock, tickers=set(DIP_UNIVERSE + HEDGE_UNIVERSE + ["NVDA", "SPY"]),
+            broker_marks=broker_marks, policy=self.policy, persist=True)
         return {"clock": clock, "snapshot": snap, "quotes": quotes, "techs": techs,
-                "daily": hist, "vix": vix.get("last") if isinstance(vix, dict) else None}
+                "daily": hist, "vix": vix.get("last") if isinstance(vix, dict) else None,
+                "integrity": integrity, "broker_marks": broker_marks}
 
     @staticmethod
     def price_of(quotes: Dict[str, Any], ticker: str) -> Optional[float]:
@@ -411,8 +447,15 @@ class AutonomousTrader:
 
     # ------------------------------------------------------------------ exits
     def exits(self, st: Dict[str, Any], brackets: Dict[str, Any],
-              quotes: Dict[str, Any], clock: Dict[str, Any]) -> List[Dict[str, Any]]:
+              quotes: Dict[str, Any], clock: Dict[str, Any],
+              integrity: Optional[Dict[str, Any]] = None,
+              broker_marks: Optional[Dict[str, float]] = None) -> List[Dict[str, Any]]:
         actions: List[Dict[str, Any]] = []
+        equity = None
+        try:
+            equity = float((self._ledger().get("equity_usd")) or 0.0) or None
+        except Exception:
+            equity = None
         for tk, b in list(brackets.items()):
             if not isinstance(b, dict):
                 continue
@@ -420,11 +463,33 @@ class AutonomousTrader:
                 continue
             if self._has_pending(tk, st, side="SELL"):
                 continue
-            price = self.price_of(quotes, tk)
+            # 청산 판정 가격은 보수적으로(낮은 쪽) — 5분봉·일봉·브로커 시세 중 최저.
+            pinfo = live_integrity.price_for(quotes, tk, clock, "SELL",
+                                             broker_mark=(broker_marks or {}).get(tk),
+                                             policy=self.policy)
+            price = pinfo.get("side_price") or self.price_of(quotes, tk)
             if not price:
                 continue
             b["highest_high"] = max(float(b.get("highest_high") or b.get("entry_price") or price), float(price))
-            decision = exit_rules.decide(b, price, clock)
+            decision = None
+            # ① 연체 강제청산 — 이전 세션에서 못 지킨 05:40 청산은 정규장 첫 사이클에서 즉시.
+            if b.get("force_exit_due") and not b.get("force_exited"):
+                decision = {"action": "SELL", "qty": exit_rules.remaining_qty(b), "stop": False,
+                            "close": True,
+                            "reason": (f"연체 강제청산 — {b.get('force_exit_kst')} KST 룰 미집행분 즉시 정리"),
+                            "post": {"force_exited": True, "closed": True, "force_exit_due": False}}
+            # ② 포지션 손실 하드캡 — 청산 규칙보다 먼저 본다(-13.9% 같은 대형 손절 차단).
+            if not decision:
+                cap = risk_guard.check_position(tk, b, price, equity, self.policy)
+                if cap.get("action") == "SELL_ALL":
+                    decision = {"action": "SELL", "qty": exit_rules.remaining_qty(b), "stop": True,
+                                "close": True, "reason": cap.get("reason") or "포지션 손실 하드캡",
+                                "post": {"closed": True, "hard_cap_triggered": True}}
+                elif cap.get("action") in ("ALERT", "WARN"):
+                    self._emit("POSITION_RISK_ALERT", ticker=tk, action=cap["action"],
+                               reason=cap.get("reason"), loss=cap.get("loss"))
+            if not decision:
+                decision = exit_rules.decide(b, price, clock)
             if (not decision and not b.get("levels_locked") and self._cautious_force_exit_active()
                     and session_time.time_reached(clock, self.guard.get("force_exit_kst"))
                     and not b.get("force_exited")):
@@ -438,6 +503,12 @@ class AutonomousTrader:
             if qty <= 0:
                 continue
             limit = self._limit_price(price, "SELL")
+            if decision.get("stop"):
+                # 손절은 '체결'이 목적이다. 종전 -30bp 지정가로는 급락 시 미체결로 남아
+                # 다음 사이클까지 기다렸고(11-17 SOXL: 손절선 49.17 → 실제 47.46, -3.5% 추가),
+                # 손절 주문만 -120bp까지 밀어 즉시 체결 쪽으로 보낸다.
+                limit = round(float(price) * (1 - STOP_LIMIT_OFFSET_BPS / 10000.0), 2)
+                decision["limit_offset_bps"] = -STOP_LIMIT_OFFSET_BPS
             res = self.router.place(tk, "SELL", qty, limit, decision["reason"],
                                     session_date=str(clock.get("session_date") or ""),
                                     dry_run=self.dry_run,
@@ -686,7 +757,10 @@ class AutonomousTrader:
         open_positions = [tk for tk, b in brackets.items()
                           if isinstance(b, dict) and exit_rules.is_open(b) and tk != "SGOV"]
         c5_open = self._c5_open(brackets)
-        vix = market.get("vix")
+        integrity = market.get("integrity") or {}
+        vix_raw = market.get("vix")
+        # 보수적 VIX 게이트 — 일봉 종가·대체 소스·같은 세션 고가 중 최댓값(stale면 99).
+        vix = (integrity.get("vix") or {}).get("gate") or vix_raw
         vix_scale = execution_policy.vix_scale(vix, self.policy)
         risk_scale = float(params.get("risk_scale") or 1.0)
         budget_info = execution_policy.entry_budget(equity, cash, self.policy, vix_scale * risk_scale)
@@ -695,6 +769,16 @@ class AutonomousTrader:
         for cand in self.entry_candidates(market, st, brackets, params):
             tk = (cand.get("ticker") or "").upper()
             src = cand.get("source")
+            # 실시간 정합성 — VIX/시세가 stale·불일치면 신규 리스크를 만들지 않는다.
+            gate_reason = live_integrity.entry_gate(integrity, tk)
+            if gate_reason:
+                self._emit("ENTRY_BLOCKED_INTEGRITY", ticker=tk, source=src, reason=gate_reason)
+                continue
+            # 이벤트 리스크 — 실적 전후 창에서는 신규 진입 금지(거버넌스·고변동 방어).
+            ev = risk_guard.event_risk(tk, policy=self.policy)
+            if ev.get("block_entry"):
+                self._emit("ENTRY_BLOCKED_EVENT", ticker=tk, source=src, reason=ev.get("reason"))
+                continue
             conflict = self._c5_conflict(src, tk, c5_open)
             if conflict:
                 self._emit("ENTRY_SKIP", ticker=tk, source=src, reason=conflict)
@@ -711,9 +795,16 @@ class AutonomousTrader:
             if len(open_positions) + len([a for a in actions if a.get("side") == "BUY"]) >= int(g.get("max_open_positions", 4)):
                 self._emit("ENTRY_SKIP", ticker=tk, source=src, reason="최대 보유 종목 수")
                 continue
+            hedge_source = src in HEDGE_SOURCES
             if vix_scale <= 0:
-                self._emit("ENTRY_SKIP", ticker=tk, source=src, reason=f"VIX {vix} 리스크오프")
-                continue
+                # VIX >= 28은 신규 **롱** 하드 차단이다. 헤지(숏)는 방어 포지션이므로
+                # 별도 게이트(VIX >= 24 + 확인)만 통과하면 허용한다(2026-11-20 재발방지).
+                if hedge_source and vix is not None and float(vix) >= BEAR_VIX_MIN:
+                    pass
+                else:
+                    self._emit("ENTRY_SKIP", ticker=tk, source=src,
+                               reason=f"VIX {vix} 리스크오프 — 신규 롱 하드 차단")
+                    continue
             if not cand.get("allow_opening_entry") and session_time.in_window(clock, g.get("opening_blackout_kst")):
                 self._emit("ENTRY_BLOCKED_OPENING", ticker=tk, source=src,
                            reason=f"개장 유예 {g.get('opening_blackout_kst')}")
@@ -939,8 +1030,21 @@ class AutonomousTrader:
         params = self._strategy_params()
         # 주문은 정규장에서만 낸다(시간외·휴장에 NH가 거부하거나 체결 품질이 나쁘다).
         # 조정(reconcile)은 읽기 전용이므로 세션 밖에서도 수행한다.
+        # 강제청산 페일세이프 — 정규장이 아니어도 '연체'를 계산해 다음 정규장 첫 사이클에
+        # 반드시 닫히도록 브래킷에 표시한다(05:40 사이클 미발화로 청산이 통째로 사라진 사고).
+        failsafe = exit_failsafe.record(brackets, clock, self.policy)
+        if failsafe.get("overdue"):
+            for item in failsafe["overdue"]:
+                b = brackets.get(item["ticker"])
+                if isinstance(b, dict) and not b.get("closed"):
+                    b["force_exit_due"] = True
+                    b["force_exit_overdue_kst"] = _now_str()
+            self._emit("FORCE_EXIT_OVERDUE", tickers=[i["ticker"] for i in failsafe["overdue"]],
+                       phase=clock.get("phase"))
         if clock.get("phase") == "REGULAR":
-            exits = self.exits(st, brackets, market.get("quotes") or {}, clock)
+            exits = self.exits(st, brackets, market.get("quotes") or {}, clock,
+                               integrity=market.get("integrity"),
+                               broker_marks=market.get("broker_marks"))
         else:
             exits = []
             self._emit("EXITS_SKIPPED", reason=f"phase={clock.get('phase')} — 주문 없음")
@@ -986,6 +1090,11 @@ class AutonomousTrader:
                                "entry_source": b.get("entry_source")}
                           for tk, b in brackets.items() if isinstance(b, dict) and exit_rules.is_open(b)},
             "c5_pilot": self._c5_status(st, brackets, clock),
+            "integrity": market.get("integrity") or {},
+            "risk_alerts": [e for e in self.events if e.get("kind") == "POSITION_RISK_ALERT"][-10:],
+            "failsafe": failsafe,
+            "exit_authority": exit_authority_report(brackets),
+            "shadow_model": _shadow_model(market),
             "ledger": {"equity_usd": equity, "cash_usd": cash},
             "next_gate": self._next_gate(clock, st),
             "elapsed_sec": round(time.time() - t0, 1),

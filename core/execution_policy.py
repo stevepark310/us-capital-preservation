@@ -26,6 +26,7 @@ from typing import Any, Dict, Optional
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "swing_approval.json")
+GUARDRAILS_PATH = os.path.join(BASE_DIR, "config", "risk_guardrails.json")
 HALT_FILE = os.path.join(BASE_DIR, "data", "autotrader_halt.json")
 
 # 정책 파일이 무엇을 쓰든 넘을 수 없는 절대 상한 (계좌 $883 · 2026-11-18 예산 상향 반영)
@@ -102,6 +103,13 @@ def load_policy(path: Optional[str] = None) -> Dict[str, Any]:
         policy["c5_pilot"] = block.get("c5_pilot") or {}
         policy["bracket_specs"] = block.get("bracket_specs") or {}
         policy["bear_alpha_gate"] = block.get("bear_alpha_gate") or {}
+        # 2026-11-20 재발방지 대책 — 손실 하드캡·시세 정합성·페일세이프 (별도 정본 파일)
+        try:
+            with open(GUARDRAILS_PATH, "r", encoding="utf-8") as f:
+                policy["risk_guardrails"] = json.load(f)
+        except Exception as exc:
+            policy["risk_guardrails"] = {}
+            policy["risk_guardrails_error"] = type(exc).__name__
         policy["swing_approval"] = {
             "status": cfg.get("overnight_status"),
             "universe": cfg.get("universe"),

@@ -184,10 +184,25 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
                             "note": (f"실주문 비활성 — {gate_check.get('reason')}"
                                      if not live_enabled else "오늘 미국장 기간한정 실주문 게이트 활성")}
     if clock.get("phase") != "REGULAR":
-        base.update({"result": "SKIPPED_OFF_HOURS", "seconds": round(time.time() - t0, 1),
-                     "note": f"phase={clock.get('phase')} — 정규장이 아니므로 주문·집행을 하지 않습니다."})
+        # 정규장 밖이라도 '연체된 강제청산'은 계산해서 남긴다 — 종전에는 SKIPPED로 끝나
+        # 05:40 청산이 통째로 사라졌다(2026-11-19 SQQQ). 다음 정규장 첫 사이클이 닫는다.
+        failsafe = {}
+        try:
+            from core import exit_failsafe
+            brackets_now = _load(os.path.join(DATA, "active_brackets.json"), {}) or {}
+            failsafe = exit_failsafe.record(brackets_now, clock)
+        except Exception as exc:      # 상태 기록 실패가 사이클을 막지는 않는다
+            failsafe = {"error": type(exc).__name__}
+        result = "FAILSAFE_OVERDUE" if (failsafe.get("overdue") or
+                                        (failsafe.get("cloud") or {}).get("critical")) else "SKIPPED_OFF_HOURS"
+        base.update({"result": result, "seconds": round(time.time() - t0, 1),
+                     "failsafe": failsafe,
+                     "note": (f"phase={clock.get('phase')} — 정규장이 아니므로 주문은 하지 않습니다."
+                              if result == "SKIPPED_OFF_HOURS" else
+                              f"phase={clock.get('phase')} — 연체 강제청산/감시 공백 "
+                              f"{len(failsafe.get('overdue') or [])}건, 다음 정규장 즉시 청산 대상으로 기록.")})
         write_status("market", base)
-        print(f"[cloud] market SKIPPED phase={clock.get('phase')} ({clock.get('now_kst')} KST)")
+        print(f"[cloud] market {result} phase={clock.get('phase')} ({clock.get('now_kst')} KST)")
         return base
 
     stages: List[Dict[str, Any]] = []
@@ -237,6 +252,7 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
     stages.append(run("유령 포지션 재점검", [py, "-m", "core.position_reconciler", "--apply"], 120))
     stages.append(run("집행 상태 최신화", [py, "scripts/autotrader.py", "--refresh-status"], 120))
     stages.append(run("성과·학습 후보 평가", [py, "scripts/agent_performance.py"], 120))
+    stages.append(run("청산 페일세이프 점검", [py, "scripts/exit_watchdog.py", "--record"], 120))
     stages.append(run("대시보드 데이터 발행", [py, "scripts/build_dashboard.py", "--data-only"], 240))
 
     status = _load(os.path.join(DATA, "autotrader_status.json"), {}) or {}
@@ -288,7 +304,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = list(argv if argv is not None else sys.argv[1:])
     mode = (args[0] if args else "").strip().lower()
     if mode == "market":
-        return 0 if market_cycle().get("result") in ("OK", "SKIPPED_OFF_HOURS") else 1
+        return 0 if market_cycle().get("result") in ("OK", "SKIPPED_OFF_HOURS", "FAILSAFE_OVERDUE") else 1
     if mode == "pulse":
         return 0 if pulse_cycle().get("result") == "OK" else 1
     if mode == "status":

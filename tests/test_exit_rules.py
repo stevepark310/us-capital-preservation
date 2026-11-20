@@ -66,11 +66,21 @@ def test_opening_grace_blocks_stop_before_2345():
     assert d and d["stop"] is True
 
 
-def test_eanings_force_exit_at_0540():
+def test_eanings_force_exit_with_failsafe_buffer():
+    """강제청산은 정책 시각(05:40)보다 10분 먼저 발동한다 — 사이클 1회 누락 흡수."""
     b = ladder()
+    assert exit_rules.ladder_exit_decision(b, 51.0, clock_at("05:29")) is None
+    d = exit_rules.ladder_exit_decision(b, 51.0, clock_at("05:31"))
+    assert d["post"]["force_exited"] is True and d["qty"] == 2
+    assert "페일세이프" in d["reason"]
+
+
+def test_eanings_force_exit_exact_time_when_buffer_zero():
+    b = ladder()
+    b["force_exit_early_min"] = 0
     assert exit_rules.ladder_exit_decision(b, 51.0, clock_at("05:39")) is None
     d = exit_rules.ladder_exit_decision(b, 51.0, clock_at("05:41"))
-    assert d["post"]["force_exited"] is True and d["qty"] == 2
+    assert d["post"]["force_exited"] is True
 
 
 def test_nvda_locked_bracket_never_force_exits():

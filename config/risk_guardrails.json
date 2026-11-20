@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "created_at_kst": "2026-11-20",
+  "why": "2026-11-17~19 실전 손실(SOXL/TQQQ -$8.43, NVDA -$24.10) 재발방지 대책. 코드의 HARD_LIMITS가 상한을 강제하므로 이 파일은 '더 엄격하게'만 조일 수 있다(느슨하게는 불가).",
+  "authority": "박동훈 사용자 위임(2026-11-17 12:02 무인 집행) 범위 안의 방어 장치 — 신규 종목·물타기·NVDA 잠금 레벨 변경은 이 파일로도 열 수 없다.",
+  "loss_cap": {
+    "enabled": true,
+    "max_position_loss_pct": 8.0,
+    "max_position_loss_usd": 25.0,
+    "max_locked_loss_pct": 15.0,
+    "locked_warn_pct": 5.0,
+    "event_blackout_hours_before": 24.0,
+    "event_blackout_hours_after": 6.0,
+    "note": "자동 포지션은 -8% 또는 -$25 중 먼저 닿는 쪽에서 전량 청산. 사용자 잠금 레벨(NVDA TP 173/SL 150)은 엔진이 바꾸지 않고 5% 경고·15% 재난 캡만 적용한다."
+  },
+  "live_integrity": {
+    "enabled": true,
+    "max_snapshot_age_min": 6.0,
+    "max_intraday_bar_age_min": 25.0,
+    "vix_cross_source_tolerance": 0.75,
+    "price_divergence_max_pct": 1.0,
+    "vix_new_long_block": 28.0,
+    "price_sanity_pct": 35.0,
+    "buy_price_buffer_bps": 0.0,
+    "sell_price_buffer_bps": 0.0,
+    "note": "VIX는 관측 최고값(일봉 종가·대체 소스·같은 세션 고가)으로 게이팅. 28 이상이면 신규 롱 하드 차단. stale/판독불가면 VIX 99로 fail-closed."
+  },
+  "failsafe": {
+    "enabled": true,
+    "force_exit_early_min": 10,
+    "cycle_gap_warn_min": 25,
+    "cycle_gap_critical_min": 45,
+    "note": "05:40 강제청산을 05:30에 발동(사이클 1회 누락 흡수). 연체분은 다음 정규장 첫 사이클에 즉시 청산하고, 정규장 사이클 공백 45분 초과는 워치독이 디스패치한다."
+  }
+}

@@ -25,7 +25,31 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from core import session_time
 from core.session_time import late_session, time_reached
+
+# 강제청산은 정책 시각보다 이만큼 먼저 발동한다(사이클 1회 누락을 흡수, 2026-11-19 사고).
+# 브래킷이 `force_exit_early_min`을 들고 있으면 그 값이 우선한다.
+FORCE_EXIT_EARLY_MIN = 10
+
+
+def _force_due(bracket: Dict[str, Any], clock: Dict[str, Any]) -> bool:
+    """`force_exit_kst` + 앞당김 버퍼가 지났는가."""
+    fex = bracket.get("force_exit_kst")
+    if not fex:
+        return False
+    try:
+        early = int(bracket.get("force_exit_early_min", FORCE_EXIT_EARLY_MIN))
+    except (TypeError, ValueError):
+        early = FORCE_EXIT_EARLY_MIN
+    early = max(0, min(30, early))
+    if early <= 0:
+        return time_reached(clock, fex)
+    now = session_time.session_minutes(session_time.kst_hhmm(clock or {}))
+    gate = session_time.shift_minutes(clock or {}, session_time.session_minutes(fex)) - early
+    if now < 0 or gate < 0:
+        return time_reached(clock, fex)
+    return now >= gate
 
 
 def remaining_qty(bracket: Dict[str, Any]) -> int:
@@ -124,9 +148,10 @@ def chandelier_v2_exit(bracket: Dict[str, Any], price: float,
                 "reason": f"v2 STOP (${price:.2f} ≤ ${bracket['sl']:.2f})",
                 "post": {"sl_triggered": True, "closed": True}}
     fex = bracket.get("force_exit_kst")
-    if fex and not bracket.get("force_exited") and time_reached(clock, fex):
+    if fex and not bracket.get("force_exited") and _force_due(bracket, clock):
         return {"action": "SELL", "qty": qty, "stop": False, "close": True,
-                "reason": f"v2 SESSION EXIT ({fex} KST 종가 청산, 장중 브래킷)",
+                "reason": (f"v2 SESSION EXIT ({fex} KST 종가 청산, 장중 브래킷"
+                           f"{'' if time_reached(clock, fex) else ' · 페일세이프 선행'})"),
                 "post": {"force_exited": True, "closed": True}}
     if float(price) <= trail:
         return {"action": "SELL", "qty": qty, "stop": False, "close": True,
@@ -154,9 +179,10 @@ def ladder_exit_decision(bracket: Dict[str, Any], price: float,
 
     # 실적 가드: 지정 시각 이후 잔여 수량 시장가 청산 (3배 레버리지로 실적을 넘기지 않는다)
     if (bracket.get("force_exit_kst") and not bracket.get("force_exited")
-            and time_reached(clock, bracket.get("force_exit_kst"))):
+            and _force_due(bracket, clock)):
         return {"action": "SELL", "qty": qty, "stop": False, "close": True,
-                "reason": f"실적 가드 강제청산 ({bracket['force_exit_kst']} KST, NVDA 실적 전 레버리지 정리)",
+                "reason": (f"실적 가드 강제청산 ({bracket['force_exit_kst']} KST, NVDA 실적 전 레버리지 정리"
+                           f"{'' if time_reached(clock, bracket['force_exit_kst']) else ' · 페일세이프 선행'})"),
                 "post": {"force_exited": True, "closed": True}}
 
     sl = float(bracket.get("sl", 0) or 0)

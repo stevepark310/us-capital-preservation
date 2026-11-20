@@ -227,6 +227,36 @@ python3 scripts/autotrader.py --refresh-status    # 상태 파일(autotrader_sta
 
 ---
 
+## 5-c. 손실 재발방지 가드레일 · 신규 모델 (2026-11-20)
+
+11-17~19 사고(SOXL/TQQQ -$8.43, NVDA -$24.10, 합 -$32.53)의 감사와 대책은
+[`docs/incident_audit_20261120.md`](docs/incident_audit_20261120.md)에 실측 근거와 함께 정리돼 있습니다.
+
+| 가드레일 | 파일 | 동작 |
+|---|---|---|
+| 시세·VIX 정합성 (fail-closed) | `core/live_integrity.py` | VIX는 일봉·대체소스·**같은 세션 고가** 중 최댓값으로 게이팅(11-19: 27.14 → 28.99). stale/불일치면 VIX 99로 신규 진입 차단. 청산 가격은 소스 중 최저값 |
+| VIX ≥ 28 신규 롱 하드 차단 | `core/autotrader.py` | 보수적 VIX로 `vix_riskoff_scale` 적용 — 27.x에서 0.5배 진입하던 구멍을 닫음 |
+| 포지션 손실 하드캡 | `core/risk_guard.py` | 자동 포지션 **-8% 또는 -$25** 중 먼저 닿는 쪽에서 전량 청산. 사용자 잠금 레벨은 5% 경고·15% 재난 캡만 |
+| 이벤트 리스크 필터 | `core/risk_guard.py` | 실적 전 24h·후 6h 신규 진입 금지(보유는 보고) |
+| 청산 규칙 단일화 | `core/exit_authority.py` | 브래킷마다 소유자 1명 — 장중·헤지·파일럿 규격과 사용자 잠금은 평단 사다리가 덮어쓰지 않음 |
+| 강제청산 페일세이프 | `core/exit_failsafe.py`, `scripts/exit_watchdog.py` | 05:30 선행 발동, 놓친 건은 다음 정규장 첫 사이클에 즉시 청산, 사이클 45분 공백 시 워치독이 `gh workflow run` |
+| 손절 체결 우선 | `core/autotrader.py` | 손절 지정가 -30bp → **-120bp** |
+
+```bash
+python3 scripts/exit_watchdog.py --record     # 연체 강제청산·클라우드 공백 상태
+python3 scripts/exit_watchdog.py --check      # 조치 필요 여부(스케줄 체크용)
+python3 scripts/run_regime_ab.py              # 신규 모델 A/B(IS/OOS·비용민감도)
+python3 scripts/run_regime_ab.py --register   # 빌드업 가설·10인 버스 반영
+```
+
+**신규 모델** `REGIME_ADAPTIVE_DIP_V1`(`core/regime_model.py`): 다중 확인(추세 또는 VIX<20, 추세 없는
+RISK_OFF 배제) + ATR 손절 8% 하드캡 + 리스크 1.5%/건. 5년 일봉 IS/OOS 실측에서 기존 대비
+기대값 +1.21→+2.12%/건, PF 1.28→1.66, MDD -19.53→-12.84%, Sharpe 0.46→0.72, OOS 기대값 +3.43→+4.48%
+([`docs/regime_model_20261120.md`](docs/regime_model_20261120.md)). 실집행 전환은 **사용자 승인 대기**이며
+지금은 `autotrader_status.json`의 `shadow_model`(그림자 판정)로만 쓰입니다.
+
+---
+
 ## 6. 채권 · 환율 · 코인 · 경기선행지표 (2026-11-14 확장)
 
 사용자 지시(2026-11-14 21:31): *"코인과 미국 국채 등 채권 그리고 환율 시장에서도 모니터링과 분석이 필요해.

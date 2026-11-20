@@ -47,7 +47,8 @@ def test_regular_session_runs_all_stages_in_order(sandbox, monkeypatch):
     out = cc.market_cycle()
     names = [c[0] for c in calls]
     assert names == ["원장 동기화", "유령 포지션 점검", "10인 업무보고", "10인 협업 검증", "무인 집행", "브래킷 감시(읽기 전용)", "원장 재동기화",
-                     "평단 계획 재생성", "유령 포지션 재점검", "집행 상태 최신화", "성과·학습 후보 평가", "대시보드 데이터 발행"]
+                     "평단 계획 재생성", "유령 포지션 재점검", "집행 상태 최신화", "성과·학습 후보 평가",
+                     "청산 페일세이프 점검", "대시보드 데이터 발행"]
     auto = dict(calls)["무인 집행"]
     assert auto[-1] == "--dry-run"
     assert dict(calls)["브래킷 감시(읽기 전용)"][-1] == "--dry-run"
