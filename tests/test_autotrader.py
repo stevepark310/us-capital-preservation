@@ -82,8 +82,10 @@ def test_entry_sizes_within_budget_and_cash_reserve(trader, tmp_trader):
     actions = trader.entries(st, brackets, market, ledger())
     assert len(actions) == 1
     buy = actions[0]
-    # 예산 149.32(현금 35%) ÷ $50 = 2주, 1주 리스크 ≤ 한도
-    assert buy["side"] == "BUY" and buy["qty"] == 2
+    # 기존 예산으로는 2주였지만, 신규 quant 손절 리스크(자산 1%)가 1주로 축소한다.
+    assert buy["side"] == "BUY" and buy["qty"] == 1
+    assert buy["sizing"]["quant_reduced"] is True
+    assert buy["sizing"]["risk_usd"] <= ledger()["equity_usd"] * 0.01 + 0.01
     assert buy["sizing"]["notional_usd"] <= 149.32 + 0.01
     call = trader.router.calls[0]
     assert call["price"] == pytest.approx(50.10)            # +20bp 지정가
@@ -116,17 +118,15 @@ def test_closed_bracket_does_not_block_reentry(trader, tmp_trader):
     assert len(actions) == 1 and actions[0]["ticker"] == "SOXL"
 
 
-def test_min_one_share_when_price_exceeds_budget(trader, tmp_trader):
-    """예산보다 비싼 종목도 1주 리스크가 한도 안이면 0주 교착을 만들지 않는다."""
+def test_one_share_beyond_budget_is_refused_for_capital_protection(trader, tmp_trader):
+    """1주라도 예산을 초과하면 진입하지 않는다(기존 최소 1주 예외 제거)."""
     brackets = load_brackets(tmp_trader[1])
     st = trader.load_state("2026-11-17")
     trader.entry_candidates = lambda *a, **k: [candidate(atr=10.0)]
     market = make_market(clock_at("01:00"), {"SOXL": {"intraday_price": 160.0}})
     actions = trader.entries(st, brackets, market, ledger())
-    assert len(actions) == 1
-    sizing = actions[0]["sizing"]
-    assert actions[0]["qty"] == 1 and sizing["min_one_share"] is True
-    assert sizing["risk_usd"] <= sizing["risk_cap_usd"]
+    assert actions == []
+    assert trader.router.calls == []
 
 
 def test_hedge_notional_cap_below_floor_still_orders(trader, tmp_trader):
