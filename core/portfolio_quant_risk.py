@@ -236,6 +236,6 @@ def overdue_managed_exits(brackets: Dict[str, Any], clock: Dict[str, Any]) -> Li
             if b.get("force_exit_due"):
                 overdue.append(str(symbol).upper())
             continue
-        if now >= due and now.date() > due.date() or b.get("force_exit_due"):
+        if now >= due or b.get("force_exit_due"):
             overdue.append(str(symbol).upper())
     return overdue
