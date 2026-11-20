@@ -337,7 +337,7 @@ footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);font-si
       <span class="clock" id="clock">—</span>
       <span class="chip dot live" id="phase-chip">세션 —</span>
       <button class="btn sm ghost" id="mode-btn" title="낮/밤 전환 (자동 → 낮 → 밤)">🌗 자동</button>
-      <button class="btn primary sm" id="refresh-all" title="모든 데이터를 캐시 우회로 다시 받아 변경사항을 재검토합니다">↻ 전체 최신화</button>
+      <button class="btn primary sm" id="refresh-all" title="직원 10명의 업무를 다시 실행하고 결과를 비교합니다">↻ 전체 최신화</button>
     </div>
   </div>
 </header>
@@ -379,6 +379,13 @@ footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);font-si
   </section>
 
   <!-- ============================================ 사무실 -->
+  <dialog id="desk-dialog" style="background:#111c30;color:#eef4ff;border:1px solid #54647c;border-radius:12px;width:min(650px,90vw);max-height:80vh;overflow:auto">
+  <form method="dialog" style="float:right"><button class="btn sm">닫기</button></form>
+  <h3>10인 업무 재실행</h3>
+  <form id="desk-auth"><label>GitHub 실행 권한 토큰 <input type="password" required id="desk-key" autocomplete="off"></label>
+  <p>이 저장소의 Actions 쓰기 권한이 필요합니다. 토큰은 현재 탭에서만 사용합니다.</p><button class="btn primary sm">직원 업무 시작</button></form>
+  <p role="status" id="desk-status"></p><div id="desk-results"></div>
+</dialog>
   <section class="panel on" id="p-office">
     <div class="sec">
       <div class="sec-h"><h2>CUBE 사무실 · 10인 데스크</h2><span class="line"></span>
@@ -832,6 +839,78 @@ function snapshotBefore(){
   };
 }
 
+let deskKey = "", deskBusy = false;
+const deskApi = "https://api.github.com/repos/stevepark310/us-capital-preservation";
+async function deskRequest(path, options = {}){
+  const res = await fetch(deskApi + path, {...options, cache:"no-store", headers:{
+    Authorization:"Bearer " + deskKey, Accept:"application/vnd.github+json",
+    ...(options.body ? {"Content-Type":"application/json"} : {})}});
+  if (!res.ok) throw new Error("GitHub HTTP " + res.status);
+  return res;
+}
+function openDesk(){
+  const dialog = $("desk-dialog");
+  if (!dialog.open) dialog.showModal();
+  $("desk-auth").hidden = !!deskKey || deskBusy;
+  if (deskKey && !deskBusy) runDesk();
+}
+async function runDesk(){
+  if (deskBusy) return;
+  deskBusy = true;
+  const status = $("desk-status"), results = $("desk-results");
+  const request = crypto.randomUUID();
+  const workflow = "/actions/workflows/cube_pulse.yml";
+  $("desk-auth").hidden = true;
+  try {
+    status.textContent = "10명의 담당 업무 실행을 요청하고 있습니다.";
+    await deskRequest(workflow + "/dispatches", {method:"POST",body:JSON.stringify({ref:"main",inputs:{request_id:request}})});
+    let run;
+    const deadline = Date.now() + 45*60000;
+    while (Date.now() < deadline){
+      status.textContent = run?.status === "in_progress" ? "직원들이 업무를 수행하고 보고서를 작성 중입니다." : "GitHub 실행 대기 중입니다.";
+      await new Promise(resolve => setTimeout(resolve, 8000));
+      if (run) run = await (await deskRequest("/actions/runs/" + run.id)).json();
+      else {
+        const list = await (await deskRequest(workflow + "/runs?branch=main&event=workflow_dispatch&per_page=50")).json();
+        run = list.workflow_runs.find(x => x.display_title === "CUBE report " + request);
+      }
+      if (run?.status === "completed") break;
+    }
+    if (run?.conclusion !== "success") throw new Error(run?.conclusion || "실행 결과 대기 시간 초과");
+    const commits = await (await deskRequest("/commits?sha=main&path=docs/agent_feed.json&per_page=50")).json();
+    const commit = commits.find(c=>c.commit.message.includes("cloud pulse run-" + run.id + " "));
+    if (!commit) throw new Error("이번 실행의 보고 발행 기록을 찾지 못했습니다.");
+    async function readAt(sha,path){
+      const url = "https://raw.githubusercontent.com/stevepark310/us-capital-preservation/" + sha + "/" + path;
+      const res = await fetch(url); if (!res.ok) throw new Error("보고 조회 HTTP " + res.status);
+      return res.json();
+    }
+    const [previous,current,collab] = await Promise.all([readAt(commit.parents[0].sha,"docs/agent_feed.json"),readAt(commit.sha,"docs/agent_feed.json"),readAt(commit.sha,"data/collab_cycle.json")]);
+    function latest(feed,id){
+      return feed.posts.filter(p=>+p.agent_id===+id && p.category!=="DIRECTIVE").sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp)))[0];
+    }
+    const summary = p => String(p?.summary || p?.title || "보고 없음").replace(/^\[[^\]]*\d{2}:\d{2}[^\]]*\]\s*/, "");
+    const rows = TEAM.map(e=>{
+      const old = latest(previous,e.id), post = latest(current,e.id);
+      const changed = summary(old)!==summary(post) || old?.content!==post?.content;
+      return '<details><summary>'+esc(e.name)+' · '+esc(post?.timestamp || "시각 없음")+' · '+(changed?"내용 변경":"직전과 동일")+'</summary><p>직전 · '+esc(summary(old))+'</p><p>이번 · '+esc(summary(post))+'</p><div style="white-space:pre-wrap">'+esc(post?.content || "")+'</div></details>';
+    }).join("");
+    const val = collab.validation || {};
+    results.innerHTML = '<details open><summary>'+esc(current.last_updated)+' 업무 결과</summary>'+rows+'<p>전략 개선 검토 · '+esc(val.hypothesis || "기록 없음")+' · '+esc(val.status || "미기록")+' · '+(val.applied?"적용":"적용 기록 없음")+'</p></details>' + results.innerHTML;
+    SNAP.feed = current; renderAll();
+    status.textContent = "업무 실행이 완료됐습니다. 직원별 이전 보고와 이번 보고를 비교할 수 있습니다.";
+  } catch(error){
+    status.textContent = "업무 재실행 결과를 확인할 수 없습니다. " + error.message;
+    if (/HTTP (401|403|404)/.test(error.message)) deskKey = "";
+  } finally {
+    deskBusy = false; $("desk-auth").hidden = !!deskKey;
+  }
+}
+$("desk-auth").addEventListener("submit",event=>{
+  event.preventDefault(); deskKey=$("desk-key").value.trim(); $("desk-key").value="";
+  if (deskKey) runDesk();
+});
+
 async function refreshAll(){
   if (S.loading) return;
   let prev = S.lastChecked.all || null;
@@ -918,7 +997,7 @@ function renderCheck(target){
     const lc = S.lastChecked.all;
     el.innerHTML = `<div class="ch"><b>최신화 보고</b><span class="tag b">대기</span>
       <span class="hint" style="margin-left:auto">${lc ? "마지막 점검 " + esc(lc) + " KST" : "아직 점검 이력이 없습니다"}</span></div>
-      <p class="hint" style="margin:0">‘전체 최신화’를 누르면 agent_feed·cube_report·live_portfolio·market_board·leading_indicators·autotrader_status·cube_pulse를 캐시 우회로 다시 받아, 마지막 점검 시점 이후 바뀐 것만 골라 보고합니다.</p>`;
+      <p class="hint" style="margin:0">‘전체 최신화’를 누르면 직원 10명이 업무를 다시 수행합니다. 완료 후 직원별 직전 보고와 이번 결과를 비교할 수 있습니다.</p>`;
     return;
   }
   const changedRows = r.rows.filter(x => !x.same);
@@ -1694,7 +1773,7 @@ function renderAll(){
 
 $("tabs").addEventListener("click", e => { const b = e.target.closest(".tab"); if (b) setTab(b.dataset.tab); });
 $("mode-btn").addEventListener("click", cycleMode);
-$("refresh-all").addEventListener("click", refreshAll);
+$("refresh-all").addEventListener("click", openDesk);
 $("feed-refresh").addEventListener("click", refreshAll);
 $("feed-agent").addEventListener("change", e => { S.feedAgent = e.target.value; S.feedLimit = 14; renderFeed(); });
 $("feed-kind").addEventListener("change", e => { S.feedKind = e.target.value; S.feedLimit = 14; renderFeed(); });
