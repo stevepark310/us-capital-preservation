@@ -1,16 +1,16 @@
 {
   "engine": "CUBE-LEI v1",
-  "generated_at_kst": "2026-11-21 05:58:48",
+  "generated_at_kst": "2026-11-21 07:51:08",
   "as_of_market_bar": "2026-11-20",
   "cube_lei": {
-    "z": 0.0,
-    "index": 100.0,
+    "z": -0.025,
+    "index": 99.7,
     "index_scale": "100 = 장기 추세, 1σ = 10pt (OECD CLI 진폭조정)",
-    "score": 50.0,
+    "score": 49.0,
     "score_scale": "0-100 (표준정규 CDF 매핑)",
-    "equal_weight_z": -0.282,
-    "weighted_vs_equal_gap": 0.282,
-    "trend_3m_z_change": -0.621,
+    "equal_weight_z": -0.287,
+    "weighted_vs_equal_gap": 0.261,
+    "trend_3m_z_change": -0.645,
     "regime": "LATE_CYCLE_SLOWDOWN",
     "regime_ko": "후기 사이클 둔화",
     "monthly_history": [
@@ -40,7 +40,7 @@
       },
       {
         "month": "2026-04",
-        "z": 0.555
+        "z": 0.554
       },
       {
         "month": "2026-05",
@@ -48,15 +48,15 @@
       },
       {
         "month": "2026-06",
-        "z": 0.489
+        "z": 0.488
       },
       {
         "month": "2026-07",
-        "z": 0.621
+        "z": 0.62
       },
       {
         "month": "2026-08",
-        "z": 0.675
+        "z": 0.674
       },
       {
         "month": "2026-09",
@@ -73,14 +73,14 @@
   "recession_probit": {
     "formula": "P(12개월 내 침체) = Φ(-0.6045 - 0.8180 × (10Y-3M, %p))",
     "source": "Estrella & Mishkin (1998), REStat 80(1):45-61",
-    "spread_10y3m_bp": 70.0,
-    "probability_10y3m": 12.0,
-    "spread_10y2y_bp": 28.0,
-    "probability_10y2y_same_coefficients": 20.2,
+    "spread_10y3m_bp": 60.0,
+    "probability_10y3m": 13.7,
+    "spread_10y2y_bp": 29.0,
+    "probability_10y2y_same_coefficients": 20.0,
     "probability_10y2y_note": "동일 계수를 10Y-2Y에 적용한 근사값 — 원계수는 10Y-3M 기준이므로 방향 참고용. 10Y-2Y 자체 계수는 별도 재추정이 필요합니다.",
     "months_since_curve_uninverted": 13.1,
     "uninversion_note": "금리차가 역전에서 벗어난 뒤 약 12개월에 침체 신호가 정점(Estrella & Mishkin 1998).",
-    "probability_used": 12.0
+    "probability_used": 13.7
   },
   "components": [
     {
@@ -88,18 +88,18 @@
       "name": "미 국채 10Y-3M 금리차",
       "source": "FRED T10Y3M",
       "why": "Estrella & Mishkin (1998) — 역전 후 12개월 내 침체 확률 상승",
-      "value": 0.7,
-      "z": 0.79,
+      "value": 0.6,
+      "z": 0.69,
       "sign": 1,
       "weight": 0.3,
-      "contribution": 0.237,
+      "contribution": 0.208,
       "available": true,
       "detail": {
-        "mean_5y": -0.1136,
-        "std_5y": 1.0279,
-        "as_of": "2026-11-19",
+        "mean_5y": -0.113,
+        "std_5y": 1.0277,
+        "as_of": "2026-11-20",
         "source_state": "FRED cache (fresh)",
-        "bp": 70.0
+        "bp": 60.0
       }
     },
     {
@@ -107,18 +107,18 @@
       "name": "미 국채 10Y-2Y 금리차",
       "source": "FRED T10Y2Y",
       "why": "Estrella & Hardouvelis (1991) — 기간프리미엄·실물 선행성",
-      "value": 0.28,
-      "z": 0.5,
+      "value": 0.29,
+      "z": 0.52,
       "sign": 1,
       "weight": 0.1,
-      "contribution": 0.05,
+      "contribution": 0.052,
       "available": true,
       "detail": {
-        "mean_5y": 0.0328,
-        "std_5y": 0.4974,
-        "as_of": "2026-11-19",
+        "mean_5y": 0.033,
+        "std_5y": 0.4973,
+        "as_of": "2026-11-20",
         "source_state": "FRED cache (fresh)",
-        "bp": 28.0
+        "bp": 29.0
       }
     },
     {
@@ -200,15 +200,15 @@
       "name": "S&P500 12개월 모멘텀",
       "source": "Yahoo SPY 일봉",
       "why": "Stock & Watson (1989) 주가 성분 / CB LEI S&P500 기여",
-      "value": 3.7532,
-      "z": -0.98,
+      "value": 4.1018,
+      "z": -0.95,
       "sign": 1,
       "weight": 0.08,
-      "contribution": -0.079,
+      "contribution": -0.076,
       "available": true,
       "detail": {
-        "mean_5y": 15.5514,
-        "std_5y": 12.02,
+        "mean_5y": 15.5518,
+        "std_5y": 12.0197,
         "bar_date": "2026-11-20"
       }
     },
@@ -218,7 +218,7 @@
       "source": "Yahoo HG=F / GC=F",
       "why": "Stock & Watson (1989) 원자재 수요 사이클 프록시",
       "value": 0.0015,
-      "z": -0.62,
+      "z": -0.63,
       "sign": 1,
       "weight": 0.04,
       "contribution": -0.025,
@@ -226,8 +226,8 @@
       "detail": {
         "mean_5y": 0.001773,
         "std_5y": 0.000363,
-        "copper": 5.4555,
-        "gold": 3520.1001
+        "copper": 5.465,
+        "gold": 3539.0
       }
     },
     {
@@ -235,17 +235,17 @@
       "name": "임의소비재/필수소비재 비율(XLY/XLP)",
       "source": "Yahoo XLY / XLP",
       "why": "Burns & Mitchell (1946) 소비 사이클 로테이션",
-      "value": 1.2412,
-      "z": 0.08,
+      "value": 1.2432,
+      "z": 0.1,
       "sign": 1,
       "weight": 0.03,
       "contribution": 0.003,
       "available": true,
       "detail": {
-        "mean_5y": 1.227283,
-        "std_5y": 0.165809,
-        "xly": 112.15,
-        "xlp": 90.36
+        "mean_5y": 1.227284,
+        "std_5y": 0.16581,
+        "xly": 112.46,
+        "xlp": 90.46
       }
     }
   ],
@@ -253,7 +253,7 @@
     "metric": "HY OAS level + HYG/IEF 상대강도 (GZ 2012 EBP의 공개데이터 프록시 — EBP 아님)",
     "hy_oas_bp": 352.0,
     "hy_oas_z_5y": 1.39,
-    "hyg_ief_rel_63d_pct": -2.79,
+    "hyg_ief_rel_63d_pct": -2.77,
     "gz_proxy_z": 1.18,
     "level": "WATCH",
     "level_thresholds_bp": {
@@ -262,66 +262,66 @@
       "STRESS": "500-700",
       "CRISIS": ">700"
     },
-    "reading_ko": "HY OAS 352.0bp(z 1.39) · HYG-IEF 63일 상대 -2.79%p → WATCH"
+    "reading_ko": "HY OAS 352.0bp(z 1.39) · HYG-IEF 63일 상대 -2.77%p → WATCH"
   },
   "bonds": {
     "yields_pct": {
       "3m": 4.122,
-      "2y": 4.8,
+      "2y": 4.76,
       "5y": 4.701,
-      "10y": 5.07,
+      "10y": 5.04,
       "30y": 5.303
     },
     "curve_bp": {
-      "10y3m": 70.0,
-      "10y2y": 28.0,
-      "30y10y": 23.3,
-      "5y10y": 36.9
+      "10y3m": 60.0,
+      "10y2y": 29.0,
+      "30y10y": 26.3,
+      "5y10y": 33.9
     },
     "curve_shape": "STEEP (정상 우상향)",
     "curve_source": "FRED T10Y3M",
-    "term_premium_proxy_bp": 23.3,
+    "term_premium_proxy_bp": 26.3,
     "etfs": {
       "TLT": {
-        "last": 81.44,
-        "chg_pct": 1.36,
-        "ret_20d": 0.12,
-        "ret_63d": -1.36,
+        "last": 81.45,
+        "chg_pct": 1.37,
+        "ret_20d": 0.14,
+        "ret_63d": -1.34,
         "duration_years": 16.8
       },
       "IEF": {
-        "last": 91.655,
-        "chg_pct": 0.92,
+        "last": 91.65,
+        "chg_pct": 0.91,
         "ret_20d": 0.66,
         "ret_63d": -1.46,
         "duration_years": 7.2
       },
       "SHY": {
-        "last": 81.6253,
-        "chg_pct": 0.3,
-        "ret_20d": 0.15,
-        "ret_63d": -0.46,
+        "last": 81.61,
+        "chg_pct": 0.28,
+        "ret_20d": 0.13,
+        "ret_63d": -0.48,
         "duration_years": 1.8
       },
       "SGOV": {
-        "last": 100.635,
-        "chg_pct": 0.02,
+        "last": 100.64,
+        "chg_pct": 0.03,
         "ret_20d": -0.02,
-        "ret_63d": -0.0,
+        "ret_63d": 0.0,
         "duration_years": 0.1
       },
       "TIP": {
-        "last": 105.765,
-        "chg_pct": 0.7,
-        "ret_20d": -0.45,
-        "ret_63d": -1.38,
+        "last": 105.74,
+        "chg_pct": 0.68,
+        "ret_20d": -0.47,
+        "ret_63d": -1.41,
         "duration_years": 4.6
       },
       "HYG": {
-        "last": 76.31,
-        "chg_pct": -0.29,
-        "ret_20d": -0.96,
-        "ret_63d": -4.25,
+        "last": 76.33,
+        "chg_pct": -0.26,
+        "ret_20d": -0.93,
+        "ret_63d": -4.23,
         "duration_years": 3.1
       },
       "LQD": {
@@ -341,32 +341,32 @@
       "HYG": -0.31
     },
     "inflation_breakeven_proxy": {
-      "tip_minus_ief_63d_pct": 0.08,
+      "tip_minus_ief_63d_pct": 0.05,
       "note": "TIP(물가연동채) 63일 수익률 - IEF(명목 7-10Y) 63일 수익률: (+)면 기대인플레 상승 우위"
     },
-    "read_ko": "2Y 4.8% / 10Y 5.07% / 30Y 5.303%, 10Y-3M 70.0bp(STEEP (정상 우상향))"
+    "read_ko": "2Y 4.76% / 10Y 5.04% / 30Y 5.303%, 10Y-3M 60.0bp(STEEP (정상 우상향))"
   },
   "fx": {
     "usd_krw": {
-      "last": 1346.3,
-      "chg_pct": 1.2,
-      "ret_5d": 0.94,
-      "ret_20d": 1.53
+      "last": 1346.13,
+      "chg_pct": 1.18,
+      "ret_5d": 0.93,
+      "ret_20d": 1.52
     },
     "dxy": {
-      "last": 103.873,
-      "chg_pct": -0.03,
-      "ret_20d": 2.03
+      "last": 103.84,
+      "chg_pct": -0.06,
+      "ret_20d": 1.99
     },
     "usd_jpy": {
-      "last": 158.488,
-      "chg_pct": -0.56,
-      "ret_20d": 1.27
+      "last": 158.512,
+      "chg_pct": -0.55,
+      "ret_20d": 1.29
     },
     "eur_usd": {
-      "last": 1.097,
-      "chg_pct": -0.02,
-      "ret_20d": -2.24
+      "last": 1.0975,
+      "chg_pct": 0.02,
+      "ret_20d": -2.2
     },
     "usd_cny": {
       "last": 6.6765,
@@ -375,46 +375,46 @@
     },
     "dollar_regime": "NEUTRAL_DOLLAR",
     "krw_regime": "KRW_WEAK (원화 약세·환노출 이익)",
-    "read_ko": "USD/KRW 1346.3 (20일 1.53%), DXY 103.873 (-0.03%)"
+    "read_ko": "USD/KRW 1346.13 (20일 1.52%), DXY 103.84 (-0.06%)"
   },
   "crypto": {
     "btc": {
-      "last": 58286.3398,
-      "chg_pct": -5.84,
-      "ret_7d": -14.6,
-      "ret_30d": -30.62
+      "last": 58923.25,
+      "chg_pct": -4.81,
+      "ret_7d": -13.66,
+      "ret_30d": -29.86
     },
     "eth": {
-      "last": 1597.67,
-      "chg_pct": -8.97,
-      "ret_7d": -17.12,
-      "ret_30d": -35.34
+      "last": 1615.8,
+      "chg_pct": -7.94,
+      "ret_7d": -16.18,
+      "ret_30d": -34.6
     },
     "sol": {
-      "last": 67.41,
-      "chg_pct": -7.74,
-      "ret_7d": -13.68,
-      "ret_30d": -36.88
+      "last": 68.99,
+      "chg_pct": -5.58,
+      "ret_7d": -11.66,
+      "ret_30d": -35.4
     },
     "xrp": {
-      "last": 0.8876,
-      "chg_pct": -7.52,
-      "ret_7d": -12.07,
-      "ret_30d": -34.91
+      "last": 0.9106,
+      "chg_pct": -5.13,
+      "ret_7d": -9.79,
+      "ret_30d": -33.22
     },
     "ibit": {
-      "last": 32.925,
-      "chg_pct": -6.14,
-      "ret_20d": -28.36
+      "last": 33.02,
+      "chg_pct": -5.87,
+      "ret_20d": -28.15
     },
     "coin": {
-      "last": 101.9999,
-      "chg_pct": -6.31,
-      "ret_20d": -37.98
+      "last": 101.97,
+      "chg_pct": -6.34,
+      "ret_20d": -37.99
     },
-    "weekend_return_pct": -14.6,
-    "risk_on_proxy_score": 27.1,
-    "read_ko": "BTC $58,286 (24h -5.84%, 7d -14.6%), ETH $1,598 (-8.97%)"
+    "weekend_return_pct": -13.66,
+    "risk_on_proxy_score": 29.2,
+    "read_ko": "BTC $58,923 (24h -4.81%, 7d -13.66%), ETH $1,616 (-7.94%)"
   },
   "policy": {
     "max_gross_exposure_factor": 0.7,
@@ -486,23 +486,23 @@
   "data_provenance": {
     "fred": {
       "T10Y3M": {
-        "latest": 0.7,
-        "date": "2026-11-19",
+        "latest": 0.6,
+        "date": "2026-11-20",
         "source": "FRED cache (fresh)"
       },
       "T10Y2Y": {
-        "latest": 0.28,
-        "date": "2026-11-19",
+        "latest": 0.29,
+        "date": "2026-11-20",
         "source": "FRED cache (fresh)"
       },
       "DGS2": {
-        "latest": 4.8,
-        "date": "2026-11-18",
+        "latest": 4.76,
+        "date": "2026-11-19",
         "source": "FRED cache (fresh)"
       },
       "DGS10": {
-        "latest": 5.07,
-        "date": "2026-11-18",
+        "latest": 5.04,
+        "date": "2026-11-19",
         "source": "FRED cache (fresh)"
       },
       "BAMLH0A0HYM2": {
@@ -527,7 +527,7 @@
       }
     },
     "yahoo": "SPY/HG=F/GC=F/XLY/XLP/IWM 5년 일봉 (data_cache/lei_history_5y.pkl)",
-    "snapshot": "2026-11-21 05:58:16",
+    "snapshot": "2026-11-21 07:50:28",
     "hardcoded_values": false
   }
 }
