@@ -8,6 +8,7 @@ stress assumptions, NOT VaR guarantees. All gross risk ignores hedge netting.
 from __future__ import annotations
 
 import math
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 # Underlying exposure approximations: 3x ETF is daily leverage, not a stable
@@ -202,3 +203,39 @@ def assess_entry(symbol: str, qty: int, price: float, equity: float,
             "shock_loss_pct_before": round(used_shock / equity * 100, 2),
             "one_share_stress_usd": round(price * shock_pct / 100.0, 2),
             "note": "stress assumptions, not guaranteed risk; does not model gap/slippage"}
+
+
+def overdue_managed_exits(brackets: Dict[str, Any], clock: Dict[str, Any]) -> List[str]:
+    """Prevent new risk while a prior managed intraday force-exit remains open.
+
+    force_exit_kst is anchored to the bracket's first Korean opening date.
+    Openings after midday with morning exit clock imply next calendar day.
+    This does not create permission to sell outside the user's live gate.
+    """
+    stamp = str((clock or {}).get("now_kst") or "")[:19]
+    try:
+        now = datetime.strptime(stamp, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return []
+    overdue = []
+    for symbol, b in (brackets or {}).items():
+        if not isinstance(b, dict) or b.get("closed") or not b.get("force_exit_kst"):
+            continue
+        qty = int(b.get("bought_qty") or 0)
+        if qty <= 0 or b.get("pending_entry"):
+            continue
+        opened = str(b.get("opened_at") or b.get("filled_at_kst") or "")[:19]
+        force_clock = str(b["force_exit_kst"])
+        try:
+            opened_at = datetime.strptime(opened, "%Y-%m-%d %H:%M:%S")
+            hh, mm = [int(x) for x in force_clock.split(":")[:2]]
+            due = opened_at.replace(hour=hh, minute=mm, second=0)
+            if due < opened_at:
+                due += timedelta(days=1)
+        except (ValueError, TypeError):
+            if b.get("force_exit_due"):
+                overdue.append(str(symbol).upper())
+            continue
+        if now >= due and now.date() > due.date() or b.get("force_exit_due"):
+            overdue.append(str(symbol).upper())
+    return overdue
