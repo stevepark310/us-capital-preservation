@@ -78,9 +78,12 @@ SOXL은 하루 평균 변동(25.9%)의 1/10에서 잘렸으니 노이즈 손절�
 있던 결함이다.
 
 ### ⑦ 강제청산 사이클이 아예 발화하지 않았다 (05:40 미집행)
-- `CUBE Market Autotrade (10m)` 워크플로 실행 이력 **4건**: push 3건(03:28·03:30 등) + 수동 1건.
-  `schedule` 이벤트 실행 **0건**. 저장소 전체에서 schedule 실행은 pulse 1건(00:56Z)뿐이다
-  (`gh run list`, `gh api .../actions/workflows` — state는 active).
+- `CUBE Market Autotrade (10m)` 실행 이력은 **11-19 세션 동안 schedule 0건**이다:
+  18:23Z(push, 실패) · 18:28Z·18:30Z(push, `live_execution_gate` 활성화 커밋이 트리거) ·
+  16:28Z(수동)뿐이고, 05:40 KST(=20:40Z)에 닿는 실행이 없다. 워크플로의 schedule 실행은
+  **11-20 00:56:41Z(09:56 KST) 1건**이 전부인데, 그 시각은 정규장 밖이라 `SKIPPED_OFF_HOURS`로
+  끝났다 — "10분 크론"이 실제로는 세션 안에서 거의 발화하지 않는다(`gh run list --workflow`,
+  `gh api .../actions/workflows` state=active).
 - 05:40에 닿는 사이클이 없었고, 늦게라도 돈 사이클은 도움이 안 됐다:
   `cloud_cycle.market_cycle()`은 정규장이 아니면 `SKIPPED_OFF_HOURS`로 즉시 끝나고,
   `autotrader.run()`은 `phase != REGULAR`이면 exits를 비운다 → **연체 청산을 기록조차 하지 않는다.**
