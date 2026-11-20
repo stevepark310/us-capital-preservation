@@ -1,6 +1,6 @@
 {
   "engine": "AUTONOMOUS_INTRADAY",
-  "generated_at_kst": "2026-11-21 04:12:28",
+  "generated_at_kst": "2026-11-21 05:36:57",
   "phase": "REGULAR",
   "session_date": "2026-11-20",
   "mode": "DRY_RUN",
@@ -76,7 +76,7 @@
       }
     },
     "daily_loss_limit_usd": 25.0,
-    "vix": 30.89,
+    "vix": 35.45,
     "vix_scale": 0.0,
     "strategy_risk_scale": 0.7,
     "budget_scale_total": 0.0,
@@ -115,14 +115,23 @@
     "checked": 0,
     "confirmed": 0
   },
-  "exits": [],
+  "exits": [
+    {
+      "ticker": "SQQQ",
+      "side": "SELL",
+      "qty": 1,
+      "price": 49.53,
+      "reason": "연체 강제청산 — 05:40 KST 룰 미집행분 즉시 정리",
+      "status": "DRY_RUN",
+      "order_no": null,
+      "run_id": null
+    }
+  ],
   "entries": [],
   "evolution": {
-    "applied": true,
+    "applied": false,
     "decision": "NO_CHANGE",
-    "decisions": [
-      "VOL_TARGET: 평균 ATR 15.52% → 리스크 계수 0.761 → 0.7 (주문 레벨 변경 없음)"
-    ],
+    "decisions": [],
     "params": {
       "engine": "chandelier_v2",
       "trail_atr_mult": 0.9,
@@ -141,7 +150,7 @@
         "rvol_required": true
       },
       "source": "config/swing_approval.json exit_v2_chandelier + bracket_specs (2026-11-18 구조 개선)",
-      "updated_at_kst": "2026-11-20 01:29:36"
+      "updated_at_kst": "2026-11-21 04:12:26"
     },
     "stats": {
       "n": 10,
@@ -166,7 +175,7 @@
     },
     "vol": {
       "risk_scale": 0.7,
-      "avg_atr_pct": 15.52,
+      "avg_atr_pct": 16.29,
       "reference_atr_pct": 10.0,
       "available": true
     },
@@ -215,7 +224,7 @@
     "budget_usd": 150.0
   },
   "integrity": {
-    "checked_at_kst": "2026-11-21 04:12:26",
+    "checked_at_kst": "2026-11-21 05:36:56",
     "phase": "REGULAR",
     "session_date": "2026-11-20",
     "enabled": true,
@@ -229,114 +238,112 @@
     "snapshot_age_min": 540.6,
     "snapshot_stale": true,
     "vix": {
-      "last": 30.89,
+      "last": 35.45,
       "prev_close": 28.44,
-      "day_high": 32.54,
+      "day_high": 35.66,
       "alt": null,
       "bar_date": "2026-11-20",
-      "same_session_high": 32.54,
-      "source_max": 30.89,
-      "observed_max": 32.54,
+      "same_session_high": 35.66,
+      "source_max": 35.45,
+      "observed_max": 35.66,
       "divergence": null,
       "stale": true,
       "reasons": [
-        "세션 중 VIX 고가 32.54 > 현재 30.89 (+1.65p) — 고가로 게이팅",
         "스냅샷 540.6분 경과 > 6.0분"
       ],
       "gate": 99.0,
       "block_new_long": true
     },
     "prices": {
-      "SOXL": {
-        "ticker": "SOXL",
-        "trusted": true,
+      "SQQQ": {
+        "ticker": "SQQQ",
+        "trusted": false,
         "stale": false,
-        "intraday": 33.7309,
-        "last": 33.7497,
-        "broker": null,
-        "bar_age_min": 2.4,
-        "divergence_pct": null,
-        "price": 33.7309,
-        "conservative": 33.7309,
-        "aggressive": 33.7497,
-        "reasons": []
-      },
-      "SOXS": {
-        "ticker": "SOXS",
-        "trusted": true,
-        "stale": false,
-        "intraday": 79.28,
-        "last": 79.28,
-        "broker": null,
-        "bar_age_min": 2.4,
-        "divergence_pct": null,
-        "price": 79.28,
-        "conservative": 79.28,
-        "aggressive": 79.28,
-        "reasons": []
+        "intraday": 57.625,
+        "last": 57.6665,
+        "broker": 49.68,
+        "bar_age_min": 1.9,
+        "divergence_pct": 15.992,
+        "price": 57.625,
+        "conservative": 49.68,
+        "aggressive": 57.6665,
+        "reasons": [
+          "시세 괴리 15.99% > 1.0% (5분봉 57.625 / 브로커 49.68)"
+        ]
       },
       "NVDA": {
         "ticker": "NVDA",
         "trusted": true,
         "stale": false,
-        "intraday": 133.89,
-        "last": 133.87,
+        "intraday": 127.145,
+        "last": 127.17,
         "broker": null,
-        "bar_age_min": 2.4,
+        "bar_age_min": 1.9,
         "divergence_pct": null,
-        "price": 133.89,
-        "conservative": 133.87,
-        "aggressive": 133.89,
+        "price": 127.145,
+        "conservative": 127.145,
+        "aggressive": 127.17,
         "reasons": []
       },
       "SPY": {
         "ticker": "SPY",
         "trusted": true,
         "stale": false,
-        "intraday": 699.38,
-        "last": 699.38,
+        "intraday": 690.15,
+        "last": 690.06,
         "broker": null,
-        "bar_age_min": 2.4,
+        "bar_age_min": 1.9,
         "divergence_pct": null,
-        "price": 699.38,
-        "conservative": 699.38,
-        "aggressive": 699.38,
+        "price": 690.15,
+        "conservative": 690.06,
+        "aggressive": 690.15,
         "reasons": []
-      },
-      "SQQQ": {
-        "ticker": "SQQQ",
-        "trusted": false,
-        "stale": false,
-        "intraday": 55.4361,
-        "last": 55.43,
-        "broker": 49.68,
-        "bar_age_min": 2.4,
-        "divergence_pct": 11.586,
-        "price": 55.4361,
-        "conservative": 49.68,
-        "aggressive": 55.4361,
-        "reasons": [
-          "시세 괴리 11.59% > 1.0% (5분봉 55.4361 / 브로커 49.68)"
-        ]
       },
       "TQQQ": {
         "ticker": "TQQQ",
         "trusted": true,
         "stale": false,
-        "intraday": 43.05,
-        "last": 43.065,
+        "intraday": 40.88,
+        "last": 40.88,
         "broker": null,
-        "bar_age_min": 2.4,
+        "bar_age_min": 1.9,
         "divergence_pct": null,
-        "price": 43.05,
-        "conservative": 43.05,
-        "aggressive": 43.065,
+        "price": 40.88,
+        "conservative": 40.88,
+        "aggressive": 40.88,
+        "reasons": []
+      },
+      "SOXS": {
+        "ticker": "SOXS",
+        "trusted": true,
+        "stale": false,
+        "intraday": 83.225,
+        "last": 83.2,
+        "broker": null,
+        "bar_age_min": 1.9,
+        "divergence_pct": null,
+        "price": 83.225,
+        "conservative": 83.2,
+        "aggressive": 83.225,
+        "reasons": []
+      },
+      "SOXL": {
+        "ticker": "SOXL",
+        "trusted": true,
+        "stale": false,
+        "intraday": 30.89,
+        "last": 30.8299,
+        "broker": null,
+        "bar_age_min": 1.9,
+        "divergence_pct": null,
+        "price": 30.89,
+        "conservative": 30.8299,
+        "aggressive": 30.89,
         "reasons": []
       }
     },
     "block_new_long": true,
     "block_reasons": [
-      "세션 중 VIX 고가 32.54 > 현재 30.89 (+1.65p) — 고가로 게이팅",
       "스냅샷 540.6분 경과 > 6.0분",
       "VIX 하드 차단"
     ],
@@ -344,14 +351,26 @@
   },
   "risk_alerts": [],
   "failsafe": {
-    "checked_at_kst": "2026-11-21 04:12:26",
+    "checked_at_kst": "2026-11-21 05:36:56",
     "phase": "REGULAR",
     "session_date": "2026-11-20",
     "force_exit_early_min": 10,
-    "overdue": [],
+    "overdue": [
+      {
+        "ticker": "SQQQ",
+        "force_exit_kst": "05:40",
+        "minutes_late": -4,
+        "same_session": true,
+        "qty": 1,
+        "exit_rule": "chandelier_v2",
+        "phase": "REGULAR",
+        "severity": "DUE_EARLY",
+        "note": "강제청산 시각 경과 — 즉시 청산 필요"
+      }
+    ],
     "cloud": {
-      "last_market_cycle_kst": "2026-11-20 12:49:58",
-      "age_min": 922.5,
+      "last_market_cycle_kst": "2026-11-21 04:11:49",
+      "age_min": 85.1,
       "phase": "REGULAR",
       "warn": true,
       "critical": true,
@@ -401,7 +420,7 @@
   "shadow_model": {
     "model": "REGIME_ADAPTIVE_DIP_V1",
     "regime": "CRISIS",
-    "vix": 30.89,
+    "vix": 35.45,
     "spy_trend": false,
     "playbook": "롱 전면 금지 — SQQQ 헤지 1주만 검토",
     "signals": {
@@ -409,10 +428,10 @@
         "rsi2": 8.2,
         "rsi14": 32.5,
         "pct_b": 0.123,
-        "rvol": 1.96,
+        "rvol": 1.99,
         "atr_pct": 9.17,
         "close": 49.01,
-        "score": 60.7,
+        "score": 61.2,
         "symbol": "TQQQ",
         "date": "2026-11-19",
         "validated_tp": 55.75,
@@ -435,20 +454,40 @@
     "equity_usd": 877.98,
     "cash_usd": 626.86
   },
-  "next_gate": "신규 진입 마감 04:30 전",
+  "next_gate": "신호 대기",
   "elapsed_sec": 0.1,
   "events": [
     {
-      "ts_kst": "2026-11-21 04:12:26",
+      "ts_kst": "2026-11-21 05:36:56",
+      "kind": "FORCE_EXIT_OVERDUE",
+      "tickers": [
+        "SQQQ"
+      ],
+      "phase": "REGULAR"
+    },
+    {
+      "ts_kst": "2026-11-21 05:36:56",
+      "kind": "EXIT_ORDER",
+      "ticker": "SQQQ",
+      "side": "SELL",
+      "qty": 1,
+      "price": 49.53,
+      "reason": "연체 강제청산 — 05:40 KST 룰 미집행분 즉시 정리",
+      "status": "DRY_RUN",
+      "order_no": null,
+      "run_id": null
+    },
+    {
+      "ts_kst": "2026-11-21 05:36:56",
       "kind": "ENTRY_BLOCKED_GLOBAL",
       "reason": "연체 강제청산 미해결 — 신규 매수 동결: SQQQ"
     }
   ],
   "status_sync": {
-    "refreshed_at_kst": "2026-11-21 04:12:28",
+    "refreshed_at_kst": "2026-11-21 05:36:57",
     "by": "cloud",
-    "previous_generated_at_kst": "2026-11-21 04:12:26",
+    "previous_generated_at_kst": "2026-11-21 05:36:56",
     "note": "시계·phase·보유·예산만 원장과 시장시계에서 다시 읽었습니다. 주문·브래킷 변경 없음.",
-    "seconds_since_previous": 2.227643
+    "seconds_since_previous": 1.301504
   }
 }
