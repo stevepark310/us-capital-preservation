@@ -1,9 +1,9 @@
 {
   "engine": "AUTONOMOUS_INTRADAY",
-  "generated_at_kst": "2026-11-20 10:12:25",
+  "generated_at_kst": "2026-11-20 10:13:15",
   "phase": "OFF_HOURS",
   "session_date": "2026-11-19",
-  "mode": "EXECUTE",
+  "mode": "DRY_RUN",
   "policy": {
     "enabled": true,
     "ask_before_trade": false,
@@ -115,40 +115,8 @@
     "checked": 0,
     "confirmed": 0
   },
-  "exits": [
-    {
-      "ticker": "NVDA",
-      "side": "SELL",
-      "qty": 1,
-      "price": 148.91,
-      "reason": "STOP/TRAIL ($149.36 ≤ $150.00, stop)",
-      "status": "SUBMITTED",
-      "order_no": 243066,
-      "run_id": null
-    }
-  ],
-  "entries": [
-    {
-      "ticker": "SQQQ",
-      "side": "BUY",
-      "qty": 1,
-      "price": 48.19,
-      "source": "BEAR_ALPHA_HEDGE",
-      "status": "SUBMITTED",
-      "order_no": 243089,
-      "run_id": null,
-      "sizing": {
-        "qty": 1,
-        "notional_usd": 48.09,
-        "budget_usd": 60.0,
-        "sl_pct": 4.54,
-        "risk_usd": 2.19,
-        "risk_cap_usd": 26.36,
-        "cash_after_reserve_usd": 276.63,
-        "min_one_share": false
-      }
-    }
-  ],
+  "exits": [],
+  "entries": [],
   "evolution": {
     "applied": false,
     "decision": "NO_CHANGE",
@@ -174,34 +142,34 @@
       "updated_at_kst": "2026-11-20 01:29:36"
     },
     "stats": {
-      "n": 9,
+      "n": 10,
       "available": true,
-      "win_rate_pct": 55.6,
-      "ev_pct": 1.209,
-      "profit_factor": 2.12,
-      "mdd_pct": -8.2,
+      "win_rate_pct": 50.0,
+      "ev_pct": -0.302,
+      "profit_factor": 0.87,
+      "mdd_pct": -22.1,
       "best_pct": 5.12,
-      "worst_pct": -5.89,
+      "worst_pct": -13.91,
       "exit_kinds": {
         "TARGET": 5,
-        "STOP": 4
+        "STOP": 5
       },
-      "stop_share_pct": 44.4,
+      "stop_share_pct": 50.0,
       "recent20": {
-        "n": 9,
-        "ev_pct": 1.209,
-        "win_rate_pct": 55.6,
-        "pf": 2.12
+        "n": 10,
+        "ev_pct": -0.302,
+        "win_rate_pct": 50.0,
+        "pf": 0.87
       }
     },
     "vol": {
-      "risk_scale": 0.75,
-      "avg_atr_pct": 13.33,
+      "risk_scale": 0.746,
+      "avg_atr_pct": 13.41,
       "reference_atr_pct": 10.0,
       "available": true
     },
     "gate": null,
-    "reason": "표본 9건 < 최소 20건 — 파라미터 교체 보류(현행 유지)"
+    "reason": "표본 10건 < 최소 20건 — 파라미터 교체 보류(현행 유지)"
   },
   "strategy_params": {
     "trail_atr_mult": 0.9,
@@ -244,60 +212,234 @@
     "sl_atr_mult": 3.0,
     "budget_usd": 150.0
   },
+  "integrity": {
+    "checked_at_kst": "2026-11-20 10:13:15",
+    "phase": "OFF_HOURS",
+    "session_date": "2026-11-19",
+    "enabled": true,
+    "config": {
+      "max_snapshot_age_min": 6.0,
+      "max_intraday_bar_age_min": 25.0,
+      "vix_cross_source_tolerance": 0.75,
+      "price_divergence_max_pct": 1.0,
+      "vix_new_long_block": 28.0
+    },
+    "snapshot_age_min": 541.1,
+    "snapshot_stale": true,
+    "vix": {
+      "last": 27.14,
+      "prev_close": 24.56,
+      "day_high": 28.99,
+      "alt": null,
+      "bar_date": "2026-11-19",
+      "same_session_high": 28.99,
+      "source_max": 27.14,
+      "observed_max": 28.99,
+      "divergence": null,
+      "stale": true,
+      "reasons": [
+        "세션 중 VIX 고가 28.99 > 현재 27.14 (+1.85p) — 고가로 게이팅",
+        "스냅샷 541.1분 경과 > 6.0분"
+      ],
+      "gate": 99.0,
+      "block_new_long": true
+    },
+    "prices": {
+      "SOXL": {
+        "ticker": "SOXL",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 46.47,
+        "broker": null,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 46.47,
+        "conservative": 46.47,
+        "aggressive": 46.47,
+        "reasons": []
+      },
+      "SPY": {
+        "ticker": "SPY",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 719.66,
+        "broker": null,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 719.66,
+        "conservative": 719.66,
+        "aggressive": 719.66,
+        "reasons": []
+      },
+      "NVDA": {
+        "ticker": "NVDA",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 148.1478,
+        "broker": null,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 148.1478,
+        "conservative": 148.1478,
+        "aggressive": 148.1478,
+        "reasons": []
+      },
+      "SQQQ": {
+        "ticker": "SQQQ",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 48.6652,
+        "broker": 49.68,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 48.6652,
+        "conservative": 48.6652,
+        "aggressive": 49.68,
+        "reasons": []
+      },
+      "SOXS": {
+        "ticker": "SOXS",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 61.7299,
+        "broker": null,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 61.7299,
+        "conservative": 61.7299,
+        "aggressive": 61.7299,
+        "reasons": []
+      },
+      "TQQQ": {
+        "ticker": "TQQQ",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 49.87,
+        "broker": null,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 49.87,
+        "conservative": 49.87,
+        "aggressive": 49.87,
+        "reasons": []
+      }
+    },
+    "block_new_long": true,
+    "block_reasons": [
+      "세션 중 VIX 고가 28.99 > 현재 27.14 (+1.85p) — 고가로 게이팅",
+      "스냅샷 541.1분 경과 > 6.0분",
+      "VIX 하드 차단"
+    ],
+    "note": "보수적 판정 — VIX는 관측 최고값, 청산 가격은 소스 중 최저값. stale/판독불가면 신규 진입 차단(fail-closed)."
+  },
+  "risk_alerts": [],
+  "failsafe": {
+    "checked_at_kst": "2026-11-20 10:13:15",
+    "phase": "OFF_HOURS",
+    "session_date": "2026-11-19",
+    "force_exit_early_min": 10,
+    "overdue": [
+      {
+        "ticker": "SQQQ",
+        "force_exit_kst": "05:40",
+        "minutes_late": 273,
+        "same_session": true,
+        "qty": 1,
+        "exit_rule": "chandelier_v2",
+        "phase": "OFF_HOURS",
+        "severity": "CRITICAL",
+        "note": "강제청산 시각 경과 — 정규장 밖이므로 다음 정규장 첫 사이클에서 즉시 청산"
+      }
+    ],
+    "cloud": {
+      "last_market_cycle_kst": "2026-11-20 10:13:11",
+      "age_min": 0.1,
+      "phase": "OFF_HOURS",
+      "warn": false,
+      "critical": false,
+      "thresholds_min": {
+        "warn": 25,
+        "critical": 45
+      },
+      "scheduled_triggers_reliable": false,
+      "note": "GitHub Actions schedule 트리거는 지연·누락될 수 있다(11-19 05:40 미발화 실측). 감시 공백이 critical이면 보완 경로(`scripts/exit_watchdog.py`)가 사이클을 재촉한다."
+    },
+    "action_required": true
+  },
+  "exit_authority": {
+    "owners": {
+      "SOXL": {
+        "owner": "AVG_ANCHOR",
+        "managed_by": "AVG_ANCHOR_PROFIT_DESK",
+        "exit_rule": "ladder",
+        "writable_by_ladder": true
+      },
+      "TQQQ": {
+        "owner": "AVG_ANCHOR",
+        "managed_by": "AVG_ANCHOR_PROFIT_DESK",
+        "exit_rule": "ladder",
+        "writable_by_ladder": true
+      },
+      "NVDA": {
+        "owner": "USER_LOCKED",
+        "managed_by": "USER",
+        "exit_rule": "ladder",
+        "writable_by_ladder": false,
+        "locked_levels": {
+          "tp1": 173.0,
+          "sl": 150.0
+        }
+      },
+      "SQQQ": {
+        "owner": "SPEC:BEAR_ALPHA_HEDGE",
+        "managed_by": "BRACKET_SPEC",
+        "exit_rule": "chandelier_v2",
+        "writable_by_ladder": false
+      }
+    },
+    "conflicts": [],
+    "ok": true
+  },
+  "shadow_model": {
+    "model": "REGIME_ADAPTIVE_DIP_V1",
+    "regime": "CRISIS",
+    "vix": 27.14,
+    "spy_trend": false,
+    "playbook": "롱 전면 금지 — SQQQ 헤지 1주만 검토",
+    "signals": {},
+    "would_trade": false,
+    "note": "그림자(참고) 판정 — 실집행은 기존 승인 엔진이 한다."
+  },
   "ledger": {
     "equity_usd": 877.98,
     "cash_usd": 626.86
   },
   "next_gate": "다음 정규장 2026-11-20 23:30 KST",
-  "elapsed_sec": 12.0,
+  "elapsed_sec": 0.2,
   "events": [
     {
-      "ts_kst": "2026-11-20 03:31:59",
-      "kind": "EXIT_ORDER",
-      "ticker": "NVDA",
-      "side": "SELL",
-      "qty": 1,
-      "price": 148.91,
-      "reason": "STOP/TRAIL ($149.36 ≤ $150.00, stop)",
-      "status": "SUBMITTED",
-      "order_no": 243066,
-      "run_id": null
+      "ts_kst": "2026-11-20 10:13:15",
+      "kind": "FORCE_EXIT_OVERDUE",
+      "tickers": [
+        "SQQQ"
+      ],
+      "phase": "OFF_HOURS"
     },
     {
-      "ts_kst": "2026-11-20 03:31:59",
-      "kind": "ENTRY_SKIP",
-      "ticker": "SOXS",
-      "source": "BEAR_ALPHA_HEDGE",
-      "reason": "수량 0 (예산/리스크)"
+      "ts_kst": "2026-11-20 10:13:15",
+      "kind": "EXITS_SKIPPED",
+      "reason": "phase=OFF_HOURS — 주문 없음"
     },
     {
-      "ts_kst": "2026-11-20 03:32:05",
-      "kind": "ENTRY_ORDER",
-      "ticker": "SQQQ",
-      "side": "BUY",
-      "qty": 1,
-      "price": 48.19,
-      "source": "BEAR_ALPHA_HEDGE",
-      "status": "SUBMITTED",
-      "order_no": 243089,
-      "run_id": null,
-      "sizing": {
-        "qty": 1,
-        "notional_usd": 48.09,
-        "budget_usd": 60.0,
-        "sl_pct": 4.54,
-        "risk_usd": 2.19,
-        "risk_cap_usd": 26.36,
-        "cash_after_reserve_usd": 276.63,
-        "min_one_share": false
-      }
+      "ts_kst": "2026-11-20 10:13:15",
+      "kind": "ENTRY_BLOCKED_GLOBAL",
+      "reason": "세션 아님(OFF_HOURS)"
     }
-  ],
-  "status_sync": {
-    "refreshed_at_kst": "2026-11-20 10:12:25",
-    "by": "pulse",
-    "previous_generated_at_kst": "2026-11-20 09:57:11",
-    "note": "시계·phase·보유·예산만 원장과 시장시계에서 다시 읽었습니다. 주문·브래킷 변경 없음.",
-    "seconds_since_previous": 914.060818
-  }
+  ]
 }

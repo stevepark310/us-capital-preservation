@@ -1062,8 +1062,12 @@ class AutonomousTrader:
 
         equity = float(led.get("equity_usd") or 0.0)
         cash = float(led.get("cash_usd") or 0.0)
-        desc = execution_policy.describe(self.policy, equity, cash, market.get("vix"),
+        # 보고에도 '실제 판정에 쓴' 보수적 VIX를 쓴다(27.14로 보고하면서 28.99로 판정하면 혼란).
+        vix_for_report = ((market.get("integrity") or {}).get("vix") or {}).get("gate") \
+            or market.get("vix")
+        desc = execution_policy.describe(self.policy, equity, cash, vix_for_report,
                                          extra_scale=float(params.get("risk_scale") or 1.0))
+        desc["vix_raw"] = market.get("vix")
         status = {
             "engine": "AUTONOMOUS_INTRADAY",
             "generated_at_kst": _now_str(),
