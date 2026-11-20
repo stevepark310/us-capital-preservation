@@ -382,8 +382,8 @@ footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);font-si
   <dialog id="desk-dialog" style="background:#111c30;color:#eef4ff;border:1px solid #54647c;border-radius:12px;width:min(650px,90vw);max-height:80vh;overflow:auto">
   <form method="dialog" style="float:right"><button class="btn sm">닫기</button></form>
   <h3>10인 업무 재실행</h3>
-  <form id="desk-auth"><label>GitHub 실행 권한 토큰 <input type="password" required id="desk-key" autocomplete="off"></label>
-  <p>이 저장소의 Actions 쓰기 권한이 필요합니다. 토큰은 현재 탭에서만 사용합니다.</p><button class="btn primary sm">직원 업무 시작</button></form>
+  <p>GitHub에서 <b>Run workflow</b>를 눌러 main 브랜치 실행을 확인하세요. 완료된 업무보고는 이 창에 표시됩니다.</p>
+  <a class="btn primary sm" id="desk-start" target="_blank" rel="noopener noreferrer" href="https://github.com/stevepark310/us-capital-preservation/actions/workflows/cube_pulse.yml">GitHub에서 직원 업무 시작</a>
   <p role="status" id="desk-status"></p><div id="desk-results"></div>
 </dialog>
   <section class="panel on" id="p-office">
@@ -839,40 +839,47 @@ function snapshotBefore(){
   };
 }
 
-let deskKey = "", deskBusy = false;
+let deskBusy = false;
 const deskApi = "https://api.github.com/repos/stevepark310/us-capital-preservation";
-async function deskRequest(path, options = {}){
-  const res = await fetch(deskApi + path, {...options, cache:"no-store", headers:{
-    Authorization:"Bearer " + deskKey, Accept:"application/vnd.github+json",
-    ...(options.body ? {"Content-Type":"application/json"} : {})}});
+async function deskRequest(path){
+  const res = await fetch(deskApi + path, {cache:"no-store",credentials:"omit"});
   if (!res.ok) throw new Error("GitHub HTTP " + res.status);
   return res;
 }
 function openDesk(){
   const dialog = $("desk-dialog");
   if (!dialog.open) dialog.showModal();
-  $("desk-auth").hidden = !!deskKey || deskBusy;
-  if (deskKey && !deskBusy) runDesk();
+
 }
 async function runDesk(){
   if (deskBusy) return;
   deskBusy = true;
   const status = $("desk-status"), results = $("desk-results");
-  const request = crypto.randomUUID();
+  const started = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
   const workflow = "/actions/workflows/cube_pulse.yml";
-  $("desk-auth").hidden = true;
+  $("desk-start").hidden = true;
   try {
-    status.textContent = "10명의 담당 업무 실행을 요청하고 있습니다.";
-    await deskRequest(workflow + "/dispatches", {method:"POST",body:JSON.stringify({ref:"main",inputs:{request_id:request}})});
+    status.textContent = "GitHub 실행 확인을 기다리고 있습니다.";
     let run;
     const deadline = Date.now() + 45*60000;
     while (Date.now() < deadline){
       status.textContent = run?.status === "in_progress" ? "직원들이 업무를 수행하고 보고서를 작성 중입니다." : "GitHub 실행 대기 중입니다.";
-      await new Promise(resolve => setTimeout(resolve, 8000));
+      await new Promise(resolve => setTimeout(resolve, 60000));
       if (run) run = await (await deskRequest("/actions/runs/" + run.id)).json();
       else {
-        const list = await (await deskRequest(workflow + "/runs?branch=main&event=workflow_dispatch&per_page=50")).json();
-        run = list.workflow_runs.find(x => x.display_title === "CUBE report " + request);
+        const list = await (await deskRequest(workflow + "/runs?branch=main&event=workflow_dispatch&created=" + encodeURIComponent(">=" + started) + "&per_page=50")).json();
+        const candidates = list.workflow_runs.filter(x => x.created_at >= started);
+        if (candidates.length > 1){
+          status.textContent = "동시에 요청된 실행 중 이번 보고에 사용할 실행을 선택하세요.";
+          run = await new Promise(resolve => {
+            for (const item of candidates){
+              const button = document.createElement("button");
+              button.className = "btn sm"; button.textContent = "#" + item.run_number + " · " + item.actor.login;
+              button.onclick = () => { status.textContent = "실행 상태 확인 중"; resolve(item); };
+              status.append(button);
+            }
+          });
+        } else run = candidates[0];
       }
       if (run?.status === "completed") break;
     }
@@ -901,15 +908,12 @@ async function runDesk(){
     status.textContent = "업무 실행이 완료됐습니다. 직원별 이전 보고와 이번 보고를 비교할 수 있습니다.";
   } catch(error){
     status.textContent = "업무 재실행 결과를 확인할 수 없습니다. " + error.message;
-    if (/HTTP (401|403|404)/.test(error.message)) deskKey = "";
+
   } finally {
-    deskBusy = false; $("desk-auth").hidden = !!deskKey;
+    deskBusy = false; $("desk-start").hidden = false;
   }
 }
-$("desk-auth").addEventListener("submit",event=>{
-  event.preventDefault(); deskKey=$("desk-key").value.trim(); $("desk-key").value="";
-  if (deskKey) runDesk();
-});
+$("desk-start").addEventListener("click", runDesk);
 
 async function refreshAll(){
   if (S.loading) return;
@@ -1022,33 +1026,7 @@ function renderCheck(target){
         <td>${esc((s.at||"—").slice(5,16))}</td>
         <td class="mono">${esc((S.lastChecked.perAgent||{})[s.id] ? S.lastChecked.perAgent[s.id].slice(11) : "—")}</td>
       </tr>`).join("")}</tbody></table></div>
-    ${remotePanel()}`;
-}
-
-function remotePanel(){
-  return `<details class="adv"><summary>고급 · GitHub Actions 원격 트리거</summary>
-    <div class="box">
-      <p class="hint" style="margin:0">워크플로 파일은 건드리지 않습니다. PAT(actions:write)로 <code>workflow_dispatch</code>를 호출합니다.
-        토큰은 이 탭 메모리에만 있고 저장하지 않습니다.</p>
-      <input id="gh-token" type="password" placeholder="ghp_… (선택)" autocomplete="off">
-      <input id="gh-wf" value="cube_pulse.yml" placeholder="워크플로 파일명">
-      <div style="display:flex;gap:7px"><button class="btn sm" onclick="triggerRemote()">원격 실행</button>
-      <span class="hint" id="gh-out"></span></div>
-    </div></details>`;
-}
-
-async function triggerRemote(){
-  const tok = ($("gh-token") || {}).value || "";
-  const wf = ($("gh-wf") || {}).value || "cube_pulse.yml";
-  const out = $("gh-out");
-  if (!tok){ out.textContent = "토큰을 입력하세요."; return; }
-  out.textContent = "요청 중…";
-  try{
-    const r = await fetch(`https://api.github.com/repos/stevepark310/us-capital-preservation/actions/workflows/${encodeURIComponent(wf)}/dispatches`,
-      {method:"POST", headers:{"Authorization":"Bearer " + tok, "Accept":"application/vnd.github+json", "Content-Type":"application/json"},
-       body: JSON.stringify({ref:"main"})});
-    out.textContent = r.ok ? "✓ 트리거 접수 (워크플로가 켜져 있어야 실행됩니다)" : `✕ HTTP ${r.status} ${(await r.text()).slice(0,120)}`;
-  }catch(e){ out.textContent = "✕ " + e.message; }
+    <button class="btn sm" onclick="openDesk()">직원 업무 재실행</button>`;
 }
 
 /* ==========================================================================
