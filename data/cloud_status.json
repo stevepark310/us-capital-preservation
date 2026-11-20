@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at_kst": "2026-11-21 05:58:55",
+  "updated_at_kst": "2026-11-21 06:06:23",
   "schedule": {
     "market_cron_utc": "4-59/10 13-21 * * 1-5",
     "pulse_cron_utc": "9-59/10 * * * *",
@@ -89,149 +89,59 @@
   },
   "last_run": {
     "workflow": "CUBE Market Autotrade (10m)",
-    "run_id": "44816016851",
-    "event": "schedule",
+    "run_id": "44817239266",
+    "event": "workflow_dispatch",
     "attempt": "1",
     "runner": "github_actions",
-    "sha": "2e69486c",
-    "at_kst": "2026-11-21 05:58:55",
+    "sha": "256ba353",
+    "at_kst": "2026-11-21 06:06:23",
     "mode": "market",
-    "result": "OK"
+    "result": "FAILSAFE_OVERDUE"
   },
   "market": {
-    "last_cycle_kst": "2026-11-21 05:58:16",
-    "phase": "REGULAR",
+    "last_cycle_kst": "2026-11-21 06:06:23",
+    "phase": "POST_MARKET",
     "session_date": "2026-11-20",
     "kst_shift_min": 0,
     "next_open_kst": "2026-11-23 23:30 KST",
     "dry_run": true,
     "live_gate_enabled": false,
     "live_gate_reason": "live gate disabled",
-    "note": "실주문 비활성 — live gate disabled",
-    "result": "OK",
-    "seconds": 39.6,
-    "stages": [
-      {
-        "name": "원장 동기화",
-        "seconds": 19.5,
-        "rc": 0,
-        "ok": true,
-        "tail": "✅ live_portfolio synced 2026-11-21 05:58:35 KST | equity $877.98 (1,168,679원) | cash $626.86 (834,413원) | fx 1331.1 | CONSISTENT"
-      },
-      {
-        "name": "유령 포지션 점검",
-        "seconds": 0.0,
-        "rc": 0,
-        "ok": true,
-        "tail": "[reconciler] CONSISTENT · 보유 {'SGOV': 1, 'SQQQ': 1} · 사다리 유령 0 · 브래킷 유령 0 · 수량보정 0 · 대기주문취소 0"
-      },
-      {
-        "name": "10인 업무보고",
-        "seconds": 17.1,
-        "rc": 0,
-        "ok": true,
-        "tail": "✅ feed updated 2026-11-21 05:58:36 KST [REGULAR] posts 20 (agents 10/10)"
-      },
-      {
-        "name": "10인 협업 검증",
-        "seconds": 0.4,
-        "rc": 0,
-        "ok": true,
-        "tail": "  버스 400건 (스레드 12, 인계 327) · 하드락 OK"
-      },
-      {
-        "name": "무인 집행",
-        "seconds": 0.5,
-        "rc": 0,
-        "ok": true,
-        "tail": "  다음 게이트: 신호 대기 · 0.1s"
-      },
-      {
-        "name": "브래킷 감시(읽기 전용)",
-        "seconds": 0.7,
-        "rc": 0,
-        "ok": true,
-        "tail": "Total actions: 1 (mode=DRY_RUN)"
-      },
-      {
-        "name": "원장 재동기화",
-        "seconds": 0.4,
-        "rc": 0,
-        "ok": true,
-        "tail": "✅ live_portfolio synced 2026-11-21 05:58:54 KST | equity $877.98 (1,168,679원) | cash $626.86 (834,413원) | fx 1331.1 | CONSISTENT"
-      },
-      {
-        "name": "평단 계획 재생성",
-        "seconds": 0.4,
-        "rc": 0,
-        "ok": true,
-        "tail": "  · 기대 최대 $1.01 / 최악 $-0.72 / 목표 $1.32"
-      },
-      {
-        "name": "유령 포지션 재점검",
-        "seconds": 0.0,
-        "rc": 0,
-        "ok": true,
-        "tail": "[reconciler] CONSISTENT · 보유 {'SGOV': 1, 'SQQQ': 1} · 사다리 유령 0 · 브래킷 유령 0 · 수량보정 0 · 대기주문취소 0"
-      },
-      {
-        "name": "집행 상태 최신화",
-        "seconds": 0.4,
-        "rc": 0,
-        "ok": true,
-        "tail": "✅ autotrader_status.json 최신화 2026-11-21 05:58:55 · phase=REGULAR · session=2026-11-20 · 보유 1종목 · 예산 $0.0"
-      },
-      {
-        "name": "성과·학습 후보 평가",
-        "seconds": 0.0,
-        "rc": 0,
-        "ok": true,
-        "tail": "[agent-performance] 10/10 latest reports; 3 confirmed trades; proposed policy only"
-      },
-      {
-        "name": "청산 페일세이프 점검",
-        "seconds": 0.0,
-        "rc": 0,
-        "ok": true,
-        "tail": "}"
-      },
-      {
-        "name": "퀀트 포트폴리오 위험 감시",
-        "seconds": 0.0,
-        "rc": 0,
-        "ok": true,
-        "tail": "[quant-monitor] FREEZE_NEW_RISK | managed exits overdue: SQQQ"
-      },
-      {
-        "name": "대시보드 데이터 발행",
-        "seconds": 0.1,
-        "rc": 0,
-        "ok": true,
-        "tail": "✅ 대시보드 데이터 발행(docs/*.json) · index.html 재렌더 생략 · 2026-11-21 05:58:55 KST"
-      }
-    ],
-    "execution": {
-      "mode": "DRY_RUN",
-      "positions": {
-        "SQQQ": {
+    "note": "phase=POST_MARKET — 연체 강제청산/감시 공백 1건, 다음 정규장 즉시 청산 대상으로 기록.",
+    "result": "FAILSAFE_OVERDUE",
+    "seconds": 0.0,
+    "failsafe": {
+      "checked_at_kst": "2026-11-21 06:06:23",
+      "phase": "POST_MARKET",
+      "session_date": "2026-11-20",
+      "force_exit_early_min": 10,
+      "overdue": [
+        {
+          "ticker": "SQQQ",
+          "force_exit_kst": "05:40",
+          "minutes_late": 26,
+          "same_session": true,
           "qty": 1,
-          "entry": 48.18,
-          "sl": 45.99,
-          "exit_mode": "chandelier_v2",
-          "bracket_class": "INTRADAY",
-          "trail_atr_mult": 0.9,
-          "entry_source": "BEAR_ALPHA_HEDGE"
+          "exit_rule": "chandelier_v2",
+          "phase": "POST_MARKET",
+          "severity": "CRITICAL",
+          "note": "강제청산 시각 경과 — 정규장 밖이므로 다음 정규장 첫 사이클에서 즉시 청산"
         }
+      ],
+      "cloud": {
+        "last_market_cycle_kst": "2026-11-21 05:58:16",
+        "age_min": 8.1,
+        "phase": "POST_MARKET",
+        "warn": false,
+        "critical": false,
+        "thresholds_min": {
+          "warn": 25,
+          "critical": 45
+        },
+        "scheduled_triggers_reliable": false,
+        "note": "GitHub Actions schedule 트리거는 지연·누락될 수 있다(11-19 05:40 미발화 실측). 감시 공백이 critical이면 보완 경로(`scripts/exit_watchdog.py`)가 사이클을 재촉한다."
       },
-      "exits": 1,
-      "entries": 0,
-      "pending": 0,
-      "realized_today_usd": 0.0,
-      "budget_usd": 0.0,
-      "next_gate": "신호 대기"
-    },
-    "ladders": [
-      "SQQQ"
-    ]
+      "action_required": true
+    }
   }
 }
