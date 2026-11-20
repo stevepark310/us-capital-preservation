@@ -116,17 +116,15 @@ def test_closed_bracket_does_not_block_reentry(trader, tmp_trader):
     assert len(actions) == 1 and actions[0]["ticker"] == "SOXL"
 
 
-def test_min_one_share_when_price_exceeds_budget(trader, tmp_trader):
-    """예산보다 비싼 종목도 1주 리스크가 한도 안이면 0주 교착을 만들지 않는다."""
+def test_one_share_beyond_budget_is_refused_for_capital_protection(trader, tmp_trader):
+    """1주라도 예산을 초과하면 진입하지 않는다(기존 최소 1주 예외 제거)."""
     brackets = load_brackets(tmp_trader[1])
     st = trader.load_state("2026-11-17")
     trader.entry_candidates = lambda *a, **k: [candidate(atr=10.0)]
     market = make_market(clock_at("01:00"), {"SOXL": {"intraday_price": 160.0}})
     actions = trader.entries(st, brackets, market, ledger())
-    assert len(actions) == 1
-    sizing = actions[0]["sizing"]
-    assert actions[0]["qty"] == 1 and sizing["min_one_share"] is True
-    assert sizing["risk_usd"] <= sizing["risk_cap_usd"]
+    assert actions == []
+    assert trader.router.calls == []
 
 
 def test_hedge_notional_cap_below_floor_still_orders(trader, tmp_trader):
