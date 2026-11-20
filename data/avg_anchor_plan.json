@@ -2,16 +2,16 @@
   "engine": "AVG_ANCHOR_PROFIT_DESK",
   "engine_ko": "평단 기준 일일 수익 엔진",
   "version": "1.0",
-  "generated_at_kst": "2026-11-20 06:05:10 KST",
+  "generated_at_kst": "2026-11-21 04:12:27 KST",
   "directive": {
     "given_at_kst": "2026-11-17 11:12",
     "quote": "체결됬는데 지금 계좌 호출해서 최신화해줘. 잔고에서 보면 되잖아. 그리고 지금 평단가 기준으로 오늘 수익을 내야하니까 전반적으로 모든 직원들에게 강력한 수익 알고리즘을 창출할 수 있도록 지시해줘.",
     "interpretation": "실계좌 체결 평단을 기준점으로 오늘 세션에서 실현 수익을 만들며, 손실은 짧게 자른다."
   },
   "market": {
-    "phase": "POST_MARKET",
+    "phase": "REGULAR",
     "next_open_kst": "2026-11-17 23:30 KST",
-    "vix": 27.14,
+    "vix": 30.89,
     "earnings": {
       "ticker": "NVDA",
       "at_kst": "2026-11-18 06:20"
@@ -92,7 +92,17 @@
       "measured": {
         "available": false
       },
-      "note": "평단 $48.18 기준 ATR 6.00% → TP1 2.1% / TP2 4.2% / SL -1.5%"
+      "note": "평단 $48.18 기준 ATR 6.00% → TP1 2.1% / TP2 4.2% / SL -1.5%",
+      "managed_by": "BRACKET_SPEC",
+      "owner": "SPEC:BEAR_ALPHA_HEDGE",
+      "exit_rule": "chandelier_v2",
+      "advisory_only": true,
+      "authoritative_levels": {
+        "sl": 45.99,
+        "tp1": null,
+        "tp2": null,
+        "force_exit_kst": "05:40"
+      }
     }
   ],
   "excluded": {
@@ -129,7 +139,7 @@
     ],
     "max_notional_usd": 60.0,
     "armed": true,
-    "vix": 27.14
+    "vix": 30.89
   },
   "guards": {
     "sl_active_after_kst": "23:45",
@@ -160,5 +170,36 @@
     "measured_basis": "1년 일봉 실측 TP/SL 도달확률로 계산한 하루 기대 실현손익. 2주·1주 소액 포지션에서는 0.5% 목표($4.46)에 구조적으로 미달하며, 자본(포지션 크기)을 늘리지 않는 한 하루 +$1 내외가 현실적 상한이다.",
     "capital_constraint": "평가자산 $877.98 중 레버리지 노출이 $48.18뿐이다. 이 크기에서 사다리 기대값은 하루 $+0.00 수준이며, 하루 $1.32을 넘기려면 포지션 확대(리스크 증가) 또는 2차 익절까지 가는 날이 필요하다.",
     "daily_target_note": "오늘 목표는 1차 익절 최소 1건(+$1.5 내외) 이상 실현. 실측 기대(+0.00)를 넘기려면 2차 익절(TP2 도달률 SOXL 42.6%)까지 가는 날이 필요하다."
+  },
+  "exit_authority": {
+    "checked_at_kst": "2026-11-21 04:12:27",
+    "ladders": {
+      "SQQQ": {
+        "owner": "SPEC:BEAR_ALPHA_HEDGE",
+        "exit_rule": "chandelier_v2",
+        "advisory_only": true
+      }
+    },
+    "conflicts": [
+      {
+        "ticker": "SQQQ",
+        "owner": "SPEC:BEAR_ALPHA_HEDGE",
+        "managed_by": "BRACKET_SPEC",
+        "exit_rule": "chandelier_v2",
+        "diffs": {
+          "sl": {
+            "bracket": 45.99,
+            "ladder": 47.46
+          },
+          "force_exit_kst": {
+            "bracket": "05:40",
+            "ladder": null
+          }
+        },
+        "resolution": "SPEC:BEAR_ALPHA_HEDGE 우선 — 평단 사다리는 참고값(advisory). 브래킷 레벨로 청산한다.",
+        "severity": "HIGH"
+      }
+    ],
+    "rule": "한 포지션의 청산 규칙은 하나다. 장중·헤지·파일럿 브래킷(SPEC)과 사용자 잠금 레벨은 평단 사다리가 덮어쓰지 않는다."
   }
 }
