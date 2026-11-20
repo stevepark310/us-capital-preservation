@@ -3,10 +3,16 @@ name: CUBE Collab Pulse (24/7)
 # 피클 앱이나 모델 토큰이 없어도 10인이 계속 일하는 24/7 루프.
 # 10분마다: 원장 동기화 → 유령 포지션 정리 → 집행 상태 최신화 → 10인 업무보고
 #           → 협업·빌드업 사이클(가설→실측검증→승인/보류→적용·복기) → 대시보드 렌더
+run-name: ${{ inputs.request_id && format('CUBE report {0}', inputs.request_id) || 'CUBE Collab Pulse' }}
 on:
   schedule:
     - cron: "9-59/10 * * * *"
   workflow_dispatch:
+    inputs:
+      request_id:
+        description: "Dashboard report request ID"
+        required: false
+        type: string
 
 concurrency:
   group: cube-repo-writer       # market 워크플로와 같은 그룹(동시 쓰기 방지)
@@ -57,10 +63,11 @@ jobs:
             echo "변경 없음 — 푸시 생략"
             exit 0
           fi
-          git commit -m "chore(cube): cloud pulse $(TZ=Asia/Seoul date '+%m-%d %H:%M') KST"
+          git commit -m "chore(cube): cloud pulse run-$GITHUB_RUN_ID $(TZ=Asia/Seoul date '+%m-%d %H:%M') KST"
           for i in 1 2 3; do
             if git push origin HEAD:main; then echo "pushed"; exit 0; fi
             echo "push 재시도 $i — rebase 후 재시도"
             git pull --rebase --autostash origin main || true
           done
-          echo "::warning::push 실패 — 다음 펄스에서 다시 시도합니다."
+          echo "::error::보고 발행 실패"
+          exit 1
