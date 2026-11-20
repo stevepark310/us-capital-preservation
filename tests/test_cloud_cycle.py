@@ -48,7 +48,7 @@ def test_regular_session_runs_all_stages_in_order(sandbox, monkeypatch):
     names = [c[0] for c in calls]
     assert names == ["원장 동기화", "유령 포지션 점검", "10인 업무보고", "10인 협업 검증", "무인 집행", "브래킷 감시(읽기 전용)", "원장 재동기화",
                      "평단 계획 재생성", "유령 포지션 재점검", "집행 상태 최신화", "성과·학습 후보 평가",
-                     "청산 페일세이프 점검", "대시보드 데이터 발행"]
+                     "청산 페일세이프 점검", "퀀트 포트폴리오 위험 감시", "대시보드 데이터 발행"]
     auto = dict(calls)["무인 집행"]
     assert auto[-1] == "--dry-run"
     assert dict(calls)["브래킷 감시(읽기 전용)"][-1] == "--dry-run"
@@ -71,7 +71,7 @@ def test_pulse_runs_collab_and_writes_status(sandbox, monkeypatch):
     out = cc.pulse_cycle()
     names = [c[0] for c in calls]
     assert names == ["원장 동기화", "유령 포지션 점검", "집행 상태 최신화", "가격 캐시 갱신",
-                     "10인 업무보고", "협업·빌드업 사이클", "성과·학습 후보 평가", "대시보드 렌더"]
+                     "10인 업무보고", "협업·빌드업 사이클", "성과·학습 후보 평가", "퀀트 포트폴리오 위험 감시", "대시보드 렌더"]
     saved = json.loads((tmp / "cloud_status.json").read_text(encoding="utf-8"))
     assert saved["pulse"]["result"] == "OK"
     assert saved["last_run"]["mode"] == "pulse"
