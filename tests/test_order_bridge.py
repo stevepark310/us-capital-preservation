@@ -19,6 +19,20 @@ def mock_us_market_clock(monkeypatch):
                         lambda: {"phase": "REGULAR", "session_date": "2026-11-19"})
 
 
+@pytest.fixture(autouse=True)
+def offline_nh_direct(monkeypatch):
+    """로컬 NH 직접 경로를 닫아 디스패치 경로를 검증한다(CI 러너와 같은 무자격증명 환경).
+
+    `_try_direct`는 NH_APP_KEY/SECRET이 없으면 None을 반환하고 GitHub Actions
+    디스패치로 폴백한다. 실행부의 fail-closed 동작(연결 거부 시
+    UNKNOWN_NEEDS_RECONCILE, 재발주 금지)은 그대로 두고, 테스트 환경만
+    `api.nhplug.com:8443`에 접근할 수 없는 상태로 맞춘다.
+    """
+    monkeypatch.delenv("NH_APP_KEY", raising=False)
+    monkeypatch.delenv("NH_APP_SECRET", raising=False)
+    monkeypatch.delenv("CUBE_FORCE_ACTIONS", raising=False)
+
+
 LOG_BUY = """execute-nh-trade\tRun NH Trade / Monitor\t2026-11-17T02:15:13.3747836Z Token issued: True
 execute-nh-trade\tRun NH Trade / Monitor\t2026-11-17T02:15:13.3752396Z {
 execute-nh-trade\tRun NH Trade / Monitor\t2026-11-17T02:15:13.3755203Z   "Output_0": {
@@ -229,6 +243,26 @@ def test_cloud_route_blocks_live_order_without_gate(tmp_path, monkeypatch):
     result = fast_router(run_cmd=runner).place("SOXL", "BUY", 1, 50, "test", dry_run=False)
     assert result["status"] == "BLOCKED_PREFLIGHT"
     assert not runner.commands
+
+
+def test_direct_connection_refused_is_not_redispatched(tmp_path, monkeypatch):
+    """로컬 NH가 연결 거부면 결과 불명으로 남기고 Actions로 재발주하지 않는다(fail-closed)."""
+    monkeypatch.setattr(ob, "ORDERS_LOG", str(tmp_path / "orders.jsonl"))
+    monkeypatch.setattr(ob, "DISPATCH_STATE", str(tmp_path / "dispatch.json"))
+    monkeypatch.setenv("NH_APP_KEY", "dummy")
+    monkeypatch.setenv("NH_APP_SECRET", "dummy")
+    from execution import nh_trader
+
+    def refused(*a, **kw):
+        raise ConnectionRefusedError(111, "Connection refused")
+
+    monkeypatch.setattr(nh_trader, "NHBroker", refused)
+    runner = Runner()
+    res = fast_router(run_cmd=runner).place("SOXL", "BUY", 1, 50.0, "test",
+                                            session_date="2026-11-17", dry_run=False)
+    assert res["status"] == "UNKNOWN_NEEDS_RECONCILE"
+    assert "ConnectionRefusedError" in res["error"]
+    assert not any(c[:3] == ["gh", "workflow", "run"] for c in runner.commands)
 
 
 def test_ambiguous_direct_outcome_does_not_dispatch(tmp_path, monkeypatch):
