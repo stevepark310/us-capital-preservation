@@ -46,6 +46,7 @@ OUT_PATH = os.path.join(DATA, "exit_authority.json")
 KST = timedelta(hours=9)
 
 SPEC_OWNED_CLASSES = {"INTRADAY", "PILOT_C5", "HEDGE_EVENT"}
+SPEC_EXIT_MODES = {"chandelier_v2", "time_exit", "inflection_v1"}
 LADDER_CLASSES = {"DAILY_SWING", "MANUAL", None, ""}
 
 
@@ -63,9 +64,10 @@ def owner_of(ticker: str, bracket: Dict[str, Any]) -> Dict[str, Any]:
     src = str(b.get("entry_source") or b.get("bracket_spec") or "").upper()
     cls = b.get("bracket_class")
     mode = b.get("exit_mode")
-    if mode in ("chandelier_v2", "time_exit") or cls in SPEC_OWNED_CLASSES:
+    if mode in SPEC_EXIT_MODES or cls in SPEC_OWNED_CLASSES:
+        default_rule = ("chandelier_v2" if cls == "INTRADAY" else "time_exit")
         return {"owner": f"SPEC:{src or cls or 'INTRADAY'}", "managed_by": "BRACKET_SPEC",
-                "exit_rule": mode or ("chandelier_v2" if cls == "INTRADAY" else "time_exit"),
+                "exit_rule": mode or default_rule,
                 "writable_by_ladder": False}
     if b.get("swing_hold") or b.get("bracket_version") == "swing_daily_atr15":
         return {"owner": "DAILY_SWING", "managed_by": "BRACKET_SPEC", "exit_rule": "swing_hold",

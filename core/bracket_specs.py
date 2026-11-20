@@ -102,6 +102,23 @@ DEFAULT_SPECS: Dict[str, Dict[str, Any]] = {
         "max_hold_sessions": 1,
         "sl_active_after_kst": "23:30",
     },
+    # 옵트인(2026-11-20) — 어떤 진입 신호에도 기본 연결돼 있지 않다. 브래킷을 만들 때
+    # `exit_mode="inflection_v1"`을 명시한 경우에만 core/exit_rules가 이 규칙으로 들어간다.
+    # 근거·한계: docs/intraday_inflection_exit_20261120.md
+    "INFLECTION_HEDGE": {
+        "bracket_class": "INTRADAY",
+        "atr_basis": "intraday",
+        "exit_mode": "inflection_v1",
+        "inflection_preset": "profit_lock",   # 2026-11-20 A/B: EV·PF·t 모두 최상
+        "initial_sl_atr_mult": 1.5,
+        "sl_min_pct": 6.0,
+        "sl_max_pct": 8.0,
+        "trail_atr_mult": None,               # 본전 잠금(트레일 없음)
+        "be_after_atr": 1.0,
+        "max_hold_sessions": 1,
+        "session_close_exit_kst": "05:40",
+        "sl_active_after_kst": "23:45",
+    },
 }
 
 # 규격에 없으면 이 클래스로 취급한다(기존 동작 = 장중 샹들리에)

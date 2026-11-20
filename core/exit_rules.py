@@ -215,15 +215,42 @@ def decide(bracket: Dict[str, Any], price: float,
     """브래킷 종류를 보고 알맞은 규칙 하나만 적용한다.
 
     `bracket_class`(core/bracket_specs.py)가 규격의 정체를 남긴다:
-    DAILY_SWING → swing_hold, INTRADAY/HEDGE → chandelier_v2, PILOT_C5/HEDGE_EVENT → time_exit.
+    DAILY_SWING → swing_hold, INTRADAY/HEDGE → chandelier_v2, PILOT_C5/HEDGE_EVENT → time_exit,
+    `exit_mode="inflection_v1"`(옵트인) → core/intraday_inflection_exit.
     """
     if not is_open(bracket):
         return None
     if bracket.get("swing_hold"):
         return swing_exit_decision(bracket, price, clock)
+    if bracket.get("exit_mode") == "inflection_v1":
+        return inflection_exit_decision(bracket, price, clock)
     if bracket.get("exit_mode") == "chandelier_v2":
         return chandelier_v2_exit(bracket, price, clock)
     return ladder_exit_decision(bracket, price, clock)
+
+
+def inflection_exit_decision(bracket: Dict[str, Any], price: float,
+                            clock: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """장중 변곡 청산(옵트인) — 세션 강제청산은 여기서 먼저 지킨다.
+
+    변곡 모듈은 "추세가 깨졌는가"만 판단하고 **세션 종가 청산을 하지 않는다**(중복 방지).
+    그래서 `force_exit_kst`는 이 함수가 직접 처리해야 한다 — 변곡 신호가 한 번도
+    나오지 않는 조용한 세션에서도 포지션이 다음 세션으로 넘어가지 않도록.
+    """
+    from core import intraday_inflection_exit as inflection
+
+    _roll_session(bracket, clock)
+    qty = remaining_qty(bracket)
+    fex = bracket.get("force_exit_kst")
+    if fex and not bracket.get("force_exited") and _force_due(bracket, clock):
+        return {"action": "SELL", "qty": qty, "stop": False, "close": True,
+                "reason": (f"변곡 SESSION EXIT ({fex} KST 종가 청산, 장중 브래킷"
+                           f"{'' if time_reached(clock, fex) else ' · 페이세이프 선행'})"),
+                "post": {"force_exited": True, "closed": True}}
+    decision = inflection.decide(bracket, price, clock)
+    if decision:
+        decision["qty"] = min(int(decision.get("qty") or qty), qty)
+    return decision
 
 
 def apply_post(bracket: Dict[str, Any], decision: Dict[str, Any]) -> Dict[str, Any]:
