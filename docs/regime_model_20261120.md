@@ -1,6 +1,6 @@
 # 신규 모델 A/B — REGIME_ADAPTIVE_DIP_V1 vs 승인 DIP_SWING_DAILY
 
-- 생성: 2026-11-20 10:07:32 KST
+- 생성: 2026-11-20 10:11:45 KST
 - 데이터: 2021-11-17 ~ 2026-11-17 (1255거래일, QQQ, SGOV, SOXL, SOXS, SPY, SQQQ, TQQQ, ^VIX)
 - 분할: In-Sample 앞 70% (cut 2025-05-19) / Out-of-Sample 뒤 30%
 - 비용: 왕복 0.24% (NH 0.09% + 슬리피지 0.15%) · 신호는 전일 완료봉 · 진입은 다음 봉 시가
