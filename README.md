@@ -230,7 +230,8 @@ python3 scripts/autotrader.py --refresh-status    # 상태 파일(autotrader_sta
 ## 5-c. 손실 재발방지 가드레일 · 신규 모델 (2026-11-20)
 
 11-17~19 사고(SOXL/TQQQ -$8.43, NVDA -$24.10, 합 -$32.53)의 감사와 대책은
-[`docs/incident_audit_20261120.md`](docs/incident_audit_20261120.md)에 실측 근거와 함께 정리돼 있습니다.
+[`docs/incident_audit_20261120.md`](docs/incident_audit_20261120.md)에, 기존 전략 전반의 재검토는
+[`docs/strategy_review_20261120.md`](docs/strategy_review_20261120.md)에 실측 근거와 함께 정리돼 있습니다.
 
 | 가드레일 | 파일 | 동작 |
 |---|---|---|
