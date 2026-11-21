@@ -186,6 +186,9 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
     gate_check = check_live_gate(gate, clock)
     live_enabled = gate_check["ok"]
     sell_only = bool(gate_check.get("sell_only"))
+    # 대시보드에는 '이 세션에 매도 전용으로 열려 있는가'를 보여 준다 — 정규장 밖에서
+    # 게이트가 닫혀 있을 때도 설정 의도가 보이게(세션 판정은 live_gate_enabled가 답한다).
+    sell_only_shown = sell_only if live_enabled else bool(gate.get("sell_only") is True)
     requested_dry = bool(dry_run if dry_run is not None else os.getenv("CUBE_CLOUD_DRY_RUN") == "1")
     base: Dict[str, Any] = {"last_cycle_kst": now_str(), "phase": clock.get("phase"),
                             "session_date": clock.get("session_date"),
@@ -194,7 +197,7 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
                             "dry_run": requested_dry or not live_enabled,
                             "live_gate_enabled": live_enabled,
                             "live_gate_reason": gate_check.get("reason"),
-                            "live_gate_sell_only": sell_only,
+                            "live_gate_sell_only": sell_only_shown,
                             "note": (f"실주문 비활성 — {gate_check.get('reason')}"
                                      if not live_enabled else
                                      ("오늘 미국장 기간한정 실주문 게이트 활성 · 매도 전용(신규 매수 0건)"
