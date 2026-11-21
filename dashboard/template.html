@@ -1328,6 +1328,11 @@ function renderMacro(){
     <div class="kv"><span>노출 계수(선형)</span><b>${num(m8.linear_exposure_scale,2)} <span class="dim">(${esc(((m8.policy||{}).mode)||"—")})</span></b></div>
     <div class="kv"><span>성분</span><b>${m8.components_available}/${m8.components_total} · 기준일 ${esc(m8.as_of||"—")}</b></div>
     ${(m8.market_outlook && m8.market_outlook.p_up) ? `<div class="kv"><span>20일 상승확률(IS 적합)</span><b>${num(m8.market_outlook.p_up,1)}%</b></div>` : ""}
+    ${(m8.monthly_history || []).length ? `<div class="wbar" style="margin-top:10px" title="최근 12개월 M8 z">${(m8.monthly_history || []).slice(-12).map(h => {
+        const v = +h.z || 0, h2 = Math.max(8, Math.min(100, 50 + v * 40));
+        return `<div style="width:${100 / Math.min(12, (m8.monthly_history || []).length)}%;background:${v >= 0 ? "linear-gradient(180deg,#34d399,#059669)" : "linear-gradient(180deg,#f87171,#b91c1c)"};height:${h2}%"></div>`;
+      }).join("")}</div>
+      <div class="hint" style="margin-top:5px">${esc((m8.monthly_history || []).slice(-12)[0].month)} ~ ${esc((m8.monthly_history || []).slice(-1)[0].month)} · 월별 z</div>` : ""}
     <div class="hint" style="margin-top:8px">${esc(((m8.policy||{}).note)||"")}</div>`
     : '<div class="empty">CUBE-M8 수집 전입니다 — scripts/sync_macro_leading.py</div>';
   const m8b = m8.blocks || [];
