@@ -369,6 +369,12 @@ def main(argv=None):
     oks, dt = _run([sys.executable, "scripts/autotrader.py", "--refresh-status"], "3/6 집행 상태 최신화")
     stages["status_sync"] = dt
 
+    # CUBE-M8 8대 거시·자산 선행지표 — 3시간 이상 묵었을 때만 FRED·Yahoo를 다시 읽는다.
+    # (평소에는 data/macro_leading.json이 3시간 이내라 즉시 반환 — 10분 펄스를 느리게 하지 않는다.)
+    okm, dt = _run([sys.executable, "scripts/sync_macro_leading.py", "--if-stale", "3", "--quiet"],
+                   "3b/6 선행지표(M8) 동기화", timeout=420)
+    stages["macro8_sync"] = dt
+
     ok2, dt = _run([sys.executable, "scripts/update_feed.py"], "4/6 10인 에이전트 업무보고")
     stages["agents"] = dt
     if not ok2:
