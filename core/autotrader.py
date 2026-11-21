@@ -1203,6 +1203,7 @@ class AutonomousTrader:
         clock = market["clock"]
         # V2 레짐은 사이클당 한 번만 계산한다(청산·진입·보고가 같은 값을 본다).
         self._regime_cache = _shadow_model(market)
+        self.last_attribution = None          # 이번 사이클 판단 근거만 남긴다(직전 사이클 값 혼입 방지)
         session_date = str(clock.get("session_date") or _now_kst().strftime("%Y-%m-%d"))
         st = self.load_state(session_date)
         brackets = self._open_brackets()
