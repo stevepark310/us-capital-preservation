@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at_kst": "2026-11-22 03:15:15",
+  "updated_at_kst": "2026-11-22 05:36:15",
   "schedule": {
     "market_cron_utc": "4-59/10 13-21 * * 1-5",
     "pulse_cron_utc": "9-59/10 * * * *",
@@ -95,51 +95,73 @@
     }
   },
   "last_run": {
-    "workflow": "CUBE Collab Pulse (24/7)",
-    "run_id": "44934383639",
-    "event": "schedule",
+    "workflow": "CUBE Market Autotrade (10m)",
+    "run_id": "44947112384",
+    "event": "workflow_dispatch",
     "attempt": "1",
     "runner": "github_actions",
-    "sha": "6b411104",
-    "at_kst": "2026-11-22 03:15:15",
-    "mode": "pulse",
-    "result": "OK"
+    "sha": "e3447788",
+    "at_kst": "2026-11-22 05:36:15",
+    "mode": "market",
+    "result": "FAILSAFE_OVERDUE"
   },
   "market": {
-    "last_cycle_kst": "2026-11-21 11:01:49",
-    "phase": "OFF_HOURS",
+    "last_cycle_kst": "2026-11-22 05:36:15",
+    "phase": "WEEKEND_PREP",
     "session_date": "2026-11-20",
     "kst_shift_min": 0,
     "next_open_kst": "2026-11-23 23:30 KST",
+    "order_type": null,
+    "session_plan": {
+      "phases": [
+        "REGULAR",
+        "PRE_MARKET"
+      ],
+      "auto_phases": [
+        "REGULAR"
+      ],
+      "order_types": {
+        "REGULAR": "00",
+        "PRE_MARKET": "61"
+      },
+      "premarket_enabled": true,
+      "premarket_auto_enabled": false,
+      "premarket_manual_only": true,
+      "manual_intervention_only": true,
+      "after_hours_enabled": false,
+      "blocked_reason": null,
+      "auto_blocked_reason": "프리장 수동·지시 개입 전용(manual_intervention_only) — 무인 엔진은 정규장만",
+      "approved_by": "박동훈 (사용자)"
+    },
     "dry_run": true,
     "live_gate_enabled": false,
     "live_gate_reason": "US regular session required",
     "live_gate_sell_only": true,
-    "note": "phase=OFF_HOURS — 연체 강제청산/감시 공백 1건, 다음 정규장 즉시 청산 대상으로 기록.",
+    "note": "phase=WEEKEND_PREP — 연체 강제청산/감시 공백 1건, 다음 정규장 즉시 청산 대상으로 기록.",
     "result": "FAILSAFE_OVERDUE",
     "seconds": 0.0,
     "failsafe": {
-      "checked_at_kst": "2026-11-21 11:01:49",
-      "phase": "OFF_HOURS",
+      "checked_at_kst": "2026-11-22 05:36:15",
+      "phase": "WEEKEND_PREP",
       "session_date": "2026-11-20",
       "force_exit_early_min": 10,
       "overdue": [
         {
           "ticker": "SQQQ",
           "force_exit_kst": "05:40",
-          "minutes_late": 321,
+          "minutes_late": -4,
           "same_session": true,
           "qty": 1,
           "exit_rule": "chandelier_v2",
-          "phase": "OFF_HOURS",
-          "severity": "CRITICAL",
+          "phase": "WEEKEND_PREP",
+          "severity": "DUE_EARLY",
           "note": "강제청산 시각 경과 — 정규장 밖이므로 다음 정규장 첫 사이클에서 즉시 청산"
         }
       ],
       "cloud": {
-        "last_market_cycle_kst": "2026-11-21 10:49:24",
-        "age_min": 12.4,
-        "phase": "OFF_HOURS",
+        "last_market_cycle_kst": "2026-11-21 11:01:49",
+        "age_min": 1114.4,
+        "phase": "WEEKEND_PREP",
         "warn": false,
         "critical": false,
         "thresholds_min": {
