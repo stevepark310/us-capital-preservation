@@ -309,6 +309,8 @@ def pulse_cycle() -> Dict[str, Any]:
     stages.append(run("집행 상태 최신화", [py, "scripts/autotrader.py", "--refresh-status"], 120))
     # 검증 데스크가 쓰는 2년 일봉 캐시를 하루 1회(20시간 초과 시) 갱신한다.
     stages.append(run("가격 캐시 갱신", [py, "scripts/refresh_price_cache.py"], 240))
+    # CUBE-M8 8대 거시·자산 선행지표 — 3시간 이상 묵었을 때만 FRED·Yahoo를 다시 읽는다.
+    stages.append(run("선행지표 동기화(M8)", [py, "scripts/sync_macro_leading.py", "--if-stale", "3", "--quiet"], 420))
     stages.append(run("10인 업무보고", [py, "scripts/update_feed.py"], 600))
     stages.append(run("협업·빌드업 사이클", [py, "scripts/run_collab_cycle.py"], 300))
     stages.append(run("성과·학습 후보 평가", [py, "scripts/agent_performance.py"], 120))

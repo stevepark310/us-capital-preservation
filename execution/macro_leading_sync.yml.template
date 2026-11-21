@@ -1,0 +1,87 @@
+name: CUBE M8 Leading Indicators Sync
+
+# 동훈님 지시(2026-11-21 11:01): "지속적으로 모든 정보를 자동으로 수집하고
+# 알고리즘에 반영할 수 있도록".
+#
+# 4시간마다 FRED(금리·기대인플레·고용·CPI·PPI)와 Yahoo(비트코인·금·유가·주가)를
+# 다시 읽어 CUBE-M8 8블록 선행지표를 갱신하고, data/·docs/에 발행한 뒤 커밋한다.
+# 월요일 첫 실행에는 예측력 백테스트(A/B·IS/OOS)까지 돌려 판정을 갱신한다.
+# 주문은 하지 않는다 — 읽기·계산·발행 전용.
+on:
+  schedule:
+    - cron: "17 1,5,9,13,17,21 * * *"     # 6회/일 (KST 10:17·14:17·18:17·22:17·02:17·06:17)
+  workflow_dispatch:
+    inputs:
+      backtest:
+        description: "예측력 백테스트도 실행"
+        type: boolean
+        default: false
+
+concurrency:
+  group: cube-repo-writer       # 다른 워크플로와 동시 쓰기 방지
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TZ: Asia/Seoul
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --quiet --upgrade pip
+          pip install --quiet -r requirements.txt
+
+      - name: Sync CUBE-M8 leading indicators
+        run: python3 scripts/sync_macro_leading.py --force
+
+      - name: Backtest (weekly, Monday 06:17 KST run or manual)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.backtest || (github.event_name == 'schedule' && github.event.schedule == '17 21 * * *') }}
+        run: python3 scripts/sync_macro_leading.py --backtest --quiet
+
+      - name: Verify artifacts are valid JSON
+        run: |
+          python3 - <<'PY'
+          import json
+          for p in ("data/macro_leading.json", "docs/macro_leading.json"):
+              with open(p, encoding="utf-8") as f:
+                  doc = json.load(f)
+              assert (doc.get("composite") or {}).get("z") is not None, p
+              print(p, "OK", doc["composite"]["z"], doc["composite"]["regime"])
+          PY
+
+      - name: Commit & push (data + docs)
+        if: always()
+        run: |
+          set -e
+          git config user.name "cube-cloud-bot"
+          git config user.email "cube-cloud-bot@users.noreply.github.com"
+          git add data docs
+          if git diff --staged --quiet; then
+            echo "변경 없음 — 푸시 생략"
+            exit 0
+          fi
+          git commit -m "chore(m8): 선행지표 8블록 동기화 $(TZ=Asia/Seoul date '+%m-%d %H:%M') KST"
+          for i in 1 2 3; do
+            if git push origin HEAD:main; then echo "pushed"; exit 0; fi
+            echo "push 재시도 $i — rebase 후 재시도"
+            git pull --rebase --autostash origin main || true
+          done
+          echo "::error::선행지표 발행 실패"
+          exit 1

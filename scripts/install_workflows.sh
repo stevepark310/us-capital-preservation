@@ -8,6 +8,7 @@
 # 사용법
 #   bash scripts/install_workflows.sh          # 설치(이미 같으면 건너뜀)
 #   bash scripts/install_workflows.sh --check  # 설치 상태만 확인
+#   bash scripts/install_workflows.sh --only macro_leading_sync   # 한 개만 설치(기존 워크플로 보존)
 #   git add .github/workflows && git commit -m "ci: cloud workflows" && git push
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -15,14 +16,27 @@ cd "$(dirname "$0")/.."
 PAIRS=(
   "execution/market_autotrade.yml.template:.github/workflows/market_autotrade.yml"
   "execution/cube_pulse.yml.template:.github/workflows/cube_pulse.yml"
+  "execution/macro_leading_sync.yml.template:.github/workflows/macro_leading_sync.yml"
 )
 
 check_only=0
-[ "${1:-}" = "--check" ] && check_only=1
+only=""
 rc=0
+args=("$@")
+i=0
+while [ $i -lt ${#args[@]} ]; do
+  case "${args[$i]}" in
+    --check) check_only=1 ;;
+    --only)  i=$((i+1)); only="${args[$i]:-}" ;;
+  esac
+  i=$((i+1))
+done
 
 for pair in "${PAIRS[@]}"; do
   src="${pair%%:*}"; dst="${pair##*:}"
+  if [ -n "$only" ] && [[ "$dst" != *"$only"* ]]; then
+    continue
+  fi
   if [ ! -f "$src" ]; then echo "✗ 템플릿 없음: $src"; rc=1; continue; fi
   if [ -f "$dst" ] && cmp -s "$src" "$dst"; then
     echo "✓ 설치됨: $dst"
@@ -42,9 +56,8 @@ if [ "$check_only" = "1" ]; then
   exit $rc
 fi
 echo
-echo "다음 단계(권한이 있는 저장소에서 1회):"
-echo "  git add .github/workflows/market_autotrade.yml .github/workflows/cube_pulse.yml"
-echo "  git commit -m \"ci(cloud): 24/7 자율매매·협업 펄스 워크플로\" && git push"
+echo "다음 단계(workflows 권한이 있는 곳에서 1회):"
+echo "  git add .github/workflows && git commit -m \"ci(cloud): 24/7 자율매매·협업 펄스·선행지표 워크플로\" && git push"
 echo "설치 후 확인:"
 echo "  gh run list -R stevepark310/us-capital-preservation --limit 5"
 echo "  gh workflow run cube_pulse.yml -R stevepark310/us-capital-preservation   # 즉시 1회 시험"

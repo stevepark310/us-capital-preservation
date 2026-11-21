@@ -308,6 +308,40 @@ python3 scripts/run_lei_filter_backtest.py  # 필터 방어효과 5년 시뮬 �
 python3 scripts/run_full_pipeline.py        # 위 두 단계 포함 전체 파이프라인
 ```
 
+### 6.5 CUBE-M8 — 8대 거시·자산 선행지표 (2026-11-21 신설, `core/macro_leading.py`)
+
+동훈님 지시(11-21 11:01): "비트코인·골드·유가·금리·기대인플레이션·고용·CPI·PPI 가격 추이로
+경기선행지표를 만들고 주식시장 움직임을 예측해 매매 알고리즘 판단기준으로 넣고, 지속적으로
+자동 수집해 반영" — 8블록 21성분으로 구현했다.
+
+| 블록 | 가중 | 성분 |
+|---|---:|---|
+| 비트코인 | 10% | 60일 모멘텀 · 200일선 괴리 · 20일 실현변동성 |
+| 골드 | 8% | 금/주식 60일 상대강도 · 금 실현변동성 |
+| 유가 | 10% | WTI 20일 모멘텀 · 20일 실현변동성 |
+| 금리 | 22% | 10Y-2Y 금리차 · 실질금리(TIPS) 60일 변화 · 10Y 명목 20일 변화 |
+| 기대인플레이션 | 14% | 5년 손익분기 수준 · 10년 손익분기 60일 변화 · 5y5y 포워드 |
+| 고용 | 16% | 비농업고용 3개월 평균 · 실업률 3개월 변화 · 신규청구 4주 YoY |
+| 소비자물가 | 10% | CPI YoY · 근원 CPI 3개월 연율 |
+| 생산자물가 | 10% | PPI 최종수요 YoY · 근원 PPI 3개월 연율 · PPI-CPI 갭 |
+
+- **발표시차 반영**: 값은 `기말 + lag_days`부터 사용 가능(CPI 13일 · PPI 15~16일 · 고용 7일 · 청구 6일).
+  +10일 추가 시차 강건성 검정을 함께 돌린다. 무료 FRED는 최종 개정치라 이 한계도 산출물에 명시.
+- **부호**: 논문 기반 사전부호 + IS(2015-2021)에서만 재적합한 부호를 둘 다 공개(`data/macro_leading_signs.json`).
+- **검증(OOS 2022-01~2026-11)**: SPY 20일 IC 0.291(Newey-West t 2.57). 최적 변형 OOS Sharpe
+  SPY 0.97(단순보유 0.57) · SOXX 0.88(0.63) · SOXL 0.82(0.53), MDD SPY -19.0%(-25.4%) · SOXX -41.7%(-46.0%).
+  단 부호 안정성 47.6% → 판정 `advisory_partial`(그림자), 실전 사이징 반영은 승인 대기.
+- **매매 연동**: `core/autotrader.py`가 `macro_leading.risk_scale()`을 예산에 곱하는 구조를 갖췄고,
+  `config/macro_leading_policy.json`의 `enabled_for_sizing=false`(기본)이면 계수 1.0 — 주문 크기 불변.
+- **자동 수집**: `.github/workflows/macro_leading_sync.yml`(4시간 주기, 월요일 백테스트) +
+  `cloud_cycle.py pulse`에서 3시간 stale 시 자동 갱신.
+
+```bash
+python3 scripts/sync_macro_leading.py             # 수집·계산·발행(data/·docs/)
+python3 scripts/sync_macro_leading.py --backtest  # + 예측력 A/B·IS/OOS 검증
+docs/macro_leading.md                             # 검증 리포트(자동 생성)
+```
+
 ## 7. 투자 대가 13F 스마트머니 (2026-11-17 확장)
 
 분기 공시(13F-HR)를 **영상·기사 요약이 아니라 SEC EDGAR 정보 테이블 XML 원문**으로 파싱해 구조화한다.

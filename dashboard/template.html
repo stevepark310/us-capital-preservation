@@ -438,6 +438,13 @@ footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);font-si
       </div>
     </div>
     <div class="sec">
+      <div class="sec-h"><h2>CUBE-M8 · 8대 거시·자산 선행지표</h2><span class="line"></span><span class="note">비트코인·금·유가·금리·기대인플레·고용·CPI·PPI · 발표시차 반영 · IS/OOS 백테스트</span></div>
+      <div class="grid g-2">
+        <div class="card" id="macro-m8"></div>
+        <div class="card" id="macro-m8-blocks"></div>
+      </div>
+    </div>
+    <div class="sec">
       <div class="sec-h"><h2>선행지수 구성요소</h2><span class="line"></span></div>
       <div id="macro-components"></div>
     </div>
@@ -1279,6 +1286,7 @@ function renderMacro(){
     {lab:"DXY", val:num(dxy.last,2), sub:`${arrow(dxy.chg_pct ?? dxy.change_pct)} ${pct(dxy.chg_pct ?? dxy.change_pct)}${dxy.ret_20d !== undefined ? " · 20일 " + pct(dxy.ret_20d) : ""}`, cls: ((dxy.chg_pct ?? dxy.change_pct) > 0 ? "r":"g"), bar: Math.min(100,(+dxy.last||0)-60)},
     {lab:"CUBE-LEI", val:num(lei.index,1), sub:`${esc(lei.regime_ko || "—")} · 3개월 ${pct((lei.trend_3m_z_change||0)*10,1)}`, cls:"a", bar: Math.min(100, Math.max(0,(+lei.score||50)))},
     {lab:"침체 확률", val:num(pro.probability_used ?? pro.probability_10y3m,1) + "%", sub:"12개월 내 · Estrella & Mishkin", cls:"", bar: Math.min(100,(+pro.probability_used||0)*2)},
+    ...((li || {}).macro8 && (li.macro8.z !== undefined && li.macro8.z !== null) ? [{lab:"CUBE-M8", val:num(li.macro8.index,1), sub:`8대 선행지표 · ${esc(li.macro8.regime_ko||"—")} · 노출 ${num(li.macro8.linear_exposure_scale,2)}`, cls:"a", bar: Math.min(100, Math.max(0,(+li.macro8.score||50)))}] : []),
   ].map(k => `<div class="card kpi ${k.cls}">
       <div class="lab">${esc(k.lab)}</div><div class="val">${esc(k.val)}</div>
       <div class="sub">${k.sub}</div>
@@ -1308,6 +1316,32 @@ function renderMacro(){
     <div class="kv"><span>10Y-3M</span><b>${num(curve["10y3m_bp"],0)}bp · ${esc(curve.shape || "")}</b></div>
     <div class="kv"><span>10Y-2Y</span><b>${num(curve["10y2y_bp"],0)}bp</b></div>
     <div class="hint" style="margin-top:8px">${esc(credit.reading_ko || "")}</div>`;
+
+  const m8 = li.macro8 || {};
+  const m8ok = m8.z !== null && m8.z !== undefined;
+  $("macro-m8").innerHTML = m8ok ? `
+    <div class="sec-h" style="margin-bottom:8px"><h2 style="font-size:12px">M8 복합지수</h2><span class="line"></span>
+      <span class="tag b">${esc(m8.regime || "—")}</span></div>
+    <div class="kv"><span>지수 (100=추세)</span><b>${num(m8.index,1)}</b></div>
+    <div class="kv"><span>표준화 점수</span><b>${num(m8.z,2)}σ · 점수 ${num(m8.score,1)}/100</b></div>
+    <div class="kv"><span>20일 / 3개월 변화</span><b class="${cls(m8.change_3m)}">${num(m8.change_20d,2)}σ / ${num(m8.change_3m,2)}σ</b></div>
+    <div class="kv"><span>노출 계수(선형)</span><b>${num(m8.linear_exposure_scale,2)} <span class="dim">(${esc(((m8.policy||{}).mode)||"—")})</span></b></div>
+    <div class="kv"><span>성분</span><b>${m8.components_available}/${m8.components_total} · 기준일 ${esc(m8.as_of||"—")}</b></div>
+    ${(m8.market_outlook && m8.market_outlook.p_up) ? `<div class="kv"><span>20일 상승확률(IS 적합)</span><b>${num(m8.market_outlook.p_up,1)}%</b></div>` : ""}
+    <div class="hint" style="margin-top:8px">${esc(((m8.policy||{}).note)||"")}</div>`
+    : '<div class="empty">CUBE-M8 수집 전입니다 — scripts/sync_macro_leading.py</div>';
+  const m8b = m8.blocks || [];
+  $("macro-m8-blocks").innerHTML = m8b.length ? `<div class="sec-h" style="margin-bottom:8px"><h2 style="font-size:12px">8블록</h2><span class="line"></span>
+      <span class="hint">부호·발표시차 반영 · OOS 검증</span></div>
+    <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>블록</th><th>z</th><th>가중</th><th>기여</th><th>방향</th></tr></thead>
+    <tbody>${m8b.map(b => `<tr>
+      <td><span class="tk">${esc(b.icon||"")} ${esc(b.name)}<small>${esc(b.why||"")}</small></span></td>
+      <td class="${cls(b.z)}">${num(b.z,2)}</td>
+      <td>${num((b.weight||0)*100,0)}%</td>
+      <td class="${cls(b.contribution)}">${num(b.contribution,3)}</td>
+      <td>${esc(b.direction || "—")}</td>
+    </tr>`).join("")}</tbody></table></div>` : '<div class="empty">블록 데이터 없음</div>';
 
   const comps = li.components || [];
   $("macro-components").innerHTML = comps.length ? `<div class="tbl-wrap"><table class="tbl">

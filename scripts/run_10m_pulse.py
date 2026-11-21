@@ -118,10 +118,17 @@ def _agent_state(aid, report, status, pulse_ctx):
         li = a.get("leading_indicators") or {}
         pr = li.get("recession_probit") or {}
         bm = (a.get("bond_market") or {}).get("yields_pct") or {}
+        m8 = li.get("macro8") or {}
+        m8_txt = (f" · CUBE-M8 {m8.get('index')} (z {m8.get('z')}, {m8.get('regime_ko')})"
+                  f"→ 노출계수 {m8.get('linear_exposure_scale')} ({((m8.get('policy') or {}).get('mode'))})"
+                  if m8.get("z") is not None else "")
         return (f"CUBE-LEI {li.get('cube_lei_index')} ({li.get('regime_ko')}) · 침체확률 {pr.get('probability_used')}% · "
-                f"10Y {bm.get('10y')}% / 3M {bm.get('3m')}% · HY OAS {(li.get('credit') or {}).get('hy_oas_bp')}bp",
+                f"10Y {bm.get('10y')}% / 3M {bm.get('3m')}% · HY OAS {(li.get('credit') or {}).get('hy_oas_bp')}bp" + m8_txt,
                 [{"label": "CUBE-LEI", "value": f"{li.get('cube_lei_index')}", "highlight": True},
-                 {"label": "침체확률", "value": f"{pr.get('probability_used')}%"}])
+                 {"label": "침체확률", "value": f"{pr.get('probability_used')}%"}]
+                + ([{"label": "CUBE-M8", "value": f"{m8.get('index')} ({m8.get('regime_ko')})",
+                     "highlight": True}, {"label": "M8 노출", "value": f"{m8.get('linear_exposure_scale')}"}]
+                   if m8.get("z") is not None else []))
     if aid == 5:
         cf = a.get("credit_flow") or {}
         si = a.get("superinvestor_13f") or {}

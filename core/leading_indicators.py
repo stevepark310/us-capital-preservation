@@ -624,6 +624,14 @@ def compute(snapshot: Dict[str, Any] = None, force: bool = False, quiet: bool = 
     if not quiet:
         print(f"✅ CUBE-LEI {lei_index} (z {composite_z:+.2f}, {regime_ko}) P(침체) "
               f"{probit['probability_used']}% · 성분 {len(avail)}/{len(components)}")
+    # --- CUBE-M8(8대 거시·자산 선행지표) 핸드오프 ---
+    # 수집·계산은 scripts/sync_macro_leading.py(4시간 주기 워크플로)가 담당하고,
+    # 여기서는 발행본만 붙인다 — 10분 펄스에서 FRED·Yahoo를 다시 때리지 않는다.
+    try:
+        from core import macro_leading
+        macro_leading.attach_to_lei(out)
+    except Exception as exc:                                     # noqa: BLE001
+        out["macro8"] = {"error": f"CUBE-M8 import 실패: {type(exc).__name__}"}
     return out
 
 

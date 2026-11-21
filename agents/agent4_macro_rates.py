@@ -134,6 +134,13 @@ class MacroRatesAgent(BaseAgent):
         lei_factor = (leading.get("policy") or {}).get("max_gross_exposure_factor", 1.0)
         safe_for_lvrg = bool(base_safe and lei_factor >= 0.7)
 
+        # ---- CUBE-M8(8대 거시·자산 선행지표) — 대시보드·다른 에이전트가 같이 읽는다
+        m8 = leading.get("macro8") or {}
+        m8_scale = m8.get("linear_exposure_scale")
+        if m8.get("z") is not None and m8_scale is not None:
+            # M8은 shadow가 기본 — 계수를 보고하되 레버리지 게이트를 강제로 바꾸지 않는다.
+            safe_for_lvrg = bool(safe_for_lvrg and float(m8_scale) >= 0.5)
+
         # ---- what the other agents must consume
         handoff = {
             "lei_index": lei.get("index"),
@@ -149,6 +156,14 @@ class MacroRatesAgent(BaseAgent):
             "bond_duration_stance": (leading.get("policy") or {}).get("bond_duration_stance"),
             "fx_regime": (leading.get("fx") or {}).get("krw_regime"),
             "crypto_weekend_alert": (leading.get("policy") or {}).get("crypto_weekend_alert"),
+            "macro8_z": m8.get("z"),
+            "macro8_index": m8.get("index"),
+            "macro8_regime": m8.get("regime"),
+            "macro8_exposure_scale": m8_scale,
+            "macro8_mode": (m8.get("policy") or {}).get("mode"),
+            "macro8_note": ("8대 선행지표 노출 계수는 shadow — 보고·참고용, 주문 크기 미반영"
+                            if (m8.get("policy") or {}).get("enabled_for_sizing") is not True else
+                            "8대 선행지표 노출 계수가 진입 예산에 반영됨"),
         }
 
         self.output_data = {
@@ -173,6 +188,7 @@ class MacroRatesAgent(BaseAgent):
                 "methodology": (leading.get("methodology") or {}),
                 "references": (leading.get("methodology") or {}).get("references", []),
                 "notes": leading.get("notes"),
+                "macro8": m8,
             },
 
             # 2) 미국 국채/채권

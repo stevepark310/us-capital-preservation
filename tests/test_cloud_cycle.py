@@ -71,6 +71,7 @@ def test_pulse_runs_collab_and_writes_status(sandbox, monkeypatch):
     out = cc.pulse_cycle()
     names = [c[0] for c in calls]
     assert names == ["원장 동기화", "유령 포지션 점검", "집행 상태 최신화", "가격 캐시 갱신",
+                     "선행지표 동기화(M8)",
                      "10인 업무보고", "협업·빌드업 사이클", "성과·학습 후보 평가", "퀀트 포트폴리오 위험 감시", "대시보드 렌더"]
     saved = json.loads((tmp / "cloud_status.json").read_text(encoding="utf-8"))
     assert saved["pulse"]["result"] == "OK"

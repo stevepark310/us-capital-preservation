@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "engine": "CUBE-M8",
+  "mode": "shadow",
+  "enabled_for_sizing": false,
+  "exposure_linear": {"intercept": 0.75, "slope": 0.25, "floor": 0.35, "cap": 1.0},
+  "entry_filter": {"enabled": false, "min_z": -1.0, "note": "이진 진입 차단은 OOS에서 성과가 더 나빴다(BINARY 계열) — 쓰지 않는다."},
+  "applies_to": "진입 예산·건당 리스크 상한(core/autotrader.py의 risk_scale)에 곱하는 계수",
+  "staged_rollout": {
+    "step_1": "shadow — 계산·보고만(현재). 주문 크기 불변.",
+    "step_2": "advisory — 대시보드·에이전트 보고에 계수를 표기하고, 집행관이 참고(주문 불변).",
+    "step_3": "active — 승인 후 예산에 실제 곱. 한도: 계수 하한 0.35(최대 65% 축소)."
+  },
+  "evidence": {
+    "backtest": "data/macro_leading_backtest.json",
+    "report": "docs/macro_leading.md",
+    "oos_window": "2022-01-03 ~ 2026-11-19",
+    "headline_ko": "SMA200 위에 M8 선형 노출을 얹으면 OOS Sharpe 1.32→1.37(SPY), 0.96→1.01(SOXX), 0.90→0.96(SOXL)이고 MDD는 SOXX -39.6%→-27.4%, SOXL -86.4%→-69.8%로 줄었다. 다만 SPY CAGR은 15.3%→12.2%로 낮아진다(노출 축소의 대가). IC t=2.57이지만 부호 안정성 47.6%로 낮아, 규칙 강제 전에는 동훈님 판단이 필요하다."
+  },
+  "last_review_kst": "2026-11-21 11:30:00",
+  "note": "동훈님 원칙(11-20 16:01): 백테스트로 신뢰할 결과를 만든 뒤 적용. 기본값은 shadow이며, enabled_for_sizing=true로 바꾸는 것은 실전 사이징 변경이므로 사용자 승인 후에만 한다. config/live_execution_gate.json·config/open_exit_plan.json은 이 정책과 무관하며 건드리지 않는다."
+}

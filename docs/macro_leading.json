@@ -1,0 +1,961 @@
+{
+  "engine": "CUBE-M8 v1",
+  "generated_at_kst": "2026-11-21 11:15:17",
+  "as_of": "2026-11-19",
+  "extra_lag_days": 0,
+  "composite": {
+    "z": -0.48,
+    "index": 95.2,
+    "index_scale": "100 = 장기추세, 1σ = 10pt (OECD CLI 진폭조정과 동일 규약)",
+    "score": 31.5,
+    "score_scale": "0-100 (표준정규 CDF)",
+    "change_20d": -0.005,
+    "change_3m": -0.57,
+    "equal_weight_z": -0.532,
+    "regime": "SLOWDOWN",
+    "regime_ko": "둔화",
+    "sign_source": "IS_FIT",
+    "sign_source_note": "성분 부호를 IS(2015-2021) IC로 재적합한 값(data/macro_leading_signs.json). OOS(2022~)에서 별도 검증됨.",
+    "step_exposure_scale": 0.55,
+    "linear_exposure_scale": 0.63,
+    "applied_exposure_scale": 1.0,
+    "components_available": 21,
+    "components_total": 21,
+    "monthly_history": [
+      {
+        "month": "2024-12",
+        "z": 0.107
+      },
+      {
+        "month": "2025-01",
+        "z": 0.215
+      },
+      {
+        "month": "2025-02",
+        "z": 0.338
+      },
+      {
+        "month": "2025-03",
+        "z": 0.335
+      },
+      {
+        "month": "2025-04",
+        "z": 0.618
+      },
+      {
+        "month": "2025-05",
+        "z": 0.304
+      },
+      {
+        "month": "2025-06",
+        "z": 0.502
+      },
+      {
+        "month": "2025-07",
+        "z": 0.024
+      },
+      {
+        "month": "2025-08",
+        "z": 0.038
+      },
+      {
+        "month": "2025-09",
+        "z": 0.205
+      },
+      {
+        "month": "2025-10",
+        "z": 0.054
+      },
+      {
+        "month": "2025-11",
+        "z": 0.159
+      },
+      {
+        "month": "2025-12",
+        "z": 0.041
+      },
+      {
+        "month": "2026-01",
+        "z": 0.18
+      },
+      {
+        "month": "2026-02",
+        "z": 0.375
+      },
+      {
+        "month": "2026-03",
+        "z": 0.228
+      },
+      {
+        "month": "2026-04",
+        "z": -0.237
+      },
+      {
+        "month": "2026-05",
+        "z": -0.602
+      },
+      {
+        "month": "2026-06",
+        "z": -0.469
+      },
+      {
+        "month": "2026-07",
+        "z": -0.093
+      },
+      {
+        "month": "2026-08",
+        "z": -0.004
+      },
+      {
+        "month": "2026-09",
+        "z": -0.461
+      },
+      {
+        "month": "2026-10",
+        "z": -0.405
+      },
+      {
+        "month": "2026-11",
+        "z": -0.48
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "key": "crypto",
+      "name": "비트코인",
+      "name_en": "Crypto / Liquidity",
+      "icon": "₿",
+      "weight": 0.1,
+      "why": "24/7 유동성·위험선호의 가장 빠른 대리지표(주말에도 거래되는 유일한 위험자산)",
+      "z": 0.28,
+      "direction": "RISK_ON",
+      "contribution": 0.028,
+      "members": [
+        {
+          "key": "btc_mom_60d",
+          "label": "비트코인 60일 모멘텀",
+          "source": "Yahoo BTC-USD",
+          "freq": "daily",
+          "sign": 1,
+          "sign_effective": -1,
+          "sign_fit_flipped": true,
+          "transform": "mom(60)",
+          "lag_days": 0,
+          "known_from": "2026-11-21",
+          "last_period": "2026-11-21",
+          "latest_value": -31.9847,
+          "z_unsigned": -1.71,
+          "z_signed": 1.32,
+          "available": true
+        },
+        {
+          "key": "btc_trend_200d",
+          "label": "비트코인 200일선 괴리",
+          "source": "Yahoo BTC-USD",
+          "freq": "daily",
+          "sign": 1,
+          "sign_effective": 1,
+          "sign_fit_flipped": false,
+          "transform": "trend_dev(200)",
+          "lag_days": 0,
+          "known_from": "2026-11-21",
+          "last_period": "2026-11-21",
+          "latest_value": -18.7902,
+          "z_unsigned": -1.12,
+          "z_signed": -0.92,
+          "available": true
+        },
+        {
+          "key": "btc_vol_20d",
+          "label": "비트코인 20일 실현변동성",
+          "source": "Yahoo BTC-USD",
+          "freq": "daily",
+          "sign": -1,
+          "sign_effective": 1,
+          "sign_fit_flipped": true,
+          "transform": "vol(20)",
+          "lag_days": 0,
+          "known_from": "2026-11-21",
+          "last_period": "2026-11-21",
+          "latest_value": 41.7223,
+          "z_unsigned": 0.57,
+          "z_signed": 0.43,
+          "available": true
+        }
+      ]
+    },
+    {
+      "key": "gold",
+      "name": "골드",
+      "name_en": "Gold / Real asset",
+      "icon": "🥇",
+      "weight": 0.08,
+      "why": "금/주식 상대강도 상승 = 위험회피 로테이션(안전자산 수요)",
+      "z": -0.35,
+      "direction": "RISK_OFF",
+      "contribution": -0.028,
+      "members": [
+        {
+          "key": "gold_vs_spy_60d",
+          "label": "금/주식 60일 상대강도",
+          "source": "Yahoo GC=F ÷ SPY",
+          "freq": "daily",
+          "sign": -1,
+          "sign_effective": 1,
+          "sign_fit_flipped": true,
+          "transform": "rel_mom(60)",
+          "lag_days": 0,
+          "known_from": "2026-11-20",
+          "last_period": "2026-11-20",
+          "latest_value": -18.2668,
+          "z_unsigned": -1.71,
+          "z_signed": -1.46,
+          "available": true
+        },
+        {
+          "key": "gold_vol_20d",
+          "label": "금 20일 실현변동성",
+          "source": "Yahoo GC=F",
+          "freq": "daily",
+          "sign": -1,
+          "sign_effective": 1,
+          "sign_fit_flipped": true,
+          "transform": "vol(20)",
+          "lag_days": 0,
+          "known_from": "2026-11-20",
+          "last_period": "2026-11-20",
+          "latest_value": 29.4454,
+          "z_unsigned": 1.07,
+          "z_signed": 0.77,
+          "available": true
+        }
+      ]
+    },
+    {
+      "key": "oil",
+      "name": "유가",
+      "name_en": "Crude oil",
+      "icon": "🛢",
+      "weight": 0.1,
+      "why": "Kilian(2009) — 유가 상승이 수요 견인인지 공급 충격인지 모멘텀/변동성으로 분리",
+      "z": -0.39,
+      "direction": "RISK_OFF",
+      "contribution": -0.039,
+      "members": [
+        {
+          "key": "oil_mom_20d",
+          "label": "WTI 20일 모멘텀",
+          "source": "Yahoo CL=F",
+          "freq": "daily",
+          "sign": 1,
+          "sign_effective": 1,
+          "sign_fit_flipped": false,
+          "transform": "mom(20)",
+          "lag_days": 0,
+          "known_from": "2026-11-20",
+          "last_period": "2026-11-20",
+          "latest_value": -19.0278,
+          "z_unsigned": -1.8,
+          "z_signed": -1.56,
+          "available": true
+        },
+        {
+          "key": "oil_vol_20d",
+          "label": "WTI 20일 실현변동성",
+          "source": "Yahoo CL=F",
+          "freq": "daily",
+          "sign": -1,
+          "sign_effective": 1,
+          "sign_fit_flipped": true,
+          "transform": "vol(20)",
+          "lag_days": 0,
+          "known_from": "2026-11-20",
+          "last_period": "2026-11-20",
+          "latest_value": 48.4445,
+          "z_unsigned": 0.62,
+          "z_signed": 0.77,
+          "available": true
+        }
+      ]
+    },
+    {
+      "key": "rates",
+      "name": "금리",
+      "name_en": "Rates / Curve",
+      "icon": "📐",
+      "weight": 0.22,
+      "why": "Estrella & Mishkin(1998)·Hardouvelis(1991) — 금리차·실질금리가 실물·주가를 선행",
+      "z": -0.31,
+      "direction": "RISK_OFF",
+      "contribution": -0.069,
+      "members": [
+        {
+          "key": "curve_10y2y",
+          "label": "10Y-2Y 금리차",
+          "source": "FRED T10Y2Y",
+          "freq": "daily",
+          "sign": 1,
+          "sign_effective": 1,
+          "sign_fit_flipped": false,
+          "transform": "level",
+          "lag_days": 0,
+          "known_from": "2026-11-20",
+          "last_period": "2026-11-20",
+          "latest_value": 0.29,
+          "z_unsigned": 0.18,
+          "z_signed": 0.16,
+          "available": true
+        },
+        {
+          "key": "real_rate_chg_60d",
+          "label": "10년 실질금리 60일 변화",
+          "source": "FRED DFII10",
+          "freq": "daily",
+          "sign": -1,
+          "sign_effective": -1,
+          "sign_fit_flipped": false,
+          "transform": "chg(60)",
+          "lag_days": 0,
+          "known_from": "2026-11-19",
+          "last_period": "2026-11-19",
+          "latest_value": 0.5,
+          "z_unsigned": 1.53,
+          "z_signed": -1.53,
+          "available": true
+        },
+        {
+          "key": "nominal_10y_chg_20d",
+          "label": "10년 명목금리 20일 변화",
+          "source": "FRED DGS10",
+          "freq": "daily",
+          "sign": -1,
+          "sign_effective": -1,
+          "sign_fit_flipped": false,
+          "transform": "chg(20)",
+          "lag_days": 0,
+          "known_from": "2026-11-19",
+          "last_period": "2026-11-19",
+          "latest_value": -0.09,
+          "z_unsigned": -0.43,
+          "z_signed": 0.43,
+          "available": true
+        }
+      ]
+    },
+    {
+      "key": "inflation_expectations",
+      "name": "기대인플레이션",
+      "name_en": "Breakevens",
+      "icon": "🌡",
+      "weight": 0.14,
+      "why": "손익분기 상승 = 할인율·비용 상승 압력(주식 밸류에이션 역풍)",
+      "z": 0.65,
+      "direction": "RISK_ON",
+      "contribution": 0.091,
+      "members": [
+        {
+          "key": "be5y_level",
+          "label": "5년 손익분기 수준",
+          "source": "FRED T5YIE",
+          "freq": "daily",
+          "sign": -1,
+          "sign_effective": -1,
+          "sign_fit_flipped": false,
+          "transform": "level",
+          "lag_days": 0,
+          "known_from": "2026-11-20",
+          "last_period": "2026-11-20",
+          "latest_value": 2.18,
+          "z_unsigned": -1.08,
+          "z_signed": 0.83,
+          "available": true
+        },
+        {
+          "key": "be10y_chg_60d",
+          "label": "10년 손익분기 60일 변화",
+          "source": "FRED T10YIE",
+          "freq": "daily",
+          "sign": -1,
+          "sign_effective": -1,
+          "sign_fit_flipped": false,
+          "transform": "chg(60)",
+          "lag_days": 0,
+          "known_from": "2026-11-20",
+          "last_period": "2026-11-20",
+          "latest_value": -0.17,
+          "z_unsigned": -1.34,
+          "z_signed": 1.26,
+          "available": true
+        },
+        {
+          "key": "be_5y5y",
+          "label": "5y5y 포워드 기대인플레(10Y-5Y)",
+          "source": "FRED T10YIE - T5YIE",
+          "freq": "daily",
+          "sign": -1,
+          "sign_effective": 1,
+          "sign_fit_flipped": true,
+          "transform": "spread_level",
+          "lag_days": 0,
+          "known_from": "2026-11-20",
+          "last_period": "2026-11-20",
+          "latest_value": -0.03,
+          "z_unsigned": 0.18,
+          "z_signed": -0.14,
+          "available": true
+        }
+      ]
+    },
+    {
+      "key": "employment",
+      "name": "고용",
+      "name_en": "Labor",
+      "icon": "👷",
+      "weight": 0.16,
+      "why": "Stock & Watson(1989) — 고용·실업청구는 경기 정점/저점의 후행·확인 신호",
+      "z": -0.83,
+      "direction": "RISK_OFF",
+      "contribution": -0.133,
+      "members": [
+        {
+          "key": "payrolls_3m",
+          "label": "비농업고용 3개월 평균 증가(천명)",
+          "source": "FRED PAYEMS",
+          "freq": "monthly",
+          "sign": 1,
+          "sign_effective": -1,
+          "sign_fit_flipped": true,
+          "transform": "diff_avg(3)",
+          "lag_days": 7,
+          "known_from": "2026-11-07",
+          "last_period": "2026-10-01",
+          "latest_value": 137.0,
+          "z_unsigned": 1.0,
+          "z_signed": -1.0,
+          "available": true
+        },
+        {
+          "key": "unrate_3m_chg",
+          "label": "실업률 3개월 변화(%p)",
+          "source": "FRED UNRATE",
+          "freq": "monthly",
+          "sign": -1,
+          "sign_effective": -1,
+          "sign_fit_flipped": false,
+          "transform": "chg(3)",
+          "lag_days": 7,
+          "known_from": "2026-11-07",
+          "last_period": "2026-10-01",
+          "latest_value": 0.0,
+          "z_unsigned": -0.27,
+          "z_signed": 0.27,
+          "available": true
+        },
+        {
+          "key": "claims_4wk_yoy",
+          "label": "신규청구 4주평균 YoY",
+          "source": "FRED ICSA",
+          "freq": "weekly",
+          "sign": -1,
+          "sign_effective": 1,
+          "sign_fit_flipped": true,
+          "transform": "yoy_weekly",
+          "lag_days": 6,
+          "known_from": "2026-11-20",
+          "last_period": "2026-11-14",
+          "latest_value": -12.0133,
+          "z_unsigned": -1.46,
+          "z_signed": -1.77,
+          "available": true
+        }
+      ]
+    },
+    {
+      "key": "cpi",
+      "name": "소비자물가",
+      "name_en": "CPI",
+      "icon": "🧾",
+      "weight": 0.1,
+      "why": "CPI 모멘텀은 연준 정책 경로를 결정 — 정책 충격의 근원",
+      "z": -1.45,
+      "direction": "RISK_OFF",
+      "contribution": -0.145,
+      "members": [
+        {
+          "key": "cpi_yoy",
+          "label": "CPI YoY",
+          "source": "FRED CPIAUCSL",
+          "freq": "monthly",
+          "sign": -1,
+          "sign_effective": -1,
+          "sign_fit_flipped": false,
+          "transform": "yoy",
+          "lag_days": 13,
+          "known_from": "2026-11-13",
+          "last_period": "2026-10-01",
+          "latest_value": 4.0806,
+          "z_unsigned": 1.96,
+          "z_signed": -1.96,
+          "available": true
+        },
+        {
+          "key": "core_cpi_3m_ann",
+          "label": "근원 CPI 3개월 연율",
+          "source": "FRED CPILFESL",
+          "freq": "monthly",
+          "sign": -1,
+          "sign_effective": -1,
+          "sign_fit_flipped": false,
+          "transform": "ann3m",
+          "lag_days": 13,
+          "known_from": "2026-11-13",
+          "last_period": "2026-10-01",
+          "latest_value": 3.7464,
+          "z_unsigned": 0.94,
+          "z_signed": -0.94,
+          "available": true
+        }
+      ]
+    },
+    {
+      "key": "ppi",
+      "name": "생산자물가",
+      "name_en": "PPI",
+      "icon": "🏭",
+      "weight": 0.1,
+      "why": "PPI는 CPI보다 앞서 움직이는 파이프라인 물가 — 마진 압박 선행",
+      "z": -1.85,
+      "direction": "RISK_OFF",
+      "contribution": -0.185,
+      "members": [
+        {
+          "key": "ppi_fd_yoy",
+          "label": "PPI 최종수요 YoY",
+          "source": "FRED WPSFD49207",
+          "freq": "monthly",
+          "sign": -1,
+          "sign_effective": -1,
+          "sign_fit_flipped": false,
+          "transform": "yoy",
+          "lag_days": 15,
+          "known_from": "2026-11-15",
+          "last_period": "2026-10-01",
+          "latest_value": 9.2792,
+          "z_unsigned": 2.54,
+          "z_signed": -2.54,
+          "available": true
+        },
+        {
+          "key": "ppi_core_3m_ann",
+          "label": "근원 PPI 3개월 연율",
+          "source": "FRED WPSFD4131",
+          "freq": "monthly",
+          "sign": -1,
+          "sign_effective": -1,
+          "sign_fit_flipped": false,
+          "transform": "ann3m",
+          "lag_days": 16,
+          "known_from": "2026-11-16",
+          "last_period": "2026-10-01",
+          "latest_value": 3.8413,
+          "z_unsigned": 0.91,
+          "z_signed": -0.91,
+          "available": true
+        },
+        {
+          "key": "ppi_cpi_gap",
+          "label": "PPI-CPI YoY 갭(마진 압박)",
+          "source": "FRED PPIACO - CPIAUCSL",
+          "freq": "monthly",
+          "sign": -1,
+          "sign_effective": -1,
+          "sign_fit_flipped": false,
+          "transform": "gap_yoy",
+          "lag_days": 15,
+          "known_from": "2026-11-15",
+          "last_period": "2026-10-01",
+          "latest_value": 8.7096,
+          "z_unsigned": 2.09,
+          "z_signed": -2.09,
+          "available": true
+        }
+      ]
+    }
+  ],
+  "market_outlook": {
+    "horizon_days": 20,
+    "source": "IS logit 캘리브레이션(In-Sample 적합 → OOS 별도 보고)",
+    "p_up": 65.6,
+    "expected_return_pct": 0.24
+  },
+  "policy": {
+    "mode": "shadow",
+    "enabled_for_sizing": false,
+    "risk_scale_if_enabled": 0.63,
+    "risk_scale_applied": 1.0,
+    "formula": "scale = clip(0.75 + 0.25·z, 0.35, 1.0) — 진입 예산·건당 리스크 상한에 곱함",
+    "entry_filter": {
+      "enabled": false,
+      "min_z": -1.0,
+      "note": "이진 진입 차단은 OOS에서 성과가 더 나빴다(BINARY 계열) — 쓰지 않는다."
+    },
+    "note": "shadow — 계산·보고만 하며 주문 크기를 바꾸지 않는다. 동훈님 승인 후 config/macro_leading_policy.json의 enabled_for_sizing을 true로.",
+    "approval_required": true,
+    "backtest_evidence": {
+      "mode": "advisory_partial",
+      "summary_ko": "OOS Sharpe 개선은 3/3(IC t 2.57, 부호 안정성 47.6%). MDD 억제 효과는 있지만 규칙으로 강제할 만큼 견고하지 않다 — 그림자(보고 전용) 유지, 실전 사이징은 동훈님 승인 없이는 반영하지 않는다. IS 전·후반 부호 일치율이 47.6%로 낮아, 부호 재적합이 표본 특성에 기대고 있을 가능성을 배제할 수 없다.",
+      "per_target": {
+        "SPY": {
+          "incumbent": "SMA200",
+          "incumbent_oos": {
+            "cagr_pct": 15.33,
+            "mdd_pct": -8.41,
+            "sharpe": 1.32,
+            "avg_exposure_pct": 75.9
+          },
+          "best_variant": "M8F_LINEAR_X_SMA200",
+          "best_oos": {
+            "cagr_pct": 12.24,
+            "mdd_pct": -7.69,
+            "sharpe": 1.37,
+            "avg_exposure_pct": 58.8
+          },
+          "sharpe_delta_vs_incumbent": 0.05,
+          "mdd_delta_pp_vs_incumbent": 0.72,
+          "cagr_delta_pp_vs_incumbent": -3.09
+        },
+        "SOXX": {
+          "incumbent": "SMA200",
+          "incumbent_oos": {
+            "cagr_pct": 29.82,
+            "mdd_pct": -39.59,
+            "sharpe": 0.96,
+            "avg_exposure_pct": 75.9
+          },
+          "best_variant": "M8F_LINEAR_X_SMA200",
+          "best_oos": {
+            "cagr_pct": 24.55,
+            "mdd_pct": -27.42,
+            "sharpe": 1.01,
+            "avg_exposure_pct": 58.8
+          },
+          "sharpe_delta_vs_incumbent": 0.05,
+          "mdd_delta_pp_vs_incumbent": 12.17,
+          "cagr_delta_pp_vs_incumbent": -5.27
+        },
+        "SOXL": {
+          "incumbent": "SMA200",
+          "incumbent_oos": {
+            "cagr_pct": 47.99,
+            "mdd_pct": -86.41,
+            "sharpe": 0.9,
+            "avg_exposure_pct": 75.9
+          },
+          "best_variant": "M8F_LINEAR_X_SMA200",
+          "best_oos": {
+            "cagr_pct": 53.72,
+            "mdd_pct": -69.83,
+            "sharpe": 0.96,
+            "avg_exposure_pct": 58.8
+          },
+          "sharpe_delta_vs_incumbent": 0.06,
+          "mdd_delta_pp_vs_incumbent": 16.58,
+          "cagr_delta_pp_vs_incumbent": 5.73
+        }
+      },
+      "oos_ic_isfit_spy": {
+        "n": 1206,
+        "pearson": 0.291,
+        "spearman": 0.233,
+        "t_nw": 2.57,
+        "directional_hit_pct": 63.0
+      },
+      "oos_ic_prior_spy": {
+        "n": 1206,
+        "pearson": 0.1511,
+        "spearman": 0.0899,
+        "t_nw": 1.31,
+        "directional_hit_pct": 50.6
+      },
+      "oos_ic_t_nw_isfit": 2.57,
+      "oos_ic_t_nw_prior": 1.31,
+      "significance_t2": true,
+      "sign_stability_rate_pct": 47.6,
+      "multiple_testing_caveat": "부호는 IS에서 성분별로 고른 값이다(21개 중 8개 뒤집힘). 선택 자체가 표본에 맞춘 것이므로 OOS 결과만을 신뢰도로 삼고, IS 전·후반 부호 일치율(sign_stability_rate_pct)을 함께 본다."
+    }
+  },
+  "methodology": {
+    "blocks": {
+      "crypto": {
+        "name": "비트코인",
+        "weight": 0.1,
+        "why": "24/7 유동성·위험선호의 가장 빠른 대리지표(주말에도 거래되는 유일한 위험자산)"
+      },
+      "gold": {
+        "name": "골드",
+        "weight": 0.08,
+        "why": "금/주식 상대강도 상승 = 위험회피 로테이션(안전자산 수요)"
+      },
+      "oil": {
+        "name": "유가",
+        "weight": 0.1,
+        "why": "Kilian(2009) — 유가 상승이 수요 견인인지 공급 충격인지 모멘텀/변동성으로 분리"
+      },
+      "rates": {
+        "name": "금리",
+        "weight": 0.22,
+        "why": "Estrella & Mishkin(1998)·Hardouvelis(1991) — 금리차·실질금리가 실물·주가를 선행"
+      },
+      "inflation_expectations": {
+        "name": "기대인플레이션",
+        "weight": 0.14,
+        "why": "손익분기 상승 = 할인율·비용 상승 압력(주식 밸류에이션 역풍)"
+      },
+      "employment": {
+        "name": "고용",
+        "weight": 0.16,
+        "why": "Stock & Watson(1989) — 고용·실업청구는 경기 정점/저점의 후행·확인 신호"
+      },
+      "cpi": {
+        "name": "소비자물가",
+        "weight": 0.1,
+        "why": "CPI 모멘텀은 연준 정책 경로를 결정 — 정책 충격의 근원"
+      },
+      "ppi": {
+        "name": "생산자물가",
+        "weight": 0.1,
+        "why": "PPI는 CPI보다 앞서 움직이는 파이프라인 물가 — 마진 압박 선행"
+      }
+    },
+    "member_count": 21,
+    "z": "rolling z-score(과거 창만: 일간 756거래일 / 월간 36개월 / 주간 104주), ±3 클립",
+    "publication_lag": "값은 '기간말 + lag_days'부터 사용 가능 — look-ahead 차단",
+    "composite": "Z = Σ w_block · block_z / Σ w_block (block_z = 성분 z 평균, 부호 반영)",
+    "regime": "z ≥0.75 확장(강) / ≥0.25 확장 / ≥-0.25 중립 / ≥-0.75 둔화 / ≥-1.5 수축경계 / 그 외 수축",
+    "revision_caveat": "무료 FRED CSV는 최종 개정치다. ALFRED 빈티지(API 키 필요)를 쓰지 않으므로 발표 당시 값과 다를 수 있다. YoY·3개월 변화 위주로 개정 둔감하게 설계했고, 백테스트는 +10일 추가 시차 강건성 검정을 함께 보고한다.",
+    "references": [
+      {
+        "key": "stock_watson_1989",
+        "cite": "Stock, J.H. & Watson, M.W. (1989). New Indexes of Coincident and Leading Economic Indicators. NBER Macroeconomics Annual 4, 351-394.",
+        "used_for": "다변량 표준화 확산지수(성분 z 평균) 구성"
+      },
+      {
+        "key": "stock_watson_2002",
+        "cite": "Stock, J.H. & Watson, M.W. (2002). Macroeconomic Forecasting Using Diffusion Indexes. JBES 20(2), 147-162.",
+        "used_for": "확산지수 예측력·IS/OOS 검증 틀"
+      },
+      {
+        "key": "estrella_mishkin_1998",
+        "cite": "Estrella, A. & Mishkin, F.S. (1998). Predicting U.S. Recessions: Financial Variables as Leading Indicators. REStat 80(1), 45-61.",
+        "used_for": "10Y-2Y/3M 금리차 성분의 선행성"
+      },
+      {
+        "key": "estrella_hardouvelis_1991",
+        "cite": "Estrella, A. & Hardouvelis, G.A. (1991). The Term Structure as a Predictor of Real Economic Activity. Journal of Finance 46(2), 555-576.",
+        "used_for": "금리차 → 실물 선행 경로"
+      },
+      {
+        "key": "gilchrist_zakrajsek_2012",
+        "cite": "Gilchrist, S. & Zakrajšek, E. (2012). Credit Spreads and Business Cycle Fluctuations. AER 102(4), 1692-1720.",
+        "used_for": "신용경로(백테스트 벤치마크 CUBE-LEI3에 포함)"
+      },
+      {
+        "key": "kilian_2009",
+        "cite": "Kilian, L. (2009). Not All Oil Price Shocks Are Alike. AER 99(3), 1053-1069.",
+        "used_for": "유가 블록을 모멘텀(수요)과 변동성(공급충격)으로 분리"
+      },
+      {
+        "key": "gurkaynak_sack_wright_2010",
+        "cite": "Gürkaynak, R., Sack, B. & Wright, J. (2010). The TIPS Yield Curve and Inflation Compensation. Journal of Applied Econometrics.",
+        "used_for": "손익분기 인플레이션 = 기대인플레 + 위험프리미엄"
+      },
+      {
+        "key": "bernanke_kuttner_2005",
+        "cite": "Bernanke, B. & Kuttner, K. (2005). What Explains the Stock Market's Reaction to Federal Reserve Policy? Journal of Finance 60(3), 1221-1257.",
+        "used_for": "금리·실질금리 변화의 주가 할인율 경로"
+      },
+      {
+        "key": "bhardwaj_gorton_rouwenhorst_2014",
+        "cite": "Bhardwaj, G., Gorton, G. & Rouwenhorst, K.G. (2014). Fooling Some of the People All of the Time: The Inefficient Performance and Risk of Gold. NBER WP 20247.",
+        "used_for": "금/주식 상대강도를 위험회피 로테이션 지표로 사용"
+      }
+    ]
+  },
+  "data_provenance": {
+    "fred": {
+      "CPIAUCSL": {
+        "latest": 337.476,
+        "date": "2026-10-01",
+        "source": "FRED cache (fresh)",
+        "lag_days": 13
+      },
+      "CPILFESL": {
+        "latest": 339.9,
+        "date": "2026-10-01",
+        "source": "FRED cache (fresh)",
+        "lag_days": 13
+      },
+      "PPIACO": {
+        "latest": 293.921,
+        "date": "2026-10-01",
+        "source": "FRED cache (fresh)",
+        "lag_days": 15
+      },
+      "WPSFD49207": {
+        "latest": 288.52,
+        "date": "2026-10-01",
+        "source": "FRED cache (fresh)",
+        "lag_days": 15
+      },
+      "WPSFD4131": {
+        "latest": 272.948,
+        "date": "2026-10-01",
+        "source": "FRED cache (fresh)",
+        "lag_days": 16
+      },
+      "PAYEMS": {
+        "latest": 159293.0,
+        "date": "2026-10-01",
+        "source": "FRED cache (fresh)",
+        "lag_days": 7
+      },
+      "UNRATE": {
+        "latest": 4.1,
+        "date": "2026-10-01",
+        "source": "FRED cache (fresh)",
+        "lag_days": 7
+      },
+      "ICSA": {
+        "latest": 203000.0,
+        "date": "2026-11-14",
+        "source": "FRED cache (fresh)",
+        "lag_days": 6
+      },
+      "T5YIE": {
+        "latest": 2.18,
+        "date": "2026-11-20",
+        "source": "FRED cache (fresh)",
+        "lag_days": 0
+      },
+      "T10YIE": {
+        "latest": 2.15,
+        "date": "2026-11-20",
+        "source": "FRED cache (fresh)",
+        "lag_days": 0
+      },
+      "DFII10": {
+        "latest": 2.88,
+        "date": "2026-11-19",
+        "source": "FRED cache (fresh)",
+        "lag_days": 0
+      },
+      "DGS10": {
+        "latest": 5.04,
+        "date": "2026-11-19",
+        "source": "FRED cache (fresh)",
+        "lag_days": 0
+      },
+      "DGS2": {
+        "latest": 4.76,
+        "date": "2026-11-19",
+        "source": "FRED cache (fresh)",
+        "lag_days": 0
+      },
+      "T10Y2Y": {
+        "latest": 0.29,
+        "date": "2026-11-20",
+        "source": "FRED cache (fresh)",
+        "lag_days": 0
+      },
+      "T10Y3M": {
+        "latest": 0.6,
+        "date": "2026-11-20",
+        "source": "FRED cache (fresh)",
+        "lag_days": 0
+      },
+      "DCOILWTICO": {
+        "latest": 89.53,
+        "date": "2026-11-17",
+        "source": "FRED cache (fresh)",
+        "lag_days": 1
+      }
+    },
+    "prices": {
+      "BTC-USD": {
+        "available": true,
+        "bars": 4448,
+        "last_date": "2026-11-21",
+        "last": 58903.1914
+      },
+      "GC=F": {
+        "available": true,
+        "bars": 6583,
+        "last_date": "2026-11-20",
+        "last": 3539.0
+      },
+      "CL=F": {
+        "available": true,
+        "bars": 6591,
+        "last_date": "2026-11-20",
+        "last": 83.62
+      },
+      "SPY": {
+        "available": true,
+        "bars": 8511,
+        "last_date": "2026-11-19",
+        "last": 715.87
+      },
+      "QQQ": {
+        "available": true,
+        "bars": 6969,
+        "last_date": "2026-11-19",
+        "last": 645.04
+      },
+      "SOXX": {
+        "available": true,
+        "bars": 6377,
+        "last_date": "2026-11-19",
+        "last": 137.95
+      },
+      "SOXL": {
+        "available": true,
+        "bars": 4201,
+        "last_date": "2026-11-19",
+        "last": 45.3
+      },
+      "TQQQ": {
+        "available": true,
+        "bars": 4220,
+        "last_date": "2026-11-19",
+        "last": 49.01
+      },
+      "SGOV": {
+        "available": true,
+        "bars": 1628,
+        "last_date": "2026-11-19",
+        "last": 100.61
+      },
+      "BIL": {
+        "available": true,
+        "bars": 4902,
+        "last_date": "2026-11-19",
+        "last": 91.57
+      },
+      "HYG": {
+        "available": true,
+        "bars": 4936,
+        "last_date": "2026-11-19",
+        "last": 76.53
+      },
+      "IEF": {
+        "available": true,
+        "bars": 6118,
+        "last_date": "2026-11-19",
+        "last": 90.82
+      }
+    },
+    "hardcoded_values": false
+  },
+  "notes": []
+}

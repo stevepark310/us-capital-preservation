@@ -819,6 +819,9 @@ class AutonomousTrader:
         vix = (integrity.get("vix") or {}).get("gate") or vix_raw
         vix_scale = execution_policy.vix_scale(vix, self.policy)
         risk_scale = float(params.get("risk_scale") or 1.0)
+        # CUBE-M8 거시 선행지표 노출 계수 — shadow(기본)에서는 1.0이라 주문 크기 불변.
+        macro8_scale, _macro8_meta = _macro8_gate()
+        risk_scale *= macro8_scale
         budget_info = execution_policy.entry_budget(equity, cash, self.policy, vix_scale * risk_scale)
         budget = float(budget_info["budget_usd"])
 
@@ -1267,7 +1270,7 @@ def refresh_status(by: str = "pulse") -> Dict[str, Any]:
     except Exception:
         vix = None
     desc = execution_policy.describe(policy, equity, cash, vix,
-                                     extra_scale=float(params.get("risk_scale") or 1.0))
+                                     extra_scale=float(params.get("risk_scale") or 1.0) * _macro8_gate()[0])
 
     helper = AutonomousTrader(policy=policy, dry_run=True)
     positions = {tk: {"qty": exit_rules.remaining_qty(b), "entry": b.get("entry_price"),
@@ -1295,6 +1298,7 @@ def refresh_status(by: str = "pulse") -> Dict[str, Any]:
         "positions": positions,
         "strategy_params": {k: params.get(k) for k in ("trail_atr_mult", "initial_sl_atr_mult",
                                                        "risk_scale", "defensive_mode", "entry_filters")},
+        "macro8_gate": _macro8_gate()[1],
         "c5_pilot": helper._c5_status(st, brackets, clock),
         "ledger": {"equity_usd": equity, "cash_usd": cash},
         "next_gate": helper._next_gate(clock, st),
@@ -1309,6 +1313,20 @@ def refresh_status(by: str = "pulse") -> Dict[str, Any]:
     status["elapsed_sec"] = prev.get("elapsed_sec", 0.0)
     _save(STATUS_PATH, status)
     return status
+
+
+def _macro8_gate() -> tuple:
+    """CUBE-M8 거시 선행지표 진입 노출 계수.
+
+    기본 설정(config/macro_leading_policy.json → enabled_for_sizing=false)에서는
+    **1.0**을 돌려주므로 주문 크기가 전혀 바뀌지 않는다. 계수·국면은 메타로 남겨
+    대시보드·보고에 쓰고, 실전 반영은 동훈님 승인 후에만.
+    """
+    try:
+        from core import macro_leading
+        return macro_leading.risk_scale()
+    except Exception as exc:                                     # noqa: BLE001
+        return 1.0, {"mode": "unavailable", "error": type(exc).__name__, "applied_scale": 1.0}
 
 
 def _age_min_of(ts: Optional[str], unit: str = "min") -> Optional[float]:
