@@ -1683,8 +1683,18 @@
           "to": true
         }
       },
-      "status": "MEASURED",
-      "decisions": [],
+      "status": "RECOMMENDED",
+      "decisions": [
+        {
+          "at_kst": "2026-11-21 14:21:33",
+          "decision": "RECOMMENDED",
+          "by": 0,
+          "reasons": [
+            "게이트 통과 — 실행 스위치 config/regime_policy.json 승인 대기"
+          ],
+          "switch": "config/regime_policy.json"
+        }
+      ],
       "data_fingerprint": null,
       "data_as_of": "2026-11-17",
       "measurement": {
@@ -1891,6 +1901,20 @@
           }
         ],
         "reason": "OOS 기대값·PF·MDD·표본 기준 충족"
+      },
+      "execution_link": {
+        "switch": "config/regime_policy.json → enabled (+ approved_by)",
+        "auto": false,
+        "effect": "V2 레짐 차단·사이징 — 승인 후 다음 사이클부터",
+        "approval": "사용자 승인 필요(approved_by·approved_at_kst)",
+        "path": "config/regime_policy.json",
+        "key": "enabled",
+        "value": false,
+        "approved_by": null,
+        "in_effect": false,
+        "hypothesis": "H-0009",
+        "gate_pass": true,
+        "next_action_ko": "스위치 변경 대기 — config/regime_policy.json → enabled (+ approved_by) (승인: 사용자 승인 필요(approved_by·approved_at_kst))"
       }
     },
     {
@@ -2729,18 +2753,18 @@
     "pct_b_max": 0.15,
     "rvol_min": 1.0
   },
-  "updated_at_kst": "2026-11-21 13:41:46",
+  "updated_at_kst": "2026-11-21 14:21:33",
   "counters": {
     "hypotheses": 13,
     "applied": 0,
-    "recommended": 0,
+    "recommended": 1,
     "held": 12,
     "rejected": 0,
-    "open": 1,
+    "open": 0,
     "improvements": 0,
     "by_status": {
       "HELD": 12,
-      "MEASURED": 1
+      "RECOMMENDED": 1
     }
   },
   "hard_lock": {
@@ -2761,8 +2785,13 @@
       "guardrails.no_averaging_down": "== True",
       "vix_riskoff_28": "== 0.0",
       "nvda_levels_locked": "== {'tp': 173.0, 'sl': 150.0}",
-      "premarket_enabled": "== False",
       "universe": "== ['SOXL', 'TQQQ', 'SOXS', 'SQQQ']"
+    },
+    "premarket_rule": {
+      "key": "premarket_enabled",
+      "expected": "승인 기록(approved_by·approved_at_kst)과 함께 true",
+      "note": "스위치만 켜고 승인 기록이 없으면 하드락 위반으로 보고한다."
     }
-  }
+  },
+  "execution_reconciled_at_kst": "2026-11-21 14:21:33"
 }
