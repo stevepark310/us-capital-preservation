@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -343,7 +343,8 @@ def quote_fresh(quote: Dict[str, Any], clock: Dict[str, Any],
     try:
         t = datetime.fromisoformat(raw)
         if t.tzinfo is not None:
-            t = t.astimezone().replace(tzinfo=None)
+            # 러너의 시스템 시간대에 기대지 않고 KST로 고정 변환한다(UTC 러너에서 9시간 오차 방지).
+            t = t.astimezone(timezone(timedelta(hours=9))).replace(tzinfo=None)
         now = datetime.strptime(str(clock.get("now_kst") or "")[:19], "%Y-%m-%d %H:%M:%S")
     except Exception:
         return {"ok": True, "age_min": None, "reason": "시각 해석 불가 — 스냅샷 판정에 위임"}

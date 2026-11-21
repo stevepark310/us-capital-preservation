@@ -88,8 +88,8 @@ def _today_buys(path: Optional[str] = None, session_date: Optional[str] = None) 
                 continue
             if rec.get("session_date") != today or str(rec.get("side")).upper() != "BUY":
                 continue
-            if rec.get("status") in ("SUBMITTED", "DISPATCHED", "PENDING", "UNKNOWN_NEEDS_RECONCILE",
-                                     "DRY_RUN"):
+            # DRY_RUN은 미리보기라 건수 한도를 소모하지 않는다.
+            if rec.get("status") in ("SUBMITTED", "DISPATCHED", "PENDING", "UNKNOWN_NEEDS_RECONCILE"):
                 out.append(rec)
     return out
 

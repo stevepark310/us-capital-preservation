@@ -217,7 +217,3 @@ def sizing_trace(cand: Dict[str, Any], sizing: Dict[str, Any],
         "gate_notes": gates or [],
     }
 
-
-def write(path: Optional[str] = None) -> str:
-    p = path or os.path.join(DATA, "decision_attribution.json")
-    return p
