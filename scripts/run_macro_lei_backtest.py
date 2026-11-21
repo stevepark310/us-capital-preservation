@@ -459,6 +459,8 @@ def run_backtest(force: bool = False, quiet: bool = False) -> Dict[str, Any]:
 
     oos_ic_spy = (ic.get("SPY") or {}).get("isfit", {}).get("oos") or {}
     oos_ic_prior = (ic.get("SPY") or {}).get("prior", {}).get("oos") or {}
+    ic_qqq = (ic.get("QQQ") or {}).get("isfit", {}).get("oos") or {}
+    ic_soxx = (ic.get("SOXX") or {}).get("isfit", {}).get("oos") or {}
     n_beat = sum(1 for v in per_target.values() if (v["sharpe_delta_vs_incumbent"] or 0) > 0.02)
     t_isfit = oos_ic_spy.get("t_nw") or 0
     significant = bool(t_isfit >= 2.0)
@@ -501,8 +503,9 @@ def run_backtest(force: bool = False, quiet: bool = False) -> Dict[str, Any]:
                                  "(market_outlook은 기준율만 표시).")})
 
     conclusion = [
-        f"OOS(2022-01~) SPY 20일 IC: 사전부호 {oos_ic_prior.get('pearson')} (t {oos_ic_prior.get('t_nw')}) · "
-        f"IS재적합 {oos_ic_spy.get('pearson')} (t {oos_ic_spy.get('t_nw')}).",
+        f"OOS(2022-01~) 20일 IC — SPY {oos_ic_spy.get('pearson')} (t {oos_ic_spy.get('t_nw')}) · "
+        f"QQQ {ic_qqq.get('pearson')} (t {ic_qqq.get('t_nw')}) · SOXX {ic_soxx.get('pearson')} (t {ic_soxx.get('t_nw')}) "
+        f"— 사전부호 그대로는 SPY {oos_ic_prior.get('pearson')} (t {oos_ic_prior.get('t_nw')})로 유의하지 않았다.",
         f"SMA200 대비 OOS Sharpe 개선 타깃 {n_beat}/{len(per_target)}.",
         summary,
     ]
@@ -610,10 +613,15 @@ def _write_md(out: Dict[str, Any]) -> None:
               "| 블록 | IS IC | IS t | OOS IC | OOS t | 해석 |", "|---|---:|---:|---:|---:|---|"]
     for k, v in out["block_ic"].items():
         isic, oosic = v.get("is") or {}, v.get("oos") or {}
-        ok = (isic.get("pearson") or 0) > 0 and (oosic.get("pearson") or 0) > 0
+        a, b = (isic.get("pearson") or 0), (oosic.get("pearson") or 0)
+        if a > 0 and b > 0:
+            verdict_txt = "사전부호 유지(IS·OOS 일치)"
+        elif a < 0 and b < 0:
+            verdict_txt = "부호 반전이 안정적(IS·OOS 모두 음)"
+        else:
+            verdict_txt = "IS·OOS 불일치(불안정)"
         lines.append(f"| {k} | {_fmt(isic.get('pearson'), 3)} | {_fmt(isic.get('t_nw'))} | "
-                     f"{_fmt(oosic.get('pearson'), 3)} | {_fmt(oosic.get('t_nw'))} | "
-                     f"{'IS·OOS 동일 방향' if ok else 'IS·OOS 불일치'} |")
+                     f"{_fmt(oosic.get('pearson'), 3)} | {_fmt(oosic.get('t_nw'))} | {verdict_txt} |")
     lines += ["", "## 3. 성과 비교 (OOS, 2022~)", ""]
     for target, block in out["results"].items():
         lines += [f"### {target}", "",
