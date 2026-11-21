@@ -59,6 +59,8 @@ def buildup_block(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     last = imps[-1] if imps else {}
     lock = doc.get("hard_lock") or {}
     entry_filters = ((params or {}).get("entry_filters") or {}) if isinstance(params, dict) else {}
+    cycle = _load(os.path.join(DATA, "collab_cycle.json"), {}) or {}
+    validation = cycle.get("validation") or {}
     return {
         "entry_filters": entry_filters,
         "entry_filters_applied": bool(entry_filters),
@@ -66,6 +68,12 @@ def buildup_block(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         "hypotheses": (doc.get("counters") or {}).get("hypotheses"),
         "applied_count": (doc.get("counters") or {}).get("applied"),
         "last_improvement": ({k: last.get(k) for k in ("id", "title", "applied_at_kst")} if last else None),
+        # 10인 협업·검증 결과 — 주문 판단 시점에 마지막으로 돌아간 사이클
+        "collab": {"cycle": cycle.get("cycle"),
+                   "generated_at_kst": cycle.get("generated_at_kst"),
+                   "validation": {k: validation.get(k) for k in
+                                  ("hypothesis", "status", "gate", "applied", "delta_oos_ev_pct")},
+                   "messages_in_bus": cycle.get("messages_in_bus")},
         "hard_lock_ok": lock.get("ok"),
         "hard_lock_violations": lock.get("violations") or [],
         "source": SOURCES["buildup"],

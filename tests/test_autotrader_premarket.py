@@ -74,6 +74,7 @@ def test_premarket_entry_places_order_type_61(make_trader):
     assert attribution["macro8"]["applied_scale"] == 1.0
     assert attribution["regime_v2"]["mode"] == "shadow"
     assert attribution["buildup"]["hard_lock_ok"] is True
+    assert "collab" in attribution["buildup"]          # 10인 협업 사이클도 함께 남는다
 
 
 def test_premarket_entry_skipped_outside_window(make_trader):

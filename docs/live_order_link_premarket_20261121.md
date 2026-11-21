@@ -37,7 +37,7 @@
 |---|---|---|---|
 | `macro8` | `config/macro_leading_policy.json` + `data/macro_leading.json` | `risk_scale`에 곱함(진입 예산) | shadow = 계수 1.0 |
 | `regime_v2` | `config/regime_policy.json`(신규) + `core/regime_model.py` | CRISIS 신규 롱 차단·RISK_OFF 계수 | shadow(차단·계수 없음) |
-| `buildup` | `data/strategy_buildup.json` + `data/strategy_params.json` | 진입 필터(RSI2·%B·RVOL) 래칫 → 다음 사이클부터 집행 | 실제 적용 중 |
+| `buildup` | `data/strategy_buildup.json` + `data/strategy_params.json` + `data/collab_cycle.json` | 진입 필터(RSI2·%B·RVOL) 래칫 → 다음 사이클부터 집행. 마지막 10인 협업 사이클(번호·검증 결과)도 함께 기록 | 실제 적용 중 |
 | `risk` | `config/risk_guardrails.json` + `live_execution_gate.json` | VIX 계수·예산 binding·현금 마지노선·매도전용 | 실제 적용 |
 | `session` | `config/premarket_policy.json` + `core/session_routing.py` | 단계·호가유형·프리장 조건 | 정규장 |
 
