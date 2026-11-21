@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at_kst": "2026-11-21 07:51:17",
+  "updated_at_kst": "2026-11-21 10:49:24",
   "schedule": {
     "market_cron_utc": "4-59/10 13-21 * * 1-5",
     "pulse_cron_utc": "9-59/10 * * * *",
@@ -88,50 +88,51 @@
     }
   },
   "last_run": {
-    "workflow": "CUBE Collab Pulse (24/7)",
-    "run_id": "44832133618",
-    "event": "schedule",
+    "workflow": "CUBE Market Autotrade (10m)",
+    "run_id": "44852334027",
+    "event": "push",
     "attempt": "1",
     "runner": "github_actions",
-    "sha": "95b19b9d",
-    "at_kst": "2026-11-21 07:51:17",
-    "mode": "pulse",
-    "result": "OK"
+    "sha": "0a074f28",
+    "at_kst": "2026-11-21 10:49:24",
+    "mode": "market",
+    "result": "FAILSAFE_OVERDUE"
   },
   "market": {
-    "last_cycle_kst": "2026-11-21 06:06:23",
-    "phase": "POST_MARKET",
+    "last_cycle_kst": "2026-11-21 10:49:24",
+    "phase": "OFF_HOURS",
     "session_date": "2026-11-20",
     "kst_shift_min": 0,
     "next_open_kst": "2026-11-23 23:30 KST",
     "dry_run": true,
     "live_gate_enabled": false,
-    "live_gate_reason": "live gate disabled",
-    "note": "phase=POST_MARKET — 연체 강제청산/감시 공백 1건, 다음 정규장 즉시 청산 대상으로 기록.",
+    "live_gate_reason": "US regular session required",
+    "live_gate_sell_only": false,
+    "note": "phase=OFF_HOURS — 연체 강제청산/감시 공백 1건, 다음 정규장 즉시 청산 대상으로 기록.",
     "result": "FAILSAFE_OVERDUE",
     "seconds": 0.0,
     "failsafe": {
-      "checked_at_kst": "2026-11-21 06:06:23",
-      "phase": "POST_MARKET",
+      "checked_at_kst": "2026-11-21 10:49:24",
+      "phase": "OFF_HOURS",
       "session_date": "2026-11-20",
       "force_exit_early_min": 10,
       "overdue": [
         {
           "ticker": "SQQQ",
           "force_exit_kst": "05:40",
-          "minutes_late": 26,
+          "minutes_late": 309,
           "same_session": true,
           "qty": 1,
           "exit_rule": "chandelier_v2",
-          "phase": "POST_MARKET",
+          "phase": "OFF_HOURS",
           "severity": "CRITICAL",
           "note": "강제청산 시각 경과 — 정규장 밖이므로 다음 정규장 첫 사이클에서 즉시 청산"
         }
       ],
       "cloud": {
-        "last_market_cycle_kst": "2026-11-21 05:58:16",
-        "age_min": 8.1,
-        "phase": "POST_MARKET",
+        "last_market_cycle_kst": "2026-11-21 06:06:23",
+        "age_min": 283.0,
+        "phase": "OFF_HOURS",
         "warn": false,
         "critical": false,
         "thresholds_min": {
