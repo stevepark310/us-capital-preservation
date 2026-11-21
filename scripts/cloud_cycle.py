@@ -178,12 +178,13 @@ def _team_preflight() -> Dict[str, Any]:
 
 
 def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
-    from core import market_clock
+    from core import market_clock, session_routing
     clock = market_clock.resolve()
     t0 = time.time()
     from core.live_session_gate import check_live_gate
     gate = _load(LIVE_GATE_PATH, {})
-    gate_check = check_live_gate(gate, clock)
+    plan = session_routing.status(session_routing.load_policy())
+    gate_check = check_live_gate(gate, clock, plan=plan)
     live_enabled = gate_check["ok"]
     sell_only = bool(gate_check.get("sell_only"))
     # 대시보드에는 '이 세션에 매도 전용으로 열려 있는가'를 보여 준다 — 정규장 밖에서
@@ -194,6 +195,11 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
                             "session_date": clock.get("session_date"),
                             "kst_shift_min": clock.get("kst_shift_min"),
                             "next_open_kst": clock.get("next_open_kst"),
+                            "order_type": gate_check.get("order_type"),
+                            "session_plan": {k: plan.get(k) for k in
+                                             ("phases", "order_types", "premarket_enabled",
+                                              "after_hours_enabled", "blocked_reason",
+                                              "approved_by")},
                             "dry_run": requested_dry or not live_enabled,
                             "live_gate_enabled": live_enabled,
                             "live_gate_reason": gate_check.get("reason"),
@@ -201,8 +207,10 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
                             "note": (f"실주문 비활성 — {gate_check.get('reason')}"
                                      if not live_enabled else
                                      ("오늘 미국장 기간한정 실주문 게이트 활성 · 매도 전용(신규 매수 0건)"
-                                      if sell_only else "오늘 미국장 기간한정 실주문 게이트 활성"))}
-    if clock.get("phase") != "REGULAR":
+                                      if sell_only else
+                                      f"오늘 {clock.get('phase')} 실주문 게이트 활성 · 호가유형 "
+                                      f"{gate_check.get('order_type')}"))}
+    if clock.get("phase") not in (plan.get("phases") or ["REGULAR"]):
         # 정규장 밖이라도 '연체된 강제청산'은 계산해서 남긴다 — 종전에는 SKIPPED로 끝나
         # 05:40 청산이 통째로 사라졌다(2026-11-19 SQQQ). 다음 정규장 첫 사이클이 닫는다.
         failsafe = {}
@@ -334,10 +342,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0 if market_cycle().get("result") in ("OK", "SKIPPED_OFF_HOURS", "FAILSAFE_OVERDUE") else 1
     if mode == "pulse":
         return 0 if pulse_cycle().get("result") == "OK" else 1
+    if mode == "intervene":
+        # 즉시 개입 — 단일 진입점(scripts/intervene_trade.py)에 그대로 넘긴다.
+        # 기본은 미리보기이고 실주문은 `--execute`를 붙여야 나간다.
+        from scripts import intervene_trade
+        return intervene_trade.main(args[1:])
     if mode == "status":
         print(json.dumps(_load(CLOUD_PATH, {}), ensure_ascii=False, indent=2))
         return 0
-    print("usage: python3 scripts/cloud_cycle.py market|pulse|status")
+    print("usage: python3 scripts/cloud_cycle.py market|pulse|intervene|status")
     return 2
 
 

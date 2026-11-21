@@ -1,0 +1,119 @@
+name: CUBE Intervene (즉시 개입 1건)
+
+# 사람이 지금 바로 사고팔아야 할 때 쓰는 단일 실행 경로(2026-11-21 동훈님 지시:
+# "필요시 프리장이나 본장에 개입해서 바로바로 매매할 수 있게").
+#
+# 실행
+#   gh workflow run intervene_trade.yml -R stevepark310/us-capital-preservation \
+#     -f ticker=SOXL -f side=BUY -f qty=1 -f dry_run=false -f reason="M8 판단 반영"
+#
+# 안전
+#  * 기본값 dry_run=true — 실주문은 명시적으로 false를 줘야 나간다.
+#  * `config/live_execution_gate.json`이 이 세션을 허용해야 하고, 프리장은
+#    `config/premarket_policy.json`이 승인 기록과 함께 열려 있어야 한다.
+#  * 러너는 NH Open API가 직접 열려 있어 `OrderRouter`가 바로 발주하고,
+#    주문 직전 NH 잔고·주문가능금액·보유수량을 다시 읽는다(order_bridge preflight).
+on:
+  workflow_dispatch:
+    inputs:
+      ticker:
+        description: "종목(예: SOXL)"
+        required: true
+        type: string
+      side:
+        description: "BUY | SELL"
+        required: true
+        type: choice
+        options: [BUY, SELL]
+      qty:
+        description: "수량(비우면 예산·보유 기준 자동)"
+        required: false
+        type: string
+      price:
+        description: "지정가(비우면 실시간 시세 사용)"
+        required: false
+        type: string
+      notional:
+        description: "금액 기준 매수(달러, qty와 함께 쓰지 않음)"
+        required: false
+        type: string
+      reason:
+        description: "개입 사유(감사 로그에 남는다)"
+        required: false
+        type: string
+      dry_run:
+        description: "미리보기(주문 없음) — 실주문은 false"
+        required: true
+        type: boolean
+        default: true
+
+concurrency:
+  group: cube-repo-writer       # 다른 클라우드 작업과 동시에 쓰지 않는다
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  intervene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TZ: Asia/Seoul
+      PYTHONUNBUFFERED: "1"
+      NH_APP_KEY: ${{ secrets.NH_APP_KEY }}
+      NH_APP_SECRET: ${{ secrets.NH_APP_SECRET }}
+      NH_ACT_NO: ${{ secrets.NH_ACT_NO }}
+      NH_IS_MOCK: "false"
+      CUBE_FORCE_ACTIONS: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --quiet --upgrade pip
+          pip install --quiet -r requirements.txt
+
+      - name: Intervene (1 order)
+        env:
+          IN_TICKER: ${{ github.event.inputs.ticker }}
+          IN_SIDE: ${{ github.event.inputs.side }}
+          IN_QTY: ${{ github.event.inputs.qty }}
+          IN_PRICE: ${{ github.event.inputs.price }}
+          IN_NOTIONAL: ${{ github.event.inputs.notional }}
+          IN_REASON: ${{ github.event.inputs.reason }}
+          IN_DRY: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -e
+          ARGS=(--ticker "$IN_TICKER" --side "$IN_SIDE" --json)
+          if [ -n "$IN_QTY" ]; then ARGS+=(--qty "$IN_QTY"); fi
+          if [ -n "$IN_PRICE" ]; then ARGS+=(--price "$IN_PRICE"); fi
+          if [ -n "$IN_NOTIONAL" ]; then ARGS+=(--notional "$IN_NOTIONAL"); fi
+          if [ -n "$IN_REASON" ]; then ARGS+=(--reason "$IN_REASON"); fi
+          if [ "$IN_DRY" != "true" ]; then ARGS+=(--execute); fi
+          python3 scripts/intervene_trade.py "${ARGS[@]}"
+
+      - name: Commit & push (intervention log)
+        if: always()
+        run: |
+          set -e
+          git config user.name "cube-cloud-bot"
+          git config user.email "cube-cloud-bot@users.noreply.github.com"
+          git add data
+          if git diff --staged --quiet; then
+            echo "변경 없음 — 푸시 생략"
+            exit 0
+          fi
+          git commit -m "chore(intervene): $(TZ=Asia/Seoul date '+%m-%d %H:%M') KST 개입 기록"
+          for i in 1 2 3; do
+            if git push origin HEAD:main; then echo "pushed"; exit 0; fi
+            git pull --rebase --autostash origin main || true
+          done

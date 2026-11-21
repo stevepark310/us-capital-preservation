@@ -15,6 +15,7 @@ cd "$(dirname "$0")/.."
 
 PAIRS=(
   "execution/market_autotrade.yml.template:.github/workflows/market_autotrade.yml"
+  "execution/intervene_trade.yml.template:.github/workflows/intervene_trade.yml"
   "execution/cube_pulse.yml.template:.github/workflows/cube_pulse.yml"
   "execution/macro_leading_sync.yml.template:.github/workflows/macro_leading_sync.yml"
 )

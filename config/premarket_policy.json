@@ -1,31 +1,93 @@
 {
   "enabled": false,
-  "version": 1,
+  "version": 2,
   "decided_at": "2026-11-18",
+  "updated_at": "2026-11-21",
   "decided_by": "백테스트 결과에 따른 권고안 — 실주문 활성화는 사용자 승인 필요",
-  "reason": "2026-11-18 한국증시↔프리장 백테스트에서 프리장 진입 전략의 왕복비용(0.44%) 차감 후 기대값이 음수였고, 한국장 정보는 04:00 ET 프리장 시가 갭에 이미 반영됨(5년 일봉 기준 갭 β 0.766·R² 0.196, 개장 후 장중 β 0.0077·R² 0.000). 프리장 실주문 자동화는 도입하지 않고 모니터링·알림 전용으로 운용한다.",
-  "evidence": {
-    "report": "docs/kr_to_us_premarket_research_20261118.md",
-    "result_json": "docs/kr_us_premarket_research.json",
-    "calibration": "config/kr_signal_calibration.json",
-    "backtest_sessions_60m": 681,
-    "backtest_sessions_daily_5y": 1178,
+  "approved_by": null,
+  "approved_at_kst": null,
+  "reason": "프리장 실주문은 코드·경로·방어장치는 모두 준비됐지만, 2026-11-21 재검증에서 OOS t>=2.0을 만족하는 조건이 없어 자동 활성화하지 않는다. 종전 2026-11-18 결론(조건 없는 프리장 진입 기대값 음수, 한국장 정보는 04:00 ET 갭에 이미 반영)은 그대로 유효하다. 사용자가 승인하면 approved_by·approved_at_kst를 채우고 enabled를 true로 바꾸는 것만으로 켜진다.",
+  "validation": {
+    "generated_at_kst": "2026-11-21",
+    "report": "docs/live_order_link_premarket_20261121.md",
+    "result_json": "docs/premarket_intervention_20261121.json",
+    "sample_sessions": 729,
+    "window": "2023-12-20 ~ 2026-11-17 (60분봉, 프리장 포함)",
+    "is_oos_cut": "2026-01-02",
     "round_trip_cost_pct": 0.44,
-    "world_baseline_ev_pct_per_trade": -0.35
+    "best_condition_ko": "DIP_SWING_DAILY 신호 + 04:00 ET 진입 + 1세션 보유 + 추격 금지(갭 +1% 이하)",
+    "best_condition": {
+      "entry_et": "04:00",
+      "horizon_sessions": 1,
+      "gap_cap_pct": 1.0,
+      "all_n": 67,
+      "all_ev_pct": 1.7355,
+      "all_t": 1.55,
+      "oos_n": 31,
+      "oos_ev_pct": 2.0179,
+      "oos_t": 1.13,
+      "oos_vs_regular_open_delta_pct": 0.8496,
+      "oos_vs_regular_open_t": 1.01
+    },
+    "negative_results": {
+      "hedge_premarket_entry_ko": "헤지(SOXS·SQQQ)를 프리장에 미리 사면 정규장 시가 대비 OOS -0.89%p(t -2.02)로 유의하게 나빴다 — 헤지는 정규장 개장 후에 진입한다.",
+      "binary_regime_filter_ko": "RISK_ON·NEUTRAL 국면에서만 진입하면 오히려 기대값이 떨어졌다(IS -2.77%, OOS +0.43%) — DIP 신호는 고변동 국면에서 더 잘 작동한다."
+    },
+    "verdict_ko": "OOS t>=2.0 미달 → 자동 개입은 보류. 표본이 더 쌓이면(신호 100건 이상 OOS) 재검증 후 승인 권고."
   },
   "supported_order_types": {
     "00": "정규장 지정가 (기본값, 기존 동작)",
     "61": "프리마켓 지정가 (KST 18:00~23:30 / ET 04:00~09:30)",
     "62": "애프터마켓 지정가 (KST 06:00~07:50 / ET 16:00~20:00)"
   },
+  "entry_conditions": {
+    "allow_sources": [
+      "DIP_SWING_DAILY"
+    ],
+    "block_regimes": [
+      "CRISIS"
+    ],
+    "allow_risk_off": false,
+    "max_gap_chase_pct": 1.0,
+    "window_et": [
+      "04:00",
+      "09:00"
+    ],
+    "max_budget_usd": 60.0,
+    "max_orders_per_session": 2,
+    "max_slippage_bps": 15,
+    "min_price_usd": 5.0,
+    "max_quote_age_min": 6.0,
+    "why": "2026-11-21 백테스트에서 유일하게 IS·OOS 모두 양(+)이던 조건은 'DIP 신호 + 추격 금지 + 1세션 보유'였다. 헤지(BEAR_ALPHA)는 프리장 진입이 개장 대비 유의하게 나빠 제외했다. RISK_OFF 국면은 국면 필터를 걸면 기대값이 오히려 떨어졌지만(IS -2.77%%, OOS +0.43%%) 표본이 갈려 판단을 보류하고 보수적으로 막아 둔다 — 승인 시 재확인 필요."
+  },
+  "after_hours": {
+    "enabled": false,
+    "window_et": [
+      "16:00",
+      "20:00"
+    ],
+    "max_budget_usd": 40.0,
+    "max_orders_per_session": 1,
+    "max_slippage_bps": 25
+  },
   "enable_requirements": [
-    "동훈님 명시 승인(채팅 또는 카드 버튼)",
+    "동훈님 명시 승인(approved_by·approved_at_kst 기록) — 파일에 기록하지 않으면 enabled=true여도 열리지 않는다(core/session_routing.approval_state)",
     "표본 외(rolling out-of-sample) t >= 2.0 및 왕복비용 0.44% 차감 후 건당 기대값 > 0 재검증",
-    "1주 가격이 1회 진입 실효 예산 이하인 종목으로 한정(현재 실효 예산 약 44.80달러)",
-    "일일 손실 서킷브레이커(-$25 / -3%) 및 진입 마감 시각 유지"
+    "1주 가격이 1회 진입 실효 예산 이하인 종목으로 한정",
+    "일일 손실 서킷브레이커(-$25 / -3%) 및 진입 마감 시각 유지",
+    "프리장 지정가 슬리피지 상한 15bp·1회 예산 $60·세션 2건 상한 유지"
   ],
+  "code_path": {
+    "routing": "core/session_routing.py — phase별 호가유형(00/61/62)·진입 창·얇은 호가 방어",
+    "gate": "core/live_session_gate.check_live_gate(plan=...) — 프리장 승인 시 PRE_MARKET 허용",
+    "engine": "core/autotrader.py — PRE_MARKET 진입·청산, order_type 61 자동 라우팅, decision_attribution 기록",
+    "router": "execution/order_bridge.py — order_type=61을 NHBroker.place_order로 전달, 세션 불일치 차단",
+    "intervention": "scripts/intervene_trade.py — 즉시 개입 단일 진입점(dry-run 기본), 클라우드: scripts/cloud_cycle.py intervene",
+    "workflow": "execution/market_autotrade.yml.template(UTC 08~21 프리장+정규장) + execution/intervene_trade.yml.template"
+  },
   "notes": [
-    "이 파일이 enabled=false인 동안 OrderRouter.place(order_type='61'|'62')는 디스패치하지 않고 BLOCKED_POLICY를 반환한다.",
-    "NH Open API 프리마켓 주문은 지정가만 지원한다(price > 0 필수)."
+    "이 파일이 enabled=false이거나 승인 기록이 없으면 OrderRouter.place(order_type='61'|'62')는 디스패치하지 않고 BLOCKED_POLICY를 반환한다.",
+    "NH Open API 프리마켓 주문은 지정가만 지원한다(price > 0 필수).",
+    "60분봉 프리장 거래량이 대부분 0으로 기록돼 유동성 필터는 데이터로 검증할 수 없다 — 방어는 지정가·예산·건수·시세 신선도로만 건다."
   ]
 }

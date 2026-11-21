@@ -44,6 +44,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from execution.nh_trader import normalize_order_type
+from core import session_routing
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ORDERS_LOG = os.path.join(BASE_DIR, "data", "live_order_responses.jsonl")
@@ -142,14 +143,19 @@ def premarket_gate() -> Dict[str, Any]:
     """프리마켓/애프터마켓 실주문 허용 여부 — `config/premarket_policy.json` 한 곳으로만 켜진다.
 
     2026-11-18 백테스트 결과(프리장 진입 기대값 음수)로 `enabled: false`가 기본이다.
-    파일이 없거나 enabled가 참이 아니면 프리장·애프터마켓 주문은 디스패치 전에 막린다.
+    2026-11-21에는 스위치만으로 열리지 않게 **사용자 승인 기록**(`approved_by`·
+    `approved_at_kst`)까지 요구한다 — 코드가 스스로 프리장을 여는 경로를 만들지 않는다.
     """
-    pol = _load(PREMARKET_POLICY)
-    if not pol:
-        return {"allowed": False, "reason": "config/premarket_policy.json 없음"}
-    if not pol.get("enabled"):
-        return {"allowed": False, "reason": pol.get("reason") or "정책 enabled=false"}
-    return {"allowed": True, "reason": pol.get("reason", "")}
+    pol = session_routing.load_policy(PREMARKET_POLICY)
+    if not pol or pol.get("load_error"):
+        return {"allowed": False, "reason": "config/premarket_policy.json 없음/판독 불가"}
+    appr = session_routing.approval_state(pol)
+    if not appr.get("approved"):
+        return {"allowed": False, "reason": appr.get("reason") or "프리장 미승인"}
+    return {"allowed": True, "reason": pol.get("reason", ""),
+            "approved_by": appr.get("approved_by"),
+            "approved_at_kst": appr.get("approved_at_kst"),
+            "phases": session_routing.status(pol)["phases"]}
 
 
 def _save(path: str, obj: Any) -> None:
@@ -281,14 +287,19 @@ class OrderRouter:
         return {"status": "COMPLETED", "run_id": run_id, "conclusion": conclusion, "log": log}
 
     # ------------------------------------------------------------------ orders
-    def _live_pretrade_check(self, ticker: str, side: str, qty: int, price: float) -> Dict[str, Any]:
+    def _live_pretrade_check(self, ticker: str, side: str, qty: int, price: float,
+                             order_type: str = "00") -> Dict[str, Any]:
         """Read NH directly before each live order: never use the cached dashboard ledger."""
         from core import market_clock
         from core.live_session_gate import check_live_gate
         gate = _load(LIVE_GATE_PATH)
-        authorized = check_live_gate(gate, market_clock.resolve())
+        authorized = check_live_gate(gate, market_clock.resolve(),
+                                     premarket_policy=session_routing.load_policy(PREMARKET_POLICY))
         if not authorized["ok"]:
             return authorized
+        if authorized.get("order_type") and normalize_order_type(order_type) != authorized["order_type"]:
+            # 프리장 세션에서 '00'으로 나가면 NH가 거부하거나 정규장 호가로 나간다 — 둘 다 사고다.
+            return {"ok": False, "reason": f"order_type {order_type} != session {authorized['order_type']}"}
         if side == "BUY" and authorized.get("sell_only"):
             # 매도 전용 세션 — 어떤 금액의 신규 매수도 나가지 않는다(2026-11-23).
             return {"ok": False, "reason": "live gate is sell-only; new buys are blocked"}
@@ -361,8 +372,27 @@ class OrderRouter:
             return {"ok": False, "reason": "NH read failed: " + type(exc).__name__}
 
     @staticmethod
-    def idempotency_key(session_date: str, ticker: str, side: str, qty: int, price: float,
-                        order_type: str = "00") -> str:
+    def _phase_matches(order_type: str, policy_path: Optional[str] = None) -> Dict[str, Any]:
+        """호가유형과 현재 세션 단계가 맞는가 — 불일치는 주문 전 차단(fail-closed)."""
+        from core import market_clock
+        try:
+            clock = market_clock.resolve()
+        except Exception as exc:                                  # noqa: BLE001
+            return {"ok": False, "phase": None, "reason": f"시장 시계 판독 불가: {type(exc).__name__}"}
+        plan = session_routing.status(session_routing.load_policy(policy_path or PREMARKET_POLICY))
+        phase = str(clock.get("phase") or "")
+        expected = session_routing.order_type_for_phase(phase, plan)
+        code = normalize_order_type(order_type)
+        if expected is None:
+            return {"ok": False, "phase": phase,
+                    "reason": f"{phase} 단계는 주문 허용 단계가 아닙니다"}
+        if code != expected:
+            return {"ok": False, "phase": phase,
+                    "reason": f"{phase} 단계 호가유형은 {expected}인데 {code} 요청"}
+        return {"ok": True, "phase": phase, "order_type": expected}
+
+    @staticmethod
+    def idempotency_key(session_date: str, ticker: str, side: str, qty: int, price: float,                        order_type: str = "00") -> str:
         key = f"{session_date}|{ticker.upper()}|{side.upper()}|{int(qty)}|{round(float(price), 2):.2f}"
         code = normalize_order_type(order_type)
         return key if code == "00" else f"{key}|{code}"
@@ -402,6 +432,23 @@ class OrderRouter:
                                "policy": "config/premarket_policy.json"})
                 self._append_log(record)
                 return record
+            # 호가유형과 지금 세션이 맞는가 — 프리장 코드가 정규장에 나가거나 그 반대인 경우를
+            # 디스패치 전에 막는다(NH는 세션 밖 호가유형을 거부하지만, 거부 전에 주문이
+            # 나가는 것 자체를 막는 편이 안전하다).
+            phase_check = self._phase_matches(code)
+            record["session_phase"] = phase_check.get("phase")
+            if not phase_check["ok"]:
+                record.update({"status": "BLOCKED_PHASE", "error": phase_check["reason"]})
+                self._append_log(record)
+                return record
+        elif not self.dry_run:
+            # 정규장 코드도 '지금 정규장인가'를 확인한다 — 프리장 승인 뒤 남은 자동주문이
+            # 정규장 밖에서 '00'으로 나가는 것을 막는다.
+            phase_check = self._phase_matches(code)
+            if not phase_check["ok"]:
+                record.update({"status": "BLOCKED_PHASE", "error": phase_check["reason"]})
+                self._append_log(record)
+                return record
 
         dup = self._recent_duplicate(key)
         if dup and dup.get("status") in ("SUBMITTED", "DISPATCHED", "PENDING",
@@ -422,7 +469,7 @@ class OrderRouter:
         # Every cloud live order must refresh NH holdings and cash immediately before submission.
         # A failed/ambiguous account read blocks the order instead of falling back to stale data.
         if os.getenv("GITHUB_ACTIONS") == "true":
-            check = self._live_pretrade_check(ticker, side, qty, price)
+            check = self._live_pretrade_check(ticker, side, qty, price, code)
             record["pretrade"] = check
             if not check.get("ok"):
                 record.update({"status": "BLOCKED_PREFLIGHT", "error": check.get("reason")})

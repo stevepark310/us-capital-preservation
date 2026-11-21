@@ -56,8 +56,20 @@ HARD_LOCK: Dict[str, Any] = {
     "guardrails.no_averaging_down": ("==", True),
     "vix_riskoff_28": ("==", 0.0),
     "nvda_levels_locked": ("==", {"tp": 173.0, "sl": 150.0}),
-    "premarket_enabled": ("==", False),
     "universe": ("==", ["SOXL", "TQQQ", "SOXS", "SQQQ"]),
+}
+
+# 프리장 자동매매 잠금 (2026-11-21 재설계)
+# ------------------------------------------------
+# 종전에는 `premarket_enabled == False`가 무조건 참이어야 했다. 그런데 동훈님이 "프리장에
+# 개입해 바로바로 매매"를 지시했고(2026-11-21 13:53), `core/session_routing`은 승인 기록이
+# 있을 때만 프리장을 여는 구조가 됐다. 그래서 '무조건 금지'를 '승인 없는 활성화 금지'로
+# 바꿔 둔다 — 코드가 스스로는 열 수 없고, 사용자 승인(`approved_by`·`approved_at_kst`)이
+# 있는 파일만 통과한다(하드락 충돌 제거, 잠금 자체는 유지).
+PREMATURE_PREMARKET_RULE: Dict[str, Any] = {
+    "key": "premarket_enabled",
+    "expected": "승인 기록(approved_by·approved_at_kst)과 함께 true",
+    "note": "스위치만 켜고 승인 기록이 없으면 하드락 위반으로 보고한다.",
 }
 
 # 자동 적용이 허용되는 키(진입 필터 조이기 전용)
@@ -149,16 +161,19 @@ def _get_path(d: Dict[str, Any], dotted: str) -> Any:
 
 def policy_snapshot(policy: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """하드락 검사용 현재 값 묶음(가드레일 + NVDA 잠금 + 프리마켓 + 유니버스)."""
-    from core import execution_policy
+    from core import execution_policy, session_routing
     pol = policy if policy is not None else execution_policy.load_policy()
     cfg = _load(POLICY_PATH, {}) or {}
-    pre = _load(os.path.join(BASE_DIR, "config", "premarket_policy.json"), {}) or {}
+    pre = session_routing.load_policy()
+    approval = session_routing.approval_state(pre)
     g = execution_policy.guardrails(pol)
     return {
         "guardrails": g,
         "vix_riskoff_28": (g.get("vix_riskoff_scale") or {}).get("28.0"),
         "nvda_levels_locked": (g.get("nvda_levels_locked") or {}),
-        "premarket_enabled": bool(pre.get("enabled")),
+        "premarket_enabled": bool(approval.get("approved")),
+        "premarket_switch": bool(pre.get("enabled")),
+        "premarket_approval": approval,
         "universe": list(pol.get("universe") or []),
         "entry_filters": dict((_load(os.path.join(DATA, "strategy_params.json"), {}) or {}).get("entry_filters") or {}),
         "sl_max_pct": (strategy_evolver.load_params() or {}).get("sl_max_pct"),
@@ -201,12 +216,19 @@ def hard_lock_report(snapshot: Optional[Dict[str, Any]] = None) -> Dict[str, Any
     if appr.get("rvol_required") is not True:
         violations.append({"key": "approval.entry_conditions.rvol_required",
                            "expected": "== True", "actual": appr.get("rvol_required")})
+    # 프리장: 스위치가 켜졌는데 사용자 승인 기록이 없으면 위반(코드가 스스로 여는 경로 차단).
+    if snap.get("premarket_switch") and not snap.get("premarket_enabled"):
+        violations.append({"key": PREMATURE_PREMARKET_RULE["key"],
+                           "expected": PREMATURE_PREMARKET_RULE["expected"],
+                           "actual": (snap.get("premarket_approval") or {}).get("reason")})
     return {"ok": not violations, "violations": violations, "checked_at_kst": _now_kst()}
 
 
 def hard_lock_snapshot() -> Dict[str, Any]:
     rep = hard_lock_report()
-    return {"ok": rep["ok"], "violations": rep["violations"], "rules": {k: f"{v[0]} {v[1]}" for k, v in HARD_LOCK.items()}}
+    return {"ok": rep["ok"], "violations": rep["violations"],
+            "rules": {k: f"{v[0]} {v[1]}" for k, v in HARD_LOCK.items()},
+            "premarket_rule": PREMATURE_PREMARKET_RULE}
 
 
 # ------------------------------------------------------------------ hypotheses
@@ -412,6 +434,12 @@ def apply(doc: Dict[str, Any], h: Dict[str, Any], by: int = 10) -> Dict[str, Any
     """게이트·래칫·하드락을 모두 통과한 가설만 런타임 파라미터에 반영한다."""
     verdict = can_apply(doc, h)
     if not verdict["ok"]:
+        # 게이트를 통과했는데 자동 적용 범위 밖이면 'HELD(보류)'가 아니라 '승인 대기'다.
+        # 예전에는 둘 다 HELD로 적혀, OOS를 통과한 모델·브래킷 안건이 "막힌 일"처럼 보였다.
+        if (h.get("gate") or {}).get("pass") and not h.get("auto_apply"):
+            rec = recommend(doc, h, by=by)
+            return {"applied": False, "status": rec["status"], "reasons": verdict["reasons"],
+                    "execution_link": rec.get("execution_link")}
         h["status"] = "HELD" if (h.get("gate") or {}).get("pass") else "REJECTED"
         h["decisions"].append({"at_kst": _now_kst(), "decision": h["status"],
                                "by": by, "reasons": verdict["reasons"]})
@@ -456,12 +484,175 @@ def apply(doc: Dict[str, Any], h: Dict[str, Any], by: int = 10) -> Dict[str, Any
 def recommend(doc: Dict[str, Any], h: Dict[str, Any], by: int = 9) -> Dict[str, Any]:
     """브래킷 규격처럼 승인 정본을 건드려야 하는 후보 — 측정 결과만 남기고 대기."""
     h["status"] = "RECOMMENDED" if (h.get("gate") or {}).get("pass") else "REJECTED"
+    h["execution_link"] = execution_link(h)
     h["decisions"].append({
         "at_kst": _now_kst(), "decision": h["status"], "by": by,
-        "reasons": (["사용자 승인 필요 — config/swing_approval.json bracket_specs 변경은 자동 적용 금지"]
+        "reasons": (["사용자 승인 필요 — " + str(h["execution_link"].get("switch") or "승인 정본(config)")
+                     + " 변경은 자동 적용 금지"]
                     if h["status"] == "RECOMMENDED" else [(h.get("gate") or {}).get("reason")]),
     })
-    return {"status": h["status"]}
+    return {"status": h["status"], "execution_link": h["execution_link"]}
+
+
+# ------------------------------------------------------------------ 실행 연계
+# OOS 게이트를 통과한 안건이 '피드에만' 남지 않도록, 각 축이 실제로 바꾸는
+# 스위치 위치를 정본으로 둔다. 파일·키를 글로만 적어 두면 사람이 다시 찾아야 하지만,
+# 이 표가 있으면 `reconcile_execution()`이 스위치 상태를 읽어 APPLIED/RECOMMENDED를
+# 저절로 맞춘다(하드락 충돌·HELD 교착 해소, 2026-11-21).
+EXECUTION_LINKS: Dict[str, Dict[str, Any]] = {
+    "ENTRY_FILTER": {
+        "switch": "data/strategy_params.json → entry_filters",
+        "auto": True,
+        "effect": "진입 필터(RSI2·%B·RVOL) 조이기 — 다음 10분 사이클부터 집행",
+        "approval": "불필요(자동 적용 범위)",
+    },
+    "BRACKET_SPEC": {
+        "switch": "config/swing_approval.json → autonomous_execution.bracket_specs",
+        "auto": False,
+        "effect": "손절·익절·보유기간 — 다음 재진입부터 적용",
+        "approval": "사용자 승인 필요(승인 정본 파일)",
+    },
+    "MODEL": {
+        "switch": "config/regime_policy.json → enabled (+ approved_by)",
+        "auto": False,
+        "effect": "V2 레짐 차단·사이징 — 승인 후 다음 사이클부터",
+        "approval": "사용자 승인 필요(approved_by·approved_at_kst)",
+    },
+}
+
+
+def _bracket_specs() -> Dict[str, Any]:
+    cfg = _load(POLICY_PATH, {}) or {}
+    return (((cfg.get("autonomous_execution") or {}).get("bracket_specs"))
+            or (cfg.get("bracket_specs") or {}))
+
+
+def _switch_state(h: Dict[str, Any]) -> Dict[str, Any]:
+    """이 안건이 가리키는 스위치의 **현재** 값과 실효 여부."""
+    axis = h.get("axis")
+    if axis == "MODEL":
+        pol = _load(os.path.join(BASE_DIR, "config", "regime_policy.json"), {}) or {}
+        on = bool(pol.get("enabled") is True and str(pol.get("approved_by") or "").strip())
+        return {"path": "config/regime_policy.json", "key": "enabled",
+                "value": pol.get("enabled"), "approved_by": pol.get("approved_by"),
+                "in_effect": on}
+    if axis == "BRACKET_SPEC":
+        specs = _bracket_specs()
+        hits, checked = [], []
+        for key, val in (h.get("changes") or {}).items():
+            parts = key.split(".")
+            if len(parts) < 3:
+                continue
+            block, field = parts[1], parts[2]
+            actual = (specs.get(block) or {}).get(field)
+            try:
+                same = actual is not None and abs(float(actual) - float(val.get("to"))) < 1e-9
+            except (TypeError, ValueError):
+                same = actual == val.get("to")
+            checked.append({"key": key, "actual": actual, "target": val.get("to"), "same": same})
+            hits.append(same)
+        return {"path": "config/swing_approval.json", "key": "autonomous_execution.bracket_specs",
+                "value": {c["key"]: c["actual"] for c in checked},
+                "in_effect": bool(hits) and all(hits), "checked": checked}
+    if axis == "ENTRY_FILTER":
+        ef = (strategy_evolver.load_params() or {}).get("entry_filters") or {}
+        checked, hits = [], []
+        for key, val in (h.get("changes") or {}).items():
+            field = key.split(".")[-1]
+            actual = ef.get(field)
+            try:
+                same = actual is not None and abs(float(actual) - float(val.get("to"))) < 1e-9
+            except (TypeError, ValueError):
+                same = actual == val.get("to")
+            checked.append({"key": key, "actual": actual, "target": val.get("to"), "same": same})
+            hits.append(same)
+        return {"path": "data/strategy_params.json", "key": "entry_filters",
+                "value": ef, "in_effect": bool(hits) and all(hits), "checked": checked}
+    return {"in_effect": False, "reason": f"알 수 없는 축 {axis}"}
+
+
+def execution_link(h: Dict[str, Any]) -> Dict[str, Any]:
+    """안건 → 실행 스위치. 게이트 통과 후 '어디를 켜면 되는가'를 수치와 함께 남긴다."""
+    meta = dict(EXECUTION_LINKS.get(str(h.get("axis")), {}))
+    state = _switch_state(h)
+    meta.update(state)
+    meta["hypothesis"] = h.get("id")
+    meta["gate_pass"] = bool((h.get("gate") or {}).get("pass"))
+    if meta.get("gate_pass") and not state.get("in_effect"):
+        meta["next_action_ko"] = ("스위치 변경 대기 — " + str(meta.get("switch"))
+                                  + f" (승인: {meta.get('approval')})")
+    elif state.get("in_effect"):
+        meta["next_action_ko"] = "이미 실행 정책에 반영됨"
+    else:
+        meta["next_action_ko"] = "게이트 미통과 — 적용하지 않는다"
+    return meta
+
+
+def reconcile_execution(doc: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """스위치 상태와 장부 상태를 맞춘다 — HELD/MEASURED 교착을 풀고 실제 적용을 기록.
+
+    * 게이트 통과 + 스위치가 이미 켜져 있으면 → APPLIED(개선 이력 기록)
+    * 게이트 통과 + 스위치가 꺼져 있으면 → RECOMMENDED(스위치 경로·변경값 표기)
+    * 게이트 미통과 → 건드리지 않는다(측정 결과 보존)
+    """
+    doc = doc if doc is not None else load()
+    changed: List[Dict[str, Any]] = []
+    for h in doc.get("hypotheses") or []:
+        if h.get("axis") not in EXECUTION_LINKS:
+            continue
+        if not (h.get("gate") or {}).get("pass"):
+            continue
+        link = execution_link(h)
+        h["execution_link"] = link
+        if link.get("in_effect"):
+            if h.get("status") == "APPLIED":
+                continue
+            h["status"] = "APPLIED"
+            imp = {
+                "id": _next_id(doc, "I"), "hypothesis": h.get("id"), "applied_at_kst": _now_kst(),
+                "title": h.get("title"), "changes": h.get("changes"),
+                "before": {}, "after": {link.get("key"): link.get("value")},
+                "gate": h.get("gate"), "execution_link": link,
+                "evidence": {"data_as_of": (h.get("measurement") or {}).get("data_as_of"),
+                             "oos": ((h.get("measurement") or {}).get("candidate") or {}).get("oos")},
+                "by": 0, "sync": "execution_switch_observed",
+            }
+            doc.setdefault("improvements", []).append(imp)
+            h.setdefault("decisions", []).append(
+                {"at_kst": _now_kst(), "decision": "APPLIED", "by": 0,
+                 "improvement": imp["id"], "switch": link.get("path"),
+                 "note": "스위치가 켜진 것을 확인해 장부를 APPLIED로 맞췄습니다."})
+            changed.append({"id": h.get("id"), "to": "APPLIED"})
+        elif h.get("status") in ("MEASURED", "HELD", "PROPOSED"):
+            h["status"] = "RECOMMENDED"
+            h.setdefault("decisions", []).append(
+                {"at_kst": _now_kst(), "decision": "RECOMMENDED", "by": 0,
+                 "reasons": [f"게이트 통과 — 실행 스위치 {link.get('path')} 승인 대기"],
+                 "switch": link.get("path")})
+            changed.append({"id": h.get("id"), "to": "RECOMMENDED"})
+    if changed:
+        doc["execution_reconciled_at_kst"] = _now_kst()
+    return {"changed": changed, "count": len(changed),
+            "pending": pending_approvals(doc)}
+
+
+def pending_approvals(doc: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    """게이트는 통과했는데 스위치가 꺼져 있어 기다리는 안건 — 대시보드·피드용."""
+    doc = doc or load()
+    out = []
+    for h in doc.get("hypotheses") or []:
+        if not (h.get("gate") or {}).get("pass"):
+            continue
+        link = h.get("execution_link") or execution_link(h)
+        if link.get("in_effect") or h.get("status") == "APPLIED":
+            continue
+        out.append({"id": h.get("id"), "title": h.get("title"), "axis": h.get("axis"),
+                    "status": h.get("status"), "switch": link.get("switch"),
+                    "path": link.get("path"), "current": link.get("value"),
+                    "changes": h.get("changes"),
+                    "oos_ev_pct": (((h.get("measurement") or {}).get("candidate") or {})
+                                   .get("oos") or {}).get("ev_pct")})
+    return out
 
 
 def find_duplicate(doc: Dict[str, Any], item: Dict[str, Any], fingerprint: Optional[str]) -> Optional[Dict[str, Any]]:
@@ -492,6 +683,9 @@ def summary(doc: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         "gate": GATE,
         "recommendations": [{k: h.get(k) for k in ("id", "title", "status", "measurement", "created_at_kst")}
                             for h in hs if h.get("status") == "RECOMMENDED"][-5:],
+        # 게이트는 통과했는데 실행 스위치가 꺼져 있어 기다리는 안건(스위치 경로 포함).
+        "execution_pending": pending_approvals(doc)[-5:],
+        "execution_links": EXECUTION_LINKS,
     }
 
 

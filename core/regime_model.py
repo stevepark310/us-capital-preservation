@@ -261,8 +261,14 @@ def _curve_stats(curve: List[float]) -> Dict[str, Any]:
 
 def simulate(frames: Dict[str, pd.DataFrame], params: Optional[Dict[str, Any]] = None,
              start: Optional[str] = None, end: Optional[str] = None,
-             initial_equity: float = 10_000.0) -> Dict[str, Any]:
-    """일봉 포트폴리오 시뮬레이션 — 현금·SGOV 이자·헤지 슬리브 포함."""
+             initial_equity: float = 10_000.0,
+             exposure_by_date: Optional[Dict[Any, float]] = None) -> Dict[str, Any]:
+    """일봉 포트폴리오 시뮬레이션 — 현금·SGOV 이자·헤지 슬리브 포함.
+
+    `exposure_by_date`를 주면 날짜별 **노출 계수**를 신규 진입의 상한·리스크 예산에
+    곱한다(CUBE-M8 노출 계수를 V2 레짐 모델과 결합 측정하기 위한 경로, 2026-11-21).
+    값이 없으면 종전과 **완전히 동일**하게 1.0으로 동작하고, 0이면 그날은 진입하지 않는다.
+    """
     p = dict(BASE_PARAMS)
     p.update(params or {})
     fee = _fee_pct(p)
@@ -293,7 +299,8 @@ def simulate(frames: Dict[str, pd.DataFrame], params: Optional[Dict[str, Any]] =
     trades: List[Dict[str, Any]] = []
     curve: List[float] = []
     regime_counts: Dict[str, int] = {}
-    vetoes = {"regime": 0, "confirm": 0, "cash": 0, "slots": 0}
+    vetoes = {"regime": 0, "confirm": 0, "cash": 0, "slots": 0, "exposure": 0}
+    exposure_used: List[float] = []
 
     for i, day in enumerate(dates):
         md = tab.loc[day]
@@ -405,6 +412,19 @@ def simulate(frames: Dict[str, pd.DataFrame], params: Optional[Dict[str, Any]] =
                            else p.get("size_cap_pct_of_equity", 25.0))
                 cap = equity_now * float(cap_pct if cap_pct is not None else 10.0) / 100.0
                 risk_budget = equity_now * float(p.get("risk_per_trade_pct", 1.5)) / 100.0
+                # 노출 계수(CUBE-M8 등) — 신규 진입의 상한과 리스크 예산에만 곱한다.
+                if exposure_by_date:
+                    try:
+                        scale = float(exposure_by_date.get(day, exposure_by_date.get(str(day.date()), 1.0)))
+                    except (TypeError, ValueError):
+                        scale = 1.0
+                    scale = max(0.0, min(1.0, scale))
+                    exposure_used.append(scale)
+                    if scale <= 0.0:
+                        vetoes["exposure"] += 1
+                        continue
+                    cap *= scale
+                    risk_budget *= scale
                 per_share_risk = entry * sl_pct / 100.0
                 qty = int(min(cap, max(0.0, cash - reserve)) // entry)
                 if per_share_risk > 0:
@@ -444,6 +464,9 @@ def simulate(frames: Dict[str, pd.DataFrame], params: Optional[Dict[str, Any]] =
         "portfolio": _curve_stats(curve), "curve": curve,
         "period": f"{dates[0].date()} ~ {dates[-1].date()} ({len(dates)}거래일)",
         "regime_days": regime_counts, "vetoes": vetoes,
+        "exposure_overlay": ({"enabled": True, "avg": round(sum(exposure_used) / len(exposure_used), 3),
+                              "n": len(exposure_used)} if exposure_by_date and exposure_used
+                             else {"enabled": False}),
         "note": ("일봉 경로 근사 — 신호는 전일 완료봉, 진입은 다음 봉 시가, 같은 봉 SL·TP 동시 "
                  f"도달은 손절 우선, 왕복 {fee}% 차감, 현금은 SGOV 실측 일수익률."),
     }

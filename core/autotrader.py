@@ -39,7 +39,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from core import execution_policy, exit_rules, market_clock, session_time
 from core import bracket_specs, entry_signals
 from core import exit_authority, exit_failsafe, live_integrity, regime_model, risk_guard, portfolio_quant_risk
-from core import open_exit
+from core import open_exit, session_routing, decision_attribution
 
 
 def _shadow_model(market: Dict[str, Any]) -> Dict[str, Any]:
@@ -67,8 +67,11 @@ STATUS_PATH = os.path.join(DATA, "autotrader_status.json")
 LOG_PATH = os.path.join(DATA, "autotrader_log.jsonl")
 LEASE_PATH = os.path.join(DATA, "autotrader_lease.json")
 TRADE_LEDGER = os.path.join(DATA, "strategy_trade_ledger.json")
+REGIME_POLICY_PATH = os.path.join(BASE_DIR, "config", "regime_policy.json")
 
 DAILY_ENTRY_WINDOW_MIN = 90      # 세션 시작 후 90분까지 '다음 세션 시가' 신호 유효
+# 프리장 진입 창 — ET 04:00부터 09:00까지(개장 동시호가 30분 전 종료).
+PREMARKET_ENTRY_WINDOW_MIN = 300
 DIP_UNIVERSE = ["SOXL", "TQQQ"]
 HEDGE_UNIVERSE = ["SOXS", "SQQQ"]
 HEDGE_NOTIONAL_CAP = 60.0        # config hedge.max_notional_usd
@@ -138,8 +141,13 @@ class AutonomousTrader:
                  router: Optional[OrderRouter] = None, dry_run: bool = False,
                  market: Optional[Dict[str, Any]] = None,
                  account: Optional[Dict[str, Any]] = None,
-                 base_dir: str = BASE_DIR, sell_only: bool = False):
+                 base_dir: str = BASE_DIR, sell_only: bool = False,
+                 session_plan: Optional[Dict[str, Any]] = None):
         self.base_dir = base_dir
+        # 세션 라우팅 계획 — 프리장 승인 전에는 정규장만(2026-11-21). 호출부(CLI·클라우드)가
+        # config/premarket_policy.json 판정 결과를 넘긴다. 기본값은 '정규장만'이다.
+        self.session_plan = session_plan or session_routing.default_plan()
+        self._regime_cache: Optional[Dict[str, Any]] = None
         self.policy = policy or execution_policy.load_policy()
         self.dry_run = bool(dry_run)
         # 매도 전용 세션(config/live_execution_gate.json sell_only) — 신규 매수를 아예
@@ -310,11 +318,51 @@ class AutonomousTrader:
     def _save_brackets(self, brackets: Dict[str, Any]) -> None:
         _save(os.path.join(DATA, "active_brackets.json"), brackets)
 
-    def _limit_price(self, price: float, side: str) -> float:
-        bps = float((self.policy.get("execution") or {}).get(
-            "buy_limit_offset_bps" if side == "BUY" else "sell_limit_offset_bps", 20 if side == "BUY" else -30))
-        rounded = round(float(price) * (1 + bps / 10000.0), int((self.policy.get("execution") or {}).get("price_round", 2)))
-        return max(0.01, rounded)
+    def _limit_price(self, price: float, side: str, phase: Optional[str] = None) -> float:
+        cfg = self.policy.get("execution") or {}
+        default_bps = float(cfg.get("buy_limit_offset_bps" if side == "BUY" else "sell_limit_offset_bps",
+                                 20 if side == "BUY" else -30))
+        rounded, meta = session_routing.limit_price(
+            price, side, phase or "REGULAR", self.session_plan, fallback_bps=default_bps,
+            price_round=int(cfg.get("price_round", 2)))
+        self._last_limit_meta = meta
+        return rounded
+
+    # ------------------------------------------------------- session / regime
+    def order_type(self, clock: Dict[str, Any]) -> Optional[str]:
+        """이 단계에서 낼 호가유형 — 허용되지 않은 단계면 None."""
+        return session_routing.order_type_for_phase((clock or {}).get("phase"), self.session_plan)
+
+    def _v2_state(self, market: Dict[str, Any]) -> Dict[str, Any]:
+        if self._regime_cache is None:
+            self._regime_cache = _shadow_model(market)
+        return self._regime_cache
+
+    def regime_gate(self, market: Dict[str, Any]) -> Dict[str, Any]:
+        """V2 레짐을 실제 진입·사이징에 반영할지 — `config/regime_policy.json` 스위치."""
+        pol = _load(REGIME_POLICY_PATH, {}) or {}
+        v2 = self._v2_state(market)
+        regime = v2.get("regime")
+        approved = bool(pol.get("enabled") is True and str(pol.get("approved_by") or "").strip())
+        if not approved:
+            return {"mode": "shadow", "scale": 1.0, "block_long": False, "regime": regime,
+                    "reason": ("config/regime_policy.json 승인 전(또는 승인 기록 없음) — 참고만"
+                               if pol.get("enabled") is not True else
+                               "regime_policy enabled=true 이지만 approved_by 없음 — 참고만"),
+                    "switch": {"enabled": bool(pol.get("enabled")),
+                               "approved_by": pol.get("approved_by")}}
+        if regime in set(pol.get("block_regimes") or ["CRISIS"]):
+            return {"mode": "active", "scale": 0.0, "block_long": True, "regime": regime,
+                    "reason": f"레짐 {regime} — 신규 롱 금지(헤지 제외)"}
+        if not regime or regime == "UNKNOWN":
+            return {"mode": "active", "scale": 0.0, "block_long": True, "regime": regime,
+                    "reason": "레짐 판독 불가 — fail-closed"}
+        try:
+            scale = float((pol.get("size_scale") or {}).get(regime, 1.0))
+        except (TypeError, ValueError):
+            scale = 1.0
+        return {"mode": "active", "scale": max(0.0, min(1.0, scale)), "block_long": False,
+                "regime": regime, "reason": f"레짐 {regime} 계수 {scale}"}
 
     def _cooldown_ok(self, ticker: str, st: Dict[str, Any]) -> bool:
         ts = _parse_kst((st.get("cooldowns") or {}).get(ticker, ""))
@@ -541,7 +589,7 @@ class AutonomousTrader:
             qty = min(int(decision.get("qty") or 0), exit_rules.remaining_qty(b))
             if qty <= 0:
                 continue
-            limit = self._limit_price(price, "SELL")
+            limit = self._limit_price(price, "SELL", clock.get("phase"))
             if decision.get("market"):
                 # '시장가' 대응 — 최우선 매수호가 아래로 크게 걸어 즉시 체결시킨다.
                 limit = max(0.01, round(float(price) * (1 - OPEN_EXIT_LIMIT_OFFSET_BPS / 10000.0), 2))
@@ -555,8 +603,10 @@ class AutonomousTrader:
             res = self.router.place(tk, "SELL", qty, limit, decision["reason"],
                                     session_date=str(clock.get("session_date") or ""),
                                     dry_run=self.dry_run,
+                                    order_type=self.order_type(clock) or "00",
                                     extra={"decided_at": round(float(price), 2), "rule": b.get("exit_mode") or
-                                           ("swing_hold" if b.get("swing_hold") else b.get("bracket_version"))})
+                                           ("swing_hold" if b.get("swing_hold") else b.get("bracket_version")),
+                                           "limit_meta": getattr(self, "_last_limit_meta", None)})
             status = res.get("status")
             rec = {"ticker": tk, "side": "SELL", "qty": qty, "price": limit, "reason": decision["reason"],
                    "status": status, "order_no": res.get("orr_no"), "run_id": res.get("run_id")}
@@ -595,22 +645,31 @@ class AutonomousTrader:
         quotes = market.get("quotes") or {}
         params = params or self._strategy_params()
         filters = self._entry_filters(params)
-        minutes_into = session_time.session_minutes(session_time.kst_hhmm(clock)) - session_time.session_minutes("23:30")
+        phase = str(clock.get("phase") or "")
+        minutes_into = session_routing.phase_minutes(clock)
+        if minutes_into is None:
+            minutes_into = session_time.session_minutes(session_time.kst_hhmm(clock)) - session_time.session_minutes("23:30")
         cands: List[Dict[str, Any]] = []
 
-        # 1) C5 파일럿 — 개장 30분 방향 1일 1회(2026-11-18 11:37 승인). 우선순위 1.
-        c5 = self._c5_candidate(market, st, brackets)
-        if c5.get("candidate"):
-            cands.append(c5["candidate"])
-        # 2) DIP_SWING — 완료 세션 일봉 신호(세션 초반 90분만 유효: '다음 세션 시가' 진입 규칙)
-        if 0 <= minutes_into <= DAILY_ENTRY_WINDOW_MIN:
+        # 1) C5 파일럿 — 개장 30분 방향 1일 1회(2026-11-18 11:37 승인). 정규장 전용.
+        if phase == "REGULAR":
+            c5 = self._c5_candidate(market, st, brackets)
+            if c5.get("candidate"):
+                cands.append(c5["candidate"])
+        # 2) DIP_SWING — 완료 세션 일봉 신호.
+        #    정규장은 '세션 초반 90분' 진입 규칙, 프리장은 ET 04:00~09:00 창(정책 허용 시).
+        daily_window = (0 <= minutes_into <= DAILY_ENTRY_WINDOW_MIN) if phase == "REGULAR" \
+            else (0 <= minutes_into <= PREMARKET_ENTRY_WINDOW_MIN)
+        if daily_window:
             scan = entry_signals.dip_daily(market.get("daily") or {}, DIP_UNIVERSE, filters)
             for sig in scan.get("signals") or []:
                 cands.append({"source": "DIP_SWING_DAILY", "ticker": sig.get("symbol"),
                               "signal": sig, "why": f"RSI2 {sig.get('rsi2')} · %B {sig.get('pct_b')} · RVOL {sig.get('rvol')}(필수)",
-                              "atr_pct": sig.get("atr_pct")})
-        # 3) DIP_SWING — 장중 등급 신호(신중 모드 규칙: 00:00 이후)
-        if minutes_into >= 30:
+                              "atr_pct": sig.get("atr_pct"),
+                              "prev_close": self._last_daily_close(market.get("daily") or {}, sig.get("symbol"))})
+        # 3) DIP_SWING — 장중 등급 신호(신중 모드 규칙: 00:00 이후). 장중 5분봉이 필요한 규칙이라
+        #    정규장에서만 쓴다(프리장에는 '장중 등급'이라는 개념이 없다).
+        if phase == "REGULAR" and minutes_into >= 30:
             intraday = entry_signals.dip_intraday(DIP_UNIVERSE, thresholds=filters)
             for sig in intraday.get("signals") or []:
                 cands.append({"source": "DIP_SWING_INTRADAY", "ticker": sig.get("symbol"),
@@ -618,7 +677,8 @@ class AutonomousTrader:
                               "why": (f"5분봉 RSI2 {sig.get('rsi2')} · %B {sig.get('pct_b')} · "
                                       f"RVOL {sig.get('rvol')}(필수 ≥{filters.get('rvol_min')}) · 점수 {sig.get('score')}"),
                               "atr_pct": sig.get("atr_pct")})
-        # 4) BEAR ALPHA — VIX ≥ 24 + 확인 1개(가격구조 포함, 2026-11-18 완화)
+        # 4) BEAR ALPHA — VIX ≥ 24 + 확인 1개(가격구조 포함, 2026-11-18 완화). 프리장도 허용
+        #    (헤지는 방어 포지션이라 시장이 열리기 전에 미리 잡을 수 있어야 한다).
         structure = self._price_structure(market)
         gate = entry_signals.bear_alpha_gate(market.get("snapshot") or {},
                                              entry_signals.news_sentiment_avg(),
@@ -630,8 +690,9 @@ class AutonomousTrader:
                                       f"({'; '.join(gate.get('confirmations') or [])})"),
                               "atr_pct": ((market.get("techs") or {}).get(tk) or {}).get("atr_pct")
                                          or self._atr_from_bars(tk),
-                              "notional_cap": HEDGE_NOTIONAL_CAP})
-        # 5) NVDA 실적 반응일 갭 → SOXS (11-18 23:30, 사용자 승인)
+                              "notional_cap": HEDGE_NOTIONAL_CAP,
+                              "prev_close": (quotes.get(tk) or {}).get("prev_close")})
+        # 5) NVDA 실적 반응일 갭 → SOXS (11-18 23:30, 사용자 승인) — 정규장 개장 15분 전용.
         gap = self._gap_candidate(market, quotes)
         if gap.get("candidate"):
             cands.append(gap["candidate"])
@@ -781,6 +842,11 @@ class AutonomousTrader:
         cash = float(led.get("cash_usd") or 0.0)
         loss_limit = execution_policy.loss_limit_usd(equity, self.policy)
         realized = float(st.get("realized_pnl_usd") or 0.0)
+        phase = str(clock.get("phase") or "")
+        allowed_phases = self.session_plan.get("phases") or ["REGULAR"]
+        buy_orders_today = len([o for o in (st.get("orders") or []) if o.get("side") == "BUY"])
+        phase_order_cap = session_routing.session_order_cap(
+            phase, self.session_plan, int(g.get("max_orders_per_session", 8)))
 
         # ---- 전역 게이트
         # An unclosed expired intraday position indicates missed liquidation.
@@ -800,12 +866,16 @@ class AutonomousTrader:
         elif realized <= -loss_limit:
             global_block = f"당일 실현손실 -${abs(realized):.2f} ≥ 한도 ${loss_limit:.2f}"
             st["halted"], st["halt_reason"] = True, global_block
-        elif clock.get("phase") != "REGULAR":
-            global_block = f"세션 아님({clock.get('phase')})"
+        elif clock.get("phase") not in allowed_phases:
+            global_block = (f"세션 아님({clock.get('phase')}) — 허용 단계 {list(allowed_phases)}"
+                            + (f" · {self.session_plan.get('blocked_reason')}"
+                               if self.session_plan.get("blocked_reason") else ""))
         elif len(st.get("entries") or []) >= int(g.get("max_entries_per_session", 3)):
             global_block = f"세션 신규 진입 한도 {int(g.get('max_entries_per_session', 3))}건 도달"
         elif len(st.get("orders") or []) >= int(g.get("max_orders_per_session", 8)):
             global_block = "세션 주문 한도 도달"
+        elif buy_orders_today >= phase_order_cap:
+            global_block = f"{phase} 매수 주문 한도 {phase_order_cap}건 도달"
         if global_block:
             self._emit("ENTRY_BLOCKED_GLOBAL", reason=global_block)
             return actions
@@ -820,10 +890,24 @@ class AutonomousTrader:
         vix_scale = execution_policy.vix_scale(vix, self.policy)
         risk_scale = float(params.get("risk_scale") or 1.0)
         # CUBE-M8 거시 선행지표 노출 계수 — shadow(기본)에서는 1.0이라 주문 크기 불변.
-        macro8_scale, _macro8_meta = _macro8_gate()
+        macro8_scale, macro8_meta = _macro8_gate()
         risk_scale *= macro8_scale
+        # V2 레짐 스위치(config/regime_policy.json) — 승인 전에는 scale 1.0·차단 없음.
+        regime_gate = self.regime_gate(market)
+        risk_scale *= float(regime_gate.get("scale", 1.0) or 0.0)
         budget_info = execution_policy.entry_budget(equity, cash, self.policy, vix_scale * risk_scale)
-        budget = float(budget_info["budget_usd"])
+        # 단계별 예산 상한 — 프리장·애프터마켓은 1회 예산을 더 조인다(얇은 호가 방어).
+        phase_budget = session_routing.budget(phase, self.session_plan, budget_info["budget_usd"])
+        budget_info = {**budget_info, "session_cap": phase_budget}
+        budget = float(phase_budget["budget_usd"])
+        # 판단 근거 — 이 사이클의 주문 1건마다 같은 묶음을 붙인다.
+        attribution = decision_attribution.build(
+            clock=clock, params=params, plan=self.session_plan, order_type=self.order_type(clock),
+            macro_meta=macro8_meta, regime_v2=self._v2_state(market), regime_gate=regime_gate,
+            budget_info=budget_info, vix=vix, vix_scale=vix_scale,
+            loss_limit_usd=loss_limit, cash_floor_usd=g.get("cash_reserve_floor_usd"),
+            sell_only=self.sell_only, integrity=integrity)
+        self.last_attribution = attribution
 
         for cand in self.entry_candidates(market, st, brackets, params):
             tk = (cand.get("ticker") or "").upper()
@@ -855,6 +939,11 @@ class AutonomousTrader:
                 self._emit("ENTRY_SKIP", ticker=tk, source=src, reason="최대 보유 종목 수")
                 continue
             hedge_source = src in HEDGE_SOURCES
+            # V2 레짐 게이트(스위치 on일 때만) — CRISIS/판독불가는 신규 롱 금지, 헤지는 허용.
+            if regime_gate.get("block_long") and not hedge_source:
+                self._emit("ENTRY_BLOCKED_REGIME", ticker=tk, source=src,
+                           reason=regime_gate.get("reason"))
+                continue
             if vix_scale <= 0:
                 # VIX >= 28은 신규 **롱** 하드 차단이다. 헤지(숏)는 방어 포지션이므로
                 # 별도 게이트(VIX >= 24 + 확인)만 통과하면 허용한다(2026-11-20 재발방지).
@@ -877,13 +966,22 @@ class AutonomousTrader:
             if not price or price < float(g.get("min_price_usd", 3.0)):
                 self._emit("ENTRY_SKIP", ticker=tk, source=src, reason="가격 확인 불가/최소가 미달")
                 continue
+            # 프리장 자동진입 조건 — 승인 정책의 신호·국면·추격금지·창 조건을 통과해야 한다.
+            pm_gate = session_routing.premarket_entry_gate(
+                clock, self.session_plan, regime=self._v2_state(market).get("regime"),
+                source=src, prev_close=cand.get("prev_close") or (quotes.get(tk) or {}).get("prev_close"),
+                price=price)
+            if not pm_gate.get("ok"):
+                self._emit("ENTRY_SKIP", ticker=tk, source=src,
+                           reason=f"프리장 조건 미충족 — {pm_gate.get('reason')}")
+                continue
 
             slot_budget = min(budget, float(cand.get("notional_cap") or budget))
             # 하한은 ① 계좌 제약으로 이미 작아진 예산(raw) ② 슬롯 상한(헤지 $60)보다
             # 클 수 없다 — 그렇지 않으면 정상 신호가 "예산 < 하한"으로 영구 차단된다.
             raw_budget = float(budget_info.get("raw_usd") or budget)
             slot_cap = float(cand.get("notional_cap") or raw_budget)
-            floor_usd = min(float(g.get("entry_budget_floor_usd", 150.0)), raw_budget, slot_cap)
+            floor_usd = min(float(g.get("entry_budget_floor_usd", 150.0)), raw_budget, slot_cap, budget)
             if slot_budget < floor_usd:
                 self._emit("ENTRY_SKIP", ticker=tk, source=src,
                            reason=f"예산 ${slot_budget:.2f} < 하한 ${floor_usd:.2f}")
@@ -901,7 +999,7 @@ class AutonomousTrader:
             if qty <= 0:
                 self._emit("ENTRY_SKIP", ticker=tk, source=src, reason="수량 0 (예산/리스크)")
                 continue
-            limit = self._limit_price(price, "BUY")
+            limit = self._limit_price(price, "BUY", phase)
             portfolio_now = portfolio_quant_risk.positions_from_ledger(
                 led, brackets, quotes, pending=st.get("pending"), actions=actions)
             quant = portfolio_quant_risk.assess_entry(
@@ -918,16 +1016,22 @@ class AutonomousTrader:
                                "quant_reduced": True})
                 self._emit("ENTRY_SIZED_QUANT", ticker=tk, source=src, qty=qty,
                            reason="; ".join(quant["reasons"]))
+            trace = decision_attribution.sizing_trace(cand, sizing, quant,
+                                                    gates=[f"session:{phase}", f"order_type:{self.order_type(clock)}"])
             res = self.router.place(tk, "BUY", qty, limit,
                                     f"AUTO BUY {src} — {cand.get('why')}",
                                     session_date=str(clock.get("session_date") or ""),
                                     dry_run=self.dry_run,
+                                    order_type=self.order_type(clock) or "00",
                                     extra={"signal": cand.get("signal"), "sizing": sizing,
-                                           "portfolio_quant": quant})
+                                           "portfolio_quant": quant, "attribution": attribution,
+                                           "sizing_trace": trace,
+                                           "limit_meta": getattr(self, "_last_limit_meta", None)})
             status = res.get("status")
             rec = {"ticker": tk, "side": "BUY", "qty": qty, "price": limit, "source": src,
                    "status": status, "order_no": res.get("orr_no"), "run_id": res.get("run_id"),
-                   "sizing": sizing}
+                   "sizing": sizing, "order_type": self.order_type(clock),
+                   "attribution": {k: attribution.get(k) for k in ("macro8", "regime_v2", "session")}}
             actions.append(rec)
             st.setdefault("orders", []).append({**rec, "ts_kst": _now_str()})
             self._emit("ENTRY_ORDER", **rec)
@@ -1097,6 +1201,8 @@ class AutonomousTrader:
         self.router.dry_run = not execute
         market = self.market()
         clock = market["clock"]
+        # V2 레짐은 사이클당 한 번만 계산한다(청산·진입·보고가 같은 값을 본다).
+        self._regime_cache = _shadow_model(market)
         session_date = str(clock.get("session_date") or _now_kst().strftime("%Y-%m-%d"))
         st = self.load_state(session_date)
         brackets = self._open_brackets()
@@ -1117,13 +1223,16 @@ class AutonomousTrader:
                     b["force_exit_overdue_kst"] = _now_str()
             self._emit("FORCE_EXIT_OVERDUE", tickers=[i["ticker"] for i in failsafe["overdue"]],
                        phase=clock.get("phase"))
-        if clock.get("phase") == "REGULAR":
+        if clock.get("phase") in (self.session_plan.get("phases") or ["REGULAR"]) \
+                and self.order_type(clock):
             exits = self.exits(st, brackets, market.get("quotes") or {}, clock,
                                integrity=market.get("integrity"),
                                broker_marks=market.get("broker_marks"))
         else:
             exits = []
-            self._emit("EXITS_SKIPPED", reason=f"phase={clock.get('phase')} — 주문 없음")
+            self._emit("EXITS_SKIPPED", reason=f"phase={clock.get('phase')} — 주문 없음"
+                       + (f" ({self.session_plan.get('blocked_reason')})"
+                          if self.session_plan.get("blocked_reason") else ""))
         entries = self.entries(st, brackets, market, led, params)
         evolution = self.evolve(market, st, led)
 
@@ -1177,6 +1286,20 @@ class AutonomousTrader:
             "open_exit": open_exit.report(open_exit.load_plan(), open_exit.load_state(), clock),
             "exit_authority": exit_authority_report(brackets),
             "shadow_model": _shadow_model(market),
+            "session_plan": {k: self.session_plan.get(k) for k in
+                             ("phases", "order_types", "premarket_enabled",
+                              "after_hours_enabled", "blocked_reason")},
+            "order_type": self.order_type(clock),
+            "decision_attribution": getattr(self, "last_attribution", None)
+            or decision_attribution.build(
+                clock=clock, params=params, plan=self.session_plan, order_type=self.order_type(clock),
+                macro_meta=_macro8_gate()[1], regime_v2=self._v2_state(market),
+                regime_gate={"mode": "shadow", "scale": 1.0, "block_long": False,
+                             "reason": "진입 전(청산 전용 사이클)"},
+                budget_info=desc.get("entry_budget"), vix=vix_for_report,
+                vix_scale=desc.get("vix_scale"), loss_limit_usd=desc["daily_loss_limit_usd"],
+                cash_floor_usd=(desc.get("guardrails") or {}).get("cash_reserve_floor_usd"),
+                sell_only=self.sell_only, integrity=market.get("integrity")),
             "ledger": {"equity_usd": equity, "cash_usd": cash},
             "next_gate": self._next_gate(clock, st),
             "elapsed_sec": round(time.time() - t0, 1),
@@ -1216,6 +1339,8 @@ class AutonomousTrader:
         if st.get("halted"):
             return "당일 신규 매수 중단 — 청산만 계속"
         if clock.get("phase") != "REGULAR":
+            if self.order_type(clock):
+                return f"{clock.get('phase')} 가동 — {self.order_type(clock)} 호가로 주문 가능"
             return f"다음 정규장 {clock.get('next_open_kst')}"
         if session_time.in_window(clock, self.guard.get("opening_blackout_kst")):
             return "개장 유예 — 00:00 KST부터 신규 진입"
@@ -1299,6 +1424,10 @@ def refresh_status(by: str = "pulse") -> Dict[str, Any]:
         "strategy_params": {k: params.get(k) for k in ("trail_atr_mult", "initial_sl_atr_mult",
                                                        "risk_scale", "defensive_mode", "entry_filters")},
         "macro8_gate": _macro8_gate()[1],
+        "session_plan": {k: helper.session_plan.get(k) for k in
+                         ("phases", "order_types", "premarket_enabled",
+                          "after_hours_enabled", "blocked_reason")},
+        "order_type": helper.order_type(clock),
         "c5_pilot": helper._c5_status(st, brackets, clock),
         "ledger": {"equity_usd": equity, "cash_usd": cash},
         "next_gate": helper._next_gate(clock, st),

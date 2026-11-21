@@ -165,10 +165,31 @@ def test_idempotency_key_separates_order_windows():
     assert pre.endswith("|61") and pre != regular
 
 
-# ------------------------------------------------------------- 자동매매 미연결
-def test_autotrader_does_not_place_premarket_orders():
-    """실전 자동매매 루프는 아직 프리장 주문을 내지 않는다(백테스트 결과에 따른 보류)."""
-    with open("core/autotrader.py", "r", encoding="utf-8") as f:
-        src = f.read()
-    assert "order_type=" not in src
-    assert 'ahi_nmn_pr_tp_cd' not in src
+# ------------------------------------------------------------- 자동매매 연동
+def test_autotrader_routes_premarket_only_when_policy_approved():
+    """프리장 주문 경로는 **정책 승인 뒤에만** 열린다(2026-11-21 지시).
+
+    종전에는 `core/autotrader.py`가 프리장 주문을 아예 몰랐다(소스 검사로 고정).
+    이제는 세션 계획(`core/session_routing`)이 판정하고, 스위치가 꺼져 있거나
+    사용자 승인 기록이 없으면 프리장 호가유형은 None이다 — 코드가 스스로
+    프리장을 여는 경로가 없다는 점은 아래 두 번째 단언이 지킨다.
+    """
+    from core import autotrader as at, session_routing
+
+    closed = at.AutonomousTrader(policy={"enabled": True}, dry_run=True, router=object())
+    assert closed.order_type({"phase": "PRE_MARKET"}) is None
+    assert closed.order_type({"phase": "REGULAR"}) == "00"
+
+    switched_only = session_routing.status({"enabled": True})
+    assert "PRE_MARKET" not in switched_only["phases"]          # 승인 기록 없는 스위치
+    no_approval = at.AutonomousTrader(policy={"enabled": True}, dry_run=True, router=object(),
+                                      session_plan=switched_only)
+    assert no_approval.order_type({"phase": "PRE_MARKET"}) is None
+
+    approved_plan = session_routing.status({"enabled": True, "approved_by": "박동훈",
+                                           "approved_at_kst": "2026-11-22 09:00:00"})
+    trader = at.AutonomousTrader(policy={"enabled": True}, dry_run=True, router=object(),
+                                 session_plan=approved_plan)
+    assert trader.order_type({"phase": "PRE_MARKET"}) == "61"
+    assert trader.order_type({"phase": "REGULAR"}) == "00"
+    assert trader.order_type({"phase": "OFF_HOURS"}) is None

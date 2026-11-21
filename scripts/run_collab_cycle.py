@@ -425,6 +425,17 @@ def run_cycle(every: int = DUTY_EVERY) -> Dict[str, Any]:
                             to=[9, 10], metrics={"데이터 기준일": as_of}, phase=f["phase"])
 
     # 4) 총괄 요약
+    # OOS 게이트를 통과한 안건이 장부에서만 '보류'로 굳지 않도록, 실행 스위치 상태를
+    # 읽어 APPLIED/RECOMMENDED를 맞춘다(2026-11-21 — 판단 결과 → 실전 주문 연결).
+    sync = buildup.reconcile_execution(doc)
+    if sync.get("changed"):
+        collab_bus.post(bus, 8, name(8), "FEEDBACK", "실행 연계 동기화",
+                        ("OOS 게이트 통과 안건의 실행 스위치 상태를 확인 — "
+                         + "; ".join(f"{c['id']}→{c['to']}" for c in sync["changed"])
+                         + f". 승인 대기 {len(sync.get('pending') or [])}건."),
+                        to=[9, 10], metrics={"변경": len(sync["changed"]),
+                                             "승인대기": len(sync.get("pending") or [])},
+                        phase=f["phase"])
     cnt = buildup.counters(doc)
     lock = buildup.hard_lock_report()
     collab_bus.post(bus, 9, name(9), "FEEDBACK", f"[{cycle}사이클] 데스크 종합",
@@ -461,6 +472,8 @@ def run_cycle(every: int = DUTY_EVERY) -> Dict[str, Any]:
         "data": {"as_of": as_of, "fingerprint": fp, "measured_now": measured_now},
         "counters": cooper.get("counters"),
         "hard_lock": {"ok": lock["ok"], "violations": lock["violations"]},
+        "execution_link": {"reconciled": sync.get("changed") or [],
+                           "pending_approvals": sync.get("pending") or []},
         "cloud": {"market": (f["cloud"] or {}).get("market"), "pulse": (f["cloud"] or {}).get("pulse")},
         "bus": collab_bus.summary(bus),
         "messages_in_bus": len(bus.get("messages") or []),

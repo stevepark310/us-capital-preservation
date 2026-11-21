@@ -64,9 +64,11 @@ class FakeRouter:
         self.account = account or {}
         self.calls = []
 
-    def place(self, ticker, side, qty, price, reason, session_date="", dry_run=None, extra=None):
+    def place(self, ticker, side, qty, price, reason, session_date="", dry_run=None, extra=None,
+              order_type="00"):
         self.calls.append({"ticker": ticker, "side": side, "qty": qty, "price": price,
-                           "reason": reason, "dry_run": dry_run})
+                           "reason": reason, "dry_run": dry_run, "order_type": order_type,
+                           "extra": extra})
         if dry_run:
             return {"status": "DRY_RUN", "ticker": ticker, "side": side, "qty": qty, "price": price}
         return {"status": self.status, "orr_no": 1000 + len(self.calls), "run_id": 777,

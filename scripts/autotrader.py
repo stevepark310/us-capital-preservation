@@ -26,6 +26,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
 from core import execution_policy  # noqa: E402
+from core import session_routing  # noqa: E402
 from core.autotrader import AutonomousTrader, STATUS_PATH, refresh_status  # noqa: E402
 
 COMMIT_PATHS = [
@@ -117,12 +118,17 @@ def main(argv=None) -> int:
         live_gate = {}
     from core import market_clock
     from core.live_session_gate import check_live_gate
-    authorization = check_live_gate(live_gate, market_clock.resolve())
+    # 세션 계획(정규장·프리장) — 프리장은 스위치 + 사용자 승인 기록이 있어야 열린다.
+    session_plan = session_routing.status(session_routing.load_policy())
+    authorization = check_live_gate(live_gate, market_clock.resolve(), plan=session_plan)
     if execute and not authorization["ok"]:
         print(f"[autotrader] BLOCKED: {authorization['reason']}")
         return 2
     if authorization.get("sell_only"):
         print("[autotrader] 매도 전용 게이트 — 신규 매수 0건, 청산만 집행합니다")
+    if authorization.get("premarket"):
+        print(f"[autotrader] {authorization.get('phase')} 세션 — 호가유형 {authorization.get('order_type')}"
+              f"(프리장 승인 {session_plan.get('approved_by')})")
     if not execute and "--dry-run" not in args:
         print("사용법: python3 scripts/autotrader.py --execute | --dry-run | --status")
         return 2
@@ -132,7 +138,8 @@ def main(argv=None) -> int:
         return 2
 
     trader = AutonomousTrader(policy=policy, dry_run=not execute,
-                              sell_only=bool(authorization.get("sell_only")))
+                              sell_only=bool(authorization.get("sell_only")),
+                              session_plan=session_plan)
     if not trader.acquire_lease("autotrader"):
         owner = AutonomousTrader.lease_owner_fresh(
             float(((policy.get("safety") or {}).get("single_writer_lease_min") or 15)))

@@ -44,7 +44,7 @@ def test_hard_lock_passes_on_approved_policy():
     lambda s: s["guardrails"].update({"daily_realized_loss_limit_usd": 60.0}),
     lambda s: s["guardrails"].update({"no_averaging_down": False}),
     lambda s: s.update({"nvda_levels_locked": {"tp": 190.0, "sl": 150.0}}),
-    lambda s: s.update({"premarket_enabled": True}),
+    lambda s: s.update({"premarket_switch": True, "premarket_enabled": False}),
     lambda s: s.update({"universe": ["SOXL", "TQQQ", "SOXS", "SQQQ", "ENVX"]}),
     lambda s: s.update({"vix_riskoff_28": 0.5}),
 ])
@@ -53,6 +53,24 @@ def test_hard_lock_catches_relaxation(mutate):
     mutate(snap)
     rep = buildup.hard_lock_report(snap)
     assert rep["ok"] is False and rep["violations"]
+
+
+def test_premarket_lock_allows_only_approved_switch():
+    """프리장은 '무조건 금지'가 아니라 '승인 없는 활성화 금지'다(2026-11-21 재설계).
+
+    동훈님의 프리장 개입 지시를 코드로 받되, 코드가 스스로 프리장을 여는 길은 막는다.
+    """
+    opened = buildup.policy_snapshot()
+    opened.update({"premarket_switch": True, "premarket_enabled": True,
+                   "premarket_approval": {"approved": True}})
+    assert buildup.hard_lock_report(opened)["ok"] is True
+
+    unapproved = buildup.policy_snapshot()
+    unapproved.update({"premarket_switch": True, "premarket_enabled": False,
+                       "premarket_approval": {"approved": False, "reason": "승인 기록 없음"}})
+    rep = buildup.hard_lock_report(unapproved)
+    assert rep["ok"] is False
+    assert any(v["key"] == "premarket_enabled" for v in rep["violations"])
 
 
 # ------------------------------------------------------------------ gate
