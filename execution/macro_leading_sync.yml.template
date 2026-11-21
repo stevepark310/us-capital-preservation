@@ -9,7 +9,7 @@ name: CUBE M8 Leading Indicators Sync
 # 주문은 하지 않는다 — 읽기·계산·발행 전용.
 on:
   schedule:
-    - cron: "17 1,5,9,13,17,21 * * *"     # 6회/일 (KST 10:17·14:17·18:17·22:17·02:17·06:17)
+    - cron: "17 1,5,9,13,17,21 * * *"     # 6회/일 (UTC 기준 → KST 10:17·14:17·18:17·22:17·02:17·06:17)
   workflow_dispatch:
     inputs:
       backtest:
@@ -51,8 +51,8 @@ jobs:
       - name: Sync CUBE-M8 leading indicators
         run: python3 scripts/sync_macro_leading.py --force
 
-      - name: Backtest (weekly, Monday 06:17 KST run or manual)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.backtest || (github.event_name == 'schedule' && github.event.schedule == '17 21 * * *') }}
+      - name: "Backtest (weekly — 화요일 06:17 KST, 월요일 미장 마감 후 / 수동 실행)"
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.backtest) || (github.event_name == 'schedule' && github.event.schedule == '17 21 * * *') }}
         run: python3 scripts/sync_macro_leading.py --backtest --quiet
 
       - name: Verify artifacts are valid JSON
