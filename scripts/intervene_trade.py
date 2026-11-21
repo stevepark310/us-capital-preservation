@@ -125,6 +125,8 @@ def plan_intervention(ticker: str, side: str, qty: Optional[int] = None,
                       cash_usd: Optional[float] = None, equity_usd: Optional[float] = None,
                       policy: Optional[Dict[str, Any]] = None,
                       log_path: Optional[str] = None,
+                      vix: Optional[float] = None,
+                      integrity: Optional[Dict[str, Any]] = None,
                       manual: bool = True) -> Dict[str, Any]:
     """한 건의 개입 계획(주문 없음). 통과하면 `ok=True`와 주문 인자를 돌려준다."""
     from core import execution_policy, market_clock, session_routing
@@ -166,6 +168,18 @@ def plan_intervention(ticker: str, side: str, qty: Optional[int] = None,
         return fail(f"{clock.get('phase')} 단계는 주문 허용 단계가 아닙니다 {plan.get('phases')}")
     if side == "BUY" and gate_check.get("sell_only"):
         return fail("매도 전용 세션(live gate sell_only) — 신규 매수 금지")
+
+    # VIX 리스크오프(28 이상)는 **신규 롱 하드 차단**이다 — 무인 엔진과 같은 규칙을
+    # 수동 개입에도 적용한다. 헤지(SOXS·SQQQ)는 방어 포지션이므로 VIX 24 이상 확인만으로 허용한다.
+    hedge_tickers = {"SOXS", "SQQQ"}
+    vix_gate = ((integrity or {}).get("vix") or {}).get("gate") if isinstance(integrity, dict) else None
+    vix_gate = vix_gate if vix_gate is not None else vix
+    if side == "BUY" and vix_gate is not None:
+        scale = execution_policy.vix_scale(vix_gate, policy)
+        if scale <= 0 and not (ticker in hedge_tickers and float(vix_gate) >= 24.0):
+            return fail(f"VIX {vix_gate} 리스크오프 — 신규 롱 하드 차단(헤지 예외)")
+        out["vix"] = vix_gate
+        out["vix_scale"] = scale
     if not execution_policy.allowed_ticker(ticker, policy):
         return fail(f"{ticker}는 승인 유니버스 밖입니다 {policy.get('universe')}")
     ok_check("universe", policy.get("universe"))
@@ -350,18 +364,28 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     from core import market_clock
     clock = market_clock.resolve()
-    quotes = {}
+    quotes: Dict[str, Any] = {}
+    integrity: Dict[str, Any] = {}
+    snap: Dict[str, Any] = {}
     try:
         from core import market_snapshot
         snap = market_snapshot.build_snapshot(quiet=True, max_age_min=6)
         quotes = snap.get("quotes") or {}
     except Exception:
-        quotes = {}
+        snap, quotes = {}, {}
+    try:
+        from core import live_integrity
+        integrity = live_integrity.evaluate(snap, clock, tickers=[args.ticker.upper()], persist=False)
+    except Exception:
+        integrity = {}
+    vix = (((integrity.get("vix") or {}).get("gate"))
+           or ((snap.get("macro") or {}).get("vix") or {}).get("last"))
     brackets = _load(os.path.join(DATA, "active_brackets.json"), {}) or {}
     led = _load(os.path.join(DATA, "live_portfolio.json"), {}) or {}
 
     rec = run_intervention(execute=args.execute, clock=clock, quotes=quotes, brackets=brackets,
                            cash_usd=led.get("cash_deposit_usd", led.get("cash_buffer_usd")),
+                           vix=vix, integrity=integrity,
                            ticker=args.ticker, side=args.side.upper(), qty=args.qty,
                            price=args.price, notional=args.notional, reason=args.reason)
     if args.json:

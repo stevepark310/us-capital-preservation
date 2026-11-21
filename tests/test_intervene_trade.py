@@ -153,3 +153,26 @@ def test_blocked_plan_never_reaches_router(tmp_path):
                               quotes=QUOTES, brackets={}, cash_usd=426.0, equity_usd=891.0,
                               log_path=str(tmp_path / "log.jsonl"), ticker="SOXL", side="BUY", qty=1)
     assert rec["status"] == "BLOCKED" and router.calls == []
+
+
+# ------------------------------------------------------------------ VIX 리스크오프
+def test_vix_riskoff_blocks_new_long_but_allows_hedge_and_sell(tmp_path):
+    """VIX 28 이상은 신규 롱 하드 차단 — 수동 개입도 무인 엔진과 같은 규칙(가드레일)."""
+    log = str(tmp_path / "log.jsonl")
+    blocked = call(qty=1, vix=30.0, log_path=log)
+    assert blocked["ok"] is False and "리스크오프" in blocked["reason"]
+
+    hedge = call(ticker="SQQQ", qty=1, vix=30.0, log_path=log,
+                 quotes={"SQQQ": {"intraday_price": 60.0, "prev_close": 60.0,
+                                  "intraday_bar_time": f"{SESSION}T18:37:00"}})
+    assert hedge["ok"] is True and hedge["ticker"] == "SQQQ"
+
+    sell = call(side="SELL", qty=1, vix=30.0, log_path=log,
+                brackets={"SOXL": {"bought_qty": 1, "entry_price": 55.0, "closed": False}})
+    assert sell["ok"] is True
+
+
+def test_vix_gate_uses_conservative_integrity_value(tmp_path):
+    out = call(qty=1, vix=18.0, integrity={"vix": {"gate": 29.5}},
+               log_path=str(tmp_path / "log.jsonl"))
+    assert out["ok"] is False and "리스크오프" in out["reason"]
