@@ -21,6 +21,7 @@ sys.path.insert(0, BASE_DIR)
 
 from agents.cube_orchestrator import CubeOrchestrator
 from core import market_clock, market_snapshot, ledger as ledger_mod
+from core import backtest_digest
 
 DATA = os.path.join(BASE_DIR, "data")
 DOCS = os.path.join(BASE_DIR, "docs")
@@ -668,6 +669,39 @@ def post_agent10(r: Dict[str, Any], clock) -> Dict[str, Any]:
                  "주문은 개장 세션에서 신호 확인 후 집행합니다. DIP_SWING 승인·NVDA 레벨($173/$150)·BEAR ALPHA 게이트는 그대로 보존됩니다.")
 
 
+def backtest_post(clock, digest: Dict[str, Any]) -> Dict[str, Any]:
+    """백테스트 결과 요약 — 매 피드 재생성 때마다 같은 자리에 다시 올린다(사라지지 않음).
+
+    동훈님 요청(2026-11-21): "백테스트 결과를 볼수 있게 cube 업무보고에 올려줘".
+    수치는 `core/backtest_digest`가 결과 JSON에서 읽는다 — 이 함수는 문장만 만든다.
+    """
+    content = backtest_digest.summary_text(digest)
+    return {
+        "id": "post-backtest-digest",
+        "agent_id": 7,
+        "agent_name": "🧪 백테스트 결과 요약 (고정)",
+        "agent_person": agent_profiles.SHORT_NAMES[7],
+        "agent_title": "백테스트 검증",
+        "agent_role": "BACKTEST_DIGEST",
+        "icon": "🧪",
+        "avatar_bg": agent_profiles.profile(7)["avatar_bg"],
+        "badge_color": "bg-rose-500/15 text-rose-300 border-rose-500/40",
+        "timestamp": clock["now_kst"][:16],
+        "time_ago": "고정 요약",
+        "category": "BACKTEST",
+        "badge": "🧪 백테스트 결과 요약(고정) — M8 · V2·M8 결합 · 프리장 61 · 인버스 profit_lock",
+        "title": ("[백테스트 원장] M8 OOS IC 0.291(t 2.57) · V2 shadow OOS 36.34%/Sharpe 1.64 · "
+                  "프리장 추격금지 OOS EV +2.02%(t 1.13) · 인버스 profit_lock PF 2.46"),
+        "content": content,
+        "metrics": backtest_digest.metrics(digest),
+        "action_required": ("수치는 시뮬레이션입니다. 실전 반영은 항목별 표기(M8 shadow · V2 disabled · "
+                            "프리장 수동·지시 개입만)를 따릅니다."),
+        "reactions": {},
+        "pinned": True,
+        "phase": clock.get("phase"),
+    }
+
+
 def directive_posts(clock) -> List[Dict[str, Any]]:
     try:
         with open(DIRECTIVES, "r", encoding="utf-8") as f:
@@ -716,6 +750,10 @@ def main():
             posts.append(_post(aid, clock, "⚠️ 보고 생성 실패", f"Agent {aid} 보고 실패: {e}", str(e), [], "로그 확인"))
 
     posts.extend(directive_posts(clock))
+
+    # 백테스트 결과 요약 — 펄스가 피드를 다시 써도 이 게시글은 매번 다시 올라간다.
+    digest = backtest_digest.collect()
+    posts = [backtest_post(clock, digest)] + posts
 
     # preserve manually recorded live-execution posts
     if os.path.exists(FEED_PATH):
@@ -799,6 +837,7 @@ def main():
             "hyg": gm("HYG"), "ief": gm("IEF"), "sgov": gm("SGOV"),
         },
         "cross_market": cross_market,
+        "backtest_digest": digest,
         "total_posts": len(posts),
         "posts": posts,
     }

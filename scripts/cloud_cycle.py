@@ -184,6 +184,7 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
     from core.live_session_gate import check_live_gate
     gate = _load(LIVE_GATE_PATH, {})
     plan = session_routing.status(session_routing.load_policy())
+    auto_phases = session_routing.auto_phases(plan)
     gate_check = check_live_gate(gate, clock, plan=plan)
     live_enabled = gate_check["ok"]
     sell_only = bool(gate_check.get("sell_only"))
@@ -197,9 +198,10 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
                             "next_open_kst": clock.get("next_open_kst"),
                             "order_type": gate_check.get("order_type"),
                             "session_plan": {k: plan.get(k) for k in
-                                             ("phases", "order_types", "premarket_enabled",
-                                              "after_hours_enabled", "blocked_reason",
-                                              "approved_by")},
+                                             ("phases", "auto_phases", "order_types", "premarket_enabled",
+                                              "premarket_auto_enabled", "premarket_manual_only",
+                                              "manual_intervention_only", "after_hours_enabled",
+                                              "blocked_reason", "auto_blocked_reason", "approved_by")},
                             "dry_run": requested_dry or not live_enabled,
                             "live_gate_enabled": live_enabled,
                             "live_gate_reason": gate_check.get("reason"),
@@ -210,7 +212,9 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
                                       if sell_only else
                                       f"오늘 {clock.get('phase')} 실주문 게이트 활성 · 호가유형 "
                                       f"{gate_check.get('order_type')}"))}
-    if clock.get("phase") not in (plan.get("phases") or ["REGULAR"]):
+    if clock.get("phase") not in auto_phases:
+        # 프리장 수동·지시 개입 전용(manual_intervention_only)이면 자동 사이클은 주문을
+        # 만들지 않는다. 수동 개입은 `cloud_cycle.py intervene`(intervene_trade.py)로만.
         # 정규장 밖이라도 '연체된 강제청산'은 계산해서 남긴다 — 종전에는 SKIPPED로 끝나
         # 05:40 청산이 통째로 사라졌다(2026-11-19 SQQQ). 다음 정규장 첫 사이클이 닫는다.
         failsafe = {}
@@ -220,14 +224,19 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
             failsafe = exit_failsafe.record(brackets_now, clock)
         except Exception as exc:      # 상태 기록 실패가 사이클을 막지는 않는다
             failsafe = {"error": type(exc).__name__}
+        manual_skip = bool(plan.get("premarket_manual_only")) and clock.get("phase") == "PRE_MARKET"
         result = "FAILSAFE_OVERDUE" if (failsafe.get("overdue") or
-                                        (failsafe.get("cloud") or {}).get("critical")) else "SKIPPED_OFF_HOURS"
+                                        (failsafe.get("cloud") or {}).get("critical")) else (
+            "SKIPPED_PREMARKET_MANUAL" if manual_skip else "SKIPPED_OFF_HOURS")
         base.update({"result": result, "seconds": round(time.time() - t0, 1),
                      "failsafe": failsafe,
-                     "note": (f"phase={clock.get('phase')} — 정규장이 아니므로 주문은 하지 않습니다."
-                              if result == "SKIPPED_OFF_HOURS" else
-                              f"phase={clock.get('phase')} — 연체 강제청산/감시 공백 "
-                              f"{len(failsafe.get('overdue') or [])}건, 다음 정규장 즉시 청산 대상으로 기록.")})
+                     "note": (f"phase={clock.get('phase')} — {plan.get('auto_blocked_reason')}: "
+                              f"자동 사이클 주문 없음. 수동·지시 개입은 cloud_cycle.py intervene(호가유형 61)."
+                              if manual_skip else
+                              f"phase={clock.get('phase')} — 정규장이 아니므로 주문은 하지 않습니다.")
+                     if result in ("SKIPPED_PREMARKET_MANUAL", "SKIPPED_OFF_HOURS") else
+                     f"phase={clock.get('phase')} — 연체 강제청산/감시 공백 "
+                     f"{len(failsafe.get('overdue') or [])}건, 다음 정규장 즉시 청산 대상으로 기록."})
         write_status("market", base)
         print(f"[cloud] market {result} phase={clock.get('phase')} ({clock.get('now_kst')} KST)")
         return base
@@ -339,7 +348,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = list(argv if argv is not None else sys.argv[1:])
     mode = (args[0] if args else "").strip().lower()
     if mode == "market":
-        return 0 if market_cycle().get("result") in ("OK", "SKIPPED_OFF_HOURS", "FAILSAFE_OVERDUE") else 1
+        return 0 if market_cycle().get("result") in ("OK", "SKIPPED_OFF_HOURS", "SKIPPED_PREMARKET_MANUAL",
+                                                     "FAILSAFE_OVERDUE") else 1
     if mode == "pulse":
         return 0 if pulse_cycle().get("result") == "OK" else 1
     if mode == "intervene":

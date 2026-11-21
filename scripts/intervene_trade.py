@@ -142,7 +142,9 @@ def plan_intervention(ticker: str, side: str, qty: Optional[int] = None,
     brackets = brackets or {}
     out: Dict[str, Any] = {"ticker": ticker, "side": side, "phase": clock.get("phase"),
                            "session_date": clock.get("session_date"), "checks": [],
-                           "ok": False, "reason": None, "dry_hint": True, "decided_at_kst": _now_str()}
+                           "ok": False, "reason": None, "dry_hint": True, "decided_at_kst": _now_str(),
+                           "manual_intervention": bool(manual),
+                           "premarket_manual_only": bool(plan.get("premarket_manual_only"))}
 
     def fail(reason: str, **kw) -> Dict[str, Any]:
         out.update({"ok": False, "reason": reason, **kw})
@@ -166,6 +168,15 @@ def plan_intervention(ticker: str, side: str, qty: Optional[int] = None,
         clock.get("phase"), plan)
     if not order_type:
         return fail(f"{clock.get('phase')} 단계는 주문 허용 단계가 아닙니다 {plan.get('phases')}")
+    if str(clock.get("phase")) == "PRE_MARKET":
+        # 프리장은 승인 범위를 명시적으로 확인한다 — 이 경로만 manual_intervention_only에서 61을 낸다.
+        if not plan.get("premarket_enabled"):
+            return fail("프리장 미승인 — 수동 개입도 61 주문을 낼 수 없습니다")
+        if manual:
+            ok_check("premarket_manual_scope",
+                     "manual_intervention_only — 사용자 지시 단건 개입(61)")
+        elif not plan.get("premarket_auto_enabled"):
+            return fail("프리장 자동 개입 금지(manual_intervention_only) — 사용자 지시 개입만 허용")
     if side == "BUY" and gate_check.get("sell_only"):
         return fail("매도 전용 세션(live gate sell_only) — 신규 매수 금지")
 
@@ -291,7 +302,8 @@ def run_intervention(*, execute: bool = False, router=None, log_path: Optional[s
                                          ("ticker", "side", "qty", "price", "notional")},
                            "plan": {k: plan.get(k) for k in
                                     ("ok", "reason", "phase", "session_date", "order_type",
-                                     "qty", "limit_price", "notional_usd", "limit_meta")},
+                                     "qty", "limit_price", "notional_usd", "limit_meta",
+                                     "manual_intervention", "premarket_manual_only")},
                            "checks": plan.get("checks")}
     if not plan.get("ok"):
         rec["status"] = "BLOCKED"
@@ -335,7 +347,9 @@ def status_snapshot(clock: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
             "session_date": clock.get("session_date"),
             "order_type": session_routing.order_type_for_phase(clock.get("phase"), plan),
             "session_plan": {k: plan.get(k) for k in
-                             ("phases", "premarket_enabled", "after_hours_enabled", "blocked_reason")},
+                             ("phases", "auto_phases", "premarket_enabled", "premarket_auto_enabled",
+                              "premarket_manual_only", "manual_intervention_only",
+                              "after_hours_enabled", "blocked_reason", "auto_blocked_reason")},
             "live_gate": check_live_gate(gate, clock, plan=plan),
             "positions": {tk: _holdings(_load(os.path.join(DATA, "active_brackets.json"), {}), tk)
                           for tk in sorted((_load(os.path.join(DATA, "active_brackets.json"), {}) or {}))}}

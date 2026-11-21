@@ -843,7 +843,8 @@ class AutonomousTrader:
         loss_limit = execution_policy.loss_limit_usd(equity, self.policy)
         realized = float(st.get("realized_pnl_usd") or 0.0)
         phase = str(clock.get("phase") or "")
-        allowed_phases = self.session_plan.get("phases") or ["REGULAR"]
+        # 무인 엔진이 도는 단계 — 수동·지시 개입 전용 승인이면 프리장이 여기서 빠진다.
+        auto_phases = session_routing.auto_phases(self.session_plan)
         buy_orders_today = len([o for o in (st.get("orders") or []) if o.get("side") == "BUY"])
         phase_order_cap = session_routing.session_order_cap(
             phase, self.session_plan, int(g.get("max_orders_per_session", 8)))
@@ -866,8 +867,10 @@ class AutonomousTrader:
         elif realized <= -loss_limit:
             global_block = f"당일 실현손실 -${abs(realized):.2f} ≥ 한도 ${loss_limit:.2f}"
             st["halted"], st["halt_reason"] = True, global_block
-        elif clock.get("phase") not in allowed_phases:
-            global_block = (f"세션 아님({clock.get('phase')}) — 허용 단계 {list(allowed_phases)}"
+        elif clock.get("phase") not in auto_phases:
+            global_block = (f"세션 아님({clock.get('phase')}) — 무인 엔진 허용 단계 {list(auto_phases)}"
+                            + (f" · {self.session_plan.get('auto_blocked_reason')}"
+                               if self.session_plan.get("auto_blocked_reason") else "")
                             + (f" · {self.session_plan.get('blocked_reason')}"
                                if self.session_plan.get("blocked_reason") else ""))
         elif len(st.get("entries") or []) >= int(g.get("max_entries_per_session", 3)):
@@ -1224,16 +1227,19 @@ class AutonomousTrader:
                     b["force_exit_overdue_kst"] = _now_str()
             self._emit("FORCE_EXIT_OVERDUE", tickers=[i["ticker"] for i in failsafe["overdue"]],
                        phase=clock.get("phase"))
-        if clock.get("phase") in (self.session_plan.get("phases") or ["REGULAR"]) \
-                and self.order_type(clock):
+        if clock.get("phase") in session_routing.auto_phases(self.session_plan) and self.order_type(clock):
             exits = self.exits(st, brackets, market.get("quotes") or {}, clock,
                                integrity=market.get("integrity"),
                                broker_marks=market.get("broker_marks"))
         else:
             exits = []
             self._emit("EXITS_SKIPPED", reason=f"phase={clock.get('phase')} — 주문 없음"
+                       + (f" ({self.session_plan.get('auto_blocked_reason')})"
+                          if self.session_plan.get("auto_blocked_reason") else "")
                        + (f" ({self.session_plan.get('blocked_reason')})"
-                          if self.session_plan.get("blocked_reason") else ""))
+                          if self.session_plan.get("blocked_reason") and
+                          clock.get("phase") not in session_routing.auto_phases(self.session_plan)
+                          else ""))
         entries = self.entries(st, brackets, market, led, params)
         evolution = self.evolve(market, st, led)
 
@@ -1288,8 +1294,10 @@ class AutonomousTrader:
             "exit_authority": exit_authority_report(brackets),
             "shadow_model": _shadow_model(market),
             "session_plan": {k: self.session_plan.get(k) for k in
-                             ("phases", "order_types", "premarket_enabled",
-                              "after_hours_enabled", "blocked_reason")},
+                             ("phases", "auto_phases", "order_types", "premarket_enabled",
+                              "premarket_auto_enabled", "premarket_manual_only",
+                              "manual_intervention_only", "after_hours_enabled",
+                              "blocked_reason", "auto_blocked_reason")},
             "order_type": self.order_type(clock),
             "decision_attribution": getattr(self, "last_attribution", None)
             or decision_attribution.build(
@@ -1340,8 +1348,12 @@ class AutonomousTrader:
         if st.get("halted"):
             return "당일 신규 매수 중단 — 청산만 계속"
         if clock.get("phase") != "REGULAR":
-            if self.order_type(clock):
+            if clock.get("phase") in session_routing.auto_phases(self.session_plan) \
+                    and self.order_type(clock):
                 return f"{clock.get('phase')} 가동 — {self.order_type(clock)} 호가로 주문 가능"
+            if self.session_plan.get("premarket_manual_only") \
+                    and clock.get("phase") in (self.session_plan.get("phases") or []):
+                return "프리장 수동·지시 개입 전용 — 무인 엔진 정지(intervene_trade.py 61)"
             return f"다음 정규장 {clock.get('next_open_kst')}"
         if session_time.in_window(clock, self.guard.get("opening_blackout_kst")):
             return "개장 유예 — 00:00 KST부터 신규 진입"
@@ -1427,8 +1439,10 @@ def refresh_status(by: str = "pulse") -> Dict[str, Any]:
                                                        "risk_scale", "defensive_mode", "entry_filters")},
         "macro8_gate": _macro8_gate()[1],
         "session_plan": {k: helper.session_plan.get(k) for k in
-                         ("phases", "order_types", "premarket_enabled",
-                          "after_hours_enabled", "blocked_reason")},
+                         ("phases", "auto_phases", "order_types", "premarket_enabled",
+                          "premarket_auto_enabled", "premarket_manual_only",
+                          "manual_intervention_only", "after_hours_enabled",
+                          "blocked_reason", "auto_blocked_reason")},
         "order_type": helper.order_type(clock),
         "c5_pilot": helper._c5_status(st, brackets, clock),
         "ledger": {"equity_usd": equity, "cash_usd": cash},

@@ -69,7 +69,10 @@ HARD_LOCK: Dict[str, Any] = {
 PREMATURE_PREMARKET_RULE: Dict[str, Any] = {
     "key": "premarket_enabled",
     "expected": "승인 기록(approved_by·approved_at_kst)과 함께 true",
-    "note": "스위치만 켜고 승인 기록이 없으면 하드락 위반으로 보고한다.",
+    "note": ("스위치만 켜고 승인 기록이 없으면 하드락 위반으로 보고한다. "
+             "승인 범위가 manual_intervention_only=true면 무인 엔진은 프리장에 주문하지 않고 "
+             "intervene_trade.py(사용자 지시)만 61 주문을 낸다 — 이 구분은 hard_lock 스냅샷의 "
+             "premarket.mode(closed/manual_only/auto)에 남긴다."),
 }
 
 # 자동 적용이 허용되는 키(진입 필터 조이기 전용)
@@ -173,6 +176,7 @@ def policy_snapshot(policy: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         "nvda_levels_locked": (g.get("nvda_levels_locked") or {}),
         "premarket_enabled": bool(approval.get("approved")),
         "premarket_switch": bool(pre.get("enabled")),
+        "premarket_manual_only": session_routing.manual_intervention_only(pre),
         "premarket_approval": approval,
         "universe": list(pol.get("universe") or []),
         "entry_filters": dict((_load(os.path.join(DATA, "strategy_params.json"), {}) or {}).get("entry_filters") or {}),
@@ -225,10 +229,21 @@ def hard_lock_report(snapshot: Optional[Dict[str, Any]] = None) -> Dict[str, Any
 
 
 def hard_lock_snapshot() -> Dict[str, Any]:
-    rep = hard_lock_report()
+    snap = policy_snapshot()
+    rep = hard_lock_report(snap)
+    approved = bool(snap.get("premarket_enabled"))
+    manual_only = bool(snap.get("premarket_manual_only"))
     return {"ok": rep["ok"], "violations": rep["violations"],
             "rules": {k: f"{v[0]} {v[1]}" for k, v in HARD_LOCK.items()},
-            "premarket_rule": PREMATURE_PREMARKET_RULE}
+            "premarket_rule": PREMATURE_PREMARKET_RULE,
+            "premarket": {"switch": bool(snap.get("premarket_switch")),
+                          "approved": approved,
+                          "manual_intervention_only": manual_only,
+                          "auto_enabled": bool(approved and not manual_only),
+                          "mode": ("closed" if not approved else
+                                   ("manual_only" if manual_only else "auto")),
+                          "approved_by": (snap.get("premarket_approval") or {}).get("approved_by"),
+                          "approved_at_kst": (snap.get("premarket_approval") or {}).get("approved_at_kst")}}
 
 
 # ------------------------------------------------------------------ hypotheses

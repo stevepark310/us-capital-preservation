@@ -1,24 +1,22 @@
 name: CUBE Market Autotrade (10m)
 
-# 미국 **프리장 + 정규장**을 함께 덮는다(2026-11-21 확장).
-#   프리마켓 04:00–09:30 ET = 08:00–13:30 UTC (EDT) / 09:00–14:30 UTC (EST)
-#   정규장   09:30–16:00 ET = 13:30–20:00 UTC (EDT) / 14:30–21:00 UTC (EST)
-# 그래서 크론 창을 UTC 08~21시로 잡았다. 실제 세션 판정은 `core/market_clock`(DST 자동)이
-# 하고, `scripts/cloud_cycle.py market`이 `core/session_routing`의 허용 단계를 확인한다:
+# 자동 크론은 **미국 정규장**만 돈다(2026-11-21 18:41 동훈님 승인 '안 A' — 프리장은 수동·지시 개입만).
+#   정규장 09:30–16:00 ET = 13:30–20:00 UTC (EDT) / 14:30–21:00 UTC (EST)
+#   프리마켓 04:00–09:30 ET는 이 자동 크론에서 돌지 않는다 — 사람이 지시한
+#   `intervene_trade.yml`(workflow_dispatch 1건)만 호가유형 61을 낼 수 있다.
+# 실제 세션 판정은 `core/market_clock`(DST 자동)이 하고, `scripts/cloud_cycle.py market`이
+# `core/session_routing`의 **auto_phases**를 확인한다:
 #   · 정규장은 종전과 동일하게 게이트(`config/live_execution_gate.json`)만 맞으면 돈다.
-#   · 프리장은 `config/premarket_policy.json`이 enabled=true **그리고** 사용자 승인 기록
-#     (approved_by·approved_at_kst)을 가질 때만 돈다. 아니면 SKIPPED_OFF_HOURS로 끝나
-#     주문이 나가지 않는다. 프리장 주문은 NH 호가유형 61(지정가)로 나간다.
+#   · 프리장은 `manual_intervention_only=true`라 auto_phases에서 빠진다 → SKIPPED_PREMARKET_MANUAL.
+#     (자동 프리장 매매를 열려면 `manual_intervention_only=false` + OOS 재검증이 필요하다.)
 on:
   schedule:
-    - cron: "4-59/10 8-21 * * 1-5"
+    - cron: "4-59/10 13-21 * * 1-5"
   # Trigger one immediate guarded market cycle when today's live gate is changed.
   push:
     branches: [main]
     paths:
       - 'config/live_execution_gate.json'
-      - 'config/premarket_policy.json'
-      - 'config/regime_policy.json'
   workflow_dispatch:
     inputs:
       dry_run:

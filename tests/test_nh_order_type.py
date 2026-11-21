@@ -134,11 +134,13 @@ def test_premarket_policy_missing_file_blocks(tmp_path, monkeypatch):
     assert res["status"] == "BLOCKED_POLICY"
 
 
-def test_repo_policy_file_is_disabled():
-    """저장소 정책 파일은 enabled=false로 고정되어 있어야 한다(프리장 실주문 금지)."""
+def test_repo_policy_file_is_approved_for_manual_intervention_only():
+    """저장소 정책 파일 — 2026-11-21 18:41 승인(안 A): 프리장 61은 수동·지시 개입만."""
     with open(ob.PREMARKET_POLICY, "r", encoding="utf-8") as f:
         pol = json.load(f)
-    assert pol["enabled"] is False
+    assert pol["enabled"] is True
+    assert pol["manual_intervention_only"] is True
+    assert pol["approved_by"] and pol["approved_at_kst"]
     assert set(pol["supported_order_types"]) == {"00", "61", "62"}
 
 

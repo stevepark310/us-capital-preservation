@@ -2753,7 +2753,7 @@
     "pct_b_max": 0.15,
     "rvol_min": 1.0
   },
-  "updated_at_kst": "2026-11-21 18:41:42",
+  "updated_at_kst": "2026-11-21 18:48:29",
   "counters": {
     "hypotheses": 13,
     "applied": 0,
@@ -2790,7 +2790,16 @@
     "premarket_rule": {
       "key": "premarket_enabled",
       "expected": "승인 기록(approved_by·approved_at_kst)과 함께 true",
-      "note": "스위치만 켜고 승인 기록이 없으면 하드락 위반으로 보고한다."
+      "note": "스위치만 켜고 승인 기록이 없으면 하드락 위반으로 보고한다. 승인 범위가 manual_intervention_only=true면 무인 엔진은 프리장에 주문하지 않고 intervene_trade.py(사용자 지시)만 61 주문을 낸다 — 이 구분은 hard_lock 스냅샷의 premarket.mode(closed/manual_only/auto)에 남긴다."
+    },
+    "premarket": {
+      "switch": true,
+      "approved": true,
+      "manual_intervention_only": true,
+      "auto_enabled": false,
+      "mode": "manual_only",
+      "approved_by": "박동훈 (사용자)",
+      "approved_at_kst": "2026-11-21 18:41"
     }
   },
   "execution_reconciled_at_kst": "2026-11-21 14:21:33"

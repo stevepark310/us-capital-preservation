@@ -154,7 +154,9 @@ def _agent_state(aid, report, status, pulse_ctx):
         stats = (ev.get("stats") or {})
         return (f"백테스트 캐시 유지(24h) · 전략점검 {ev.get('decision')} · 실전 표본 {stats.get('n', 0)}건 "
                 f"(기대값 {stats.get('ev_pct', '—')}%/건, PF {stats.get('profit_factor', '—')}) — "
-                f"표본 20건 미만이면 파라미터 교체를 보류합니다",
+                f"표본 20건 미만이면 파라미터 교체를 보류합니다. "
+                f"M8·V2 결합·프리장 61·인버스 profit_lock 전체 수치는 상단 고정 게시글 "
+                f"'🧪 백테스트 결과 요약(고정)'을 참조하세요.",
                 [{"label": "표본", "value": f"{stats.get('n', 0)}건", "highlight": True},
                  {"label": "점검", "value": ev.get("decision", "—")}])
     if aid == 8:
@@ -400,7 +402,10 @@ def main(argv=None):
     feed = _load(FEED_PATH, {}) or {}
     posts = [p for p in (feed.get("posts") or []) if not str(p.get("id", "")).startswith("post-pulse-")]
     new_posts = build_pulse(clock, report, status, evolution, stages)
-    feed["posts"] = new_posts + posts
+    # 백테스트 고정 요약은 항상 맨 위에 둔다(같은 분 타임스탬프에서 배열 순서가 유지된다).
+    digests = [p for p in posts if p.get("id") == "post-backtest-digest"]
+    others = [p for p in posts if p.get("id") != "post-backtest-digest"]
+    feed["posts"] = digests + new_posts + others
     feed["total_posts"] = len(feed["posts"])
     feed["pulse"] = {
         "cycle_kst": clock["now_kst"][:16],

@@ -126,10 +126,23 @@ def after_hours(policy: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     return cfg
 
 
+def manual_intervention_only(policy: Optional[Dict[str, Any]] = None) -> bool:
+    """프리장이 '사람이 지시한 단건 개입'에만 열려 있는가 (2026-11-21 18:41 승인).
+
+    `true`면 세션 라우팅(`phases`)은 PRE_MARKET을 허용하지만(= 게이트·수동 개입 경로가
+    61 주문을 낼 수 있다), **무인 엔진이 도는 단계**(`auto_phases`)에서는 PRE_MARKET을
+    뺀다. 즉 자동 크론은 정규장만 돌고, 프리장 주문은 intervene_trade.py(사용자 지시)만
+    낼 수 있다. 키가 없으면 종전 동작(auto 허용)을 유지한다 — 이 파일이 유일한 스위치다.
+    """
+    pol = policy if policy is not None else load_policy()
+    return pol.get("manual_intervention_only") is True
+
+
 def status(policy: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """세션 라우팅 상태 요약 — 게이트·집행기·대시보드가 같은 판정을 쓴다."""
     pol = policy if policy is not None else load_policy()
     appr = approval_state(pol)
+    manual_only = manual_intervention_only(pol)
     phases: List[str] = ["REGULAR"]
     reasons: List[str] = []
     if appr["approved"]:
@@ -139,15 +152,24 @@ def status(policy: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     ah = after_hours(pol)
     if appr["approved"] and ah.get("enabled") is True:
         phases.append("POST_MARKET")
+    # 무인 엔진(자동 사이클)이 도는 단계 — 수동 개입 전용 승인이면 정규장만.
+    auto_phases = [p for p in phases if not (manual_only and p in ("PRE_MARKET", "POST_MARKET"))]
     return {
         "premarket_enabled": bool(appr["approved"]),
         "premarket_switch": bool(pol.get("enabled") is True),
         "after_hours_enabled": bool(ah.get("enabled") is True),
+        "manual_intervention_only": manual_only,
         "phases": phases,
+        "auto_phases": auto_phases,
+        "premarket_auto_enabled": bool(appr["approved"] and not manual_only),
+        "premarket_manual_only": bool(appr["approved"] and manual_only),
         "order_types": {p: SESSION_ORDER_TYPES[p] for p in phases},
+        "auto_order_types": {p: SESSION_ORDER_TYPES[p] for p in auto_phases},
         "approved_by": appr.get("approved_by"),
         "approved_at_kst": appr.get("approved_at_kst"),
         "blocked_reason": "; ".join(reasons) or None,
+        "auto_blocked_reason": ("프리장 수동·지시 개입 전용(manual_intervention_only) — 무인 엔진은 정규장만"
+                                if manual_only else None),
         "entry_conditions": entry_conditions(pol),
         "after_hours": ah,
         "policy_path": PREMARKET_POLICY_PATH if policy is None else None,
@@ -156,10 +178,24 @@ def status(policy: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     }
 
 
+def auto_phases(plan: Optional[Dict[str, Any]] = None) -> List[str]:
+    """무인 엔진이 주문을 낼 수 있는 단계. 계획에 `auto_phases`가 없으면 `phases` 그대로."""
+    plan = plan or default_plan()
+    return list(plan.get("auto_phases") or plan.get("phases") or ["REGULAR"])
+
+
+def manual_allowed(phase: Optional[str], plan: Optional[Dict[str, Any]] = None) -> bool:
+    """사용자 지시·수동 개입 경로가 이 단계에서 주문할 수 있는가(`phases` 기준)."""
+    plan = plan or default_plan()
+    return str(phase or "") in (plan.get("phases") or ["REGULAR"])
+
+
 def default_plan() -> Dict[str, Any]:
     """정규장만 허용하는 기본 계획(프리장 파일을 읽지 않는 안전 기본값)."""
     return {"premarket_enabled": False, "after_hours_enabled": False,
-            "phases": ["REGULAR"], "order_types": {"REGULAR": "00"},
+            "phases": ["REGULAR"], "auto_phases": ["REGULAR"],
+            "manual_intervention_only": False,
+            "order_types": {"REGULAR": "00"}, "auto_order_types": {"REGULAR": "00"},
             "entry_conditions": dict(DEFAULT_ENTRY_CONDITIONS),
             "after_hours": dict(DEFAULT_AFTER_HOURS),
             "blocked_reason": "정규장만 허용(기본 계획)"}

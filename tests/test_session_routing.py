@@ -118,10 +118,13 @@ def test_quote_freshness_rejects_stale_premarket_prints():
     assert stale["ok"] is False and "경과" in stale["reason"]
 
 
-def test_repo_policy_file_stays_closed_until_approved():
-    """저장소의 정책 파일은 승인 전이므로 프리장이 닫혀 있어야 한다(주문 금지)."""
+def test_repo_policy_file_is_manual_intervention_only():
+    """저장소 정책 파일 — 2026-11-21 18:41 승인: 프리장은 수동·지시 개입(61)만 열려 있다."""
     with open(sr.PREMARKET_POLICY_PATH, "r", encoding="utf-8") as f:
         pol = json.load(f)
     st = sr.status(pol)
-    assert st["premarket_enabled"] is False
-    assert st["phases"] == ["REGULAR"]
+    assert st["premarket_enabled"] is True
+    assert st["phases"] == ["REGULAR", "PRE_MARKET"]
+    assert st["auto_phases"] == ["REGULAR"]          # 자동 사이클은 프리장에 주문하지 않는다
+    assert st["premarket_auto_enabled"] is False
+    assert st["premarket_manual_only"] is True

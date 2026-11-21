@@ -1,12 +1,15 @@
 {
-  "enabled": false,
-  "version": 2,
+  "enabled": true,
+  "manual_intervention_only": true,
+  "version": 3,
   "decided_at": "2026-11-18",
   "updated_at": "2026-11-21",
   "decided_by": "백테스트 결과에 따른 권고안 — 실주문 활성화는 사용자 승인 필요",
-  "approved_by": null,
-  "approved_at_kst": null,
-  "reason": "프리장 실주문은 코드·경로·방어장치는 모두 준비됐지만, 2026-11-21 재검증에서 OOS t>=2.0을 만족하는 조건이 없어 자동 활성화하지 않는다. 종전 2026-11-18 결론(조건 없는 프리장 진입 기대값 음수, 한국장 정보는 04:00 ET 갭에 이미 반영)은 그대로 유효하다. 사용자가 승인하면 approved_by·approved_at_kst를 채우고 enabled를 true로 바꾸는 것만으로 켜진다.",
+  "approved_by": "박동훈 (사용자)",
+  "approved_at_kst": "2026-11-21 18:41",
+  "approval_quote": "안 A로 설정해줘. M8 shadow와 월요일 SQQQ 매도전용은 유지하고 프리장 수동·지시 개입(61)만 승인할게.",
+  "approved_scope_ko": "프리장(04:00~09:30 ET) 호가유형 61을 **수동·지시 개입 경로(scripts/intervene_trade.py → cloud_cycle.py intervene → intervene_trade.yml)에서만** 허용한다. 무인 10분 사이클(core/autotrader.py · scripts/cloud_cycle.py market)의 프리장 자동 매수·매도는 열지 않는다(manual_intervention_only=true).",
+  "reason": "2026-11-21 재검증에서 OOS t>=2.0을 만족하는 조건이 없어 자동 프리장 개입은 계속 보류한다(종전 2026-11-18 결론도 유효: 조건 없는 프리장 진입 기대값 음수, 한국장 정보는 04:00 ET 갭에 이미 반영). 다만 동훈님이 18:41에 '프리장 수동·지시 개입(61)만' 승인했으므로, 사람이 지시한 단건 개입에 한해 프리장 61 주문 경로를 연다. 자동 크론은 정규장만 돈다.",
   "validation": {
     "generated_at_kst": "2026-11-21",
     "report": "docs/live_order_link_premarket_20261121.md",
@@ -72,21 +75,23 @@
   },
   "enable_requirements": [
     "동훈님 명시 승인(approved_by·approved_at_kst 기록) — 파일에 기록하지 않으면 enabled=true여도 열리지 않는다(core/session_routing.approval_state)",
-    "표본 외(rolling out-of-sample) t >= 2.0 및 왕복비용 0.44% 차감 후 건당 기대값 > 0 재검증",
+    "표본 외(rolling out-of-sample) t >= 2.0 및 왕복비용 0.44% 차감 후 건당 기대값 > 0 재검증 — 자동 프리장 개입(manual_intervention_only=false)은 이 관문을 다시 통과해야 한다",
     "1주 가격이 1회 진입 실효 예산 이하인 종목으로 한정",
     "일일 손실 서킷브레이커(-$25 / -3%) 및 진입 마감 시각 유지",
     "프리장 지정가 슬리피지 상한 15bp·1회 예산 $60·세션 2건 상한 유지"
   ],
   "code_path": {
-    "routing": "core/session_routing.py — phase별 호가유형(00/61/62)·진입 창·얇은 호가 방어",
-    "gate": "core/live_session_gate.check_live_gate(plan=...) — 프리장 승인 시 PRE_MARKET 허용",
-    "engine": "core/autotrader.py — PRE_MARKET 진입·청산, order_type 61 자동 라우팅, decision_attribution 기록",
+    "routing": "core/session_routing.py — phase별 호가유형(00/61/62)·진입 창·얇은 호가 방어. manual_intervention_only=true면 auto_phases에서 PRE_MARKET을 뺀다",
+    "gate": "core/live_session_gate.check_live_gate(plan=...) — 프리장 승인 시 PRE_MARKET 허용(수동 개입 경로)",
+    "engine": "core/autotrader.py — auto_phases 밖(프리장)에서는 신규 진입·청산 모두 정지(수동 개입 전용)",
     "router": "execution/order_bridge.py — order_type=61을 NHBroker.place_order로 전달, 세션 불일치 차단",
     "intervention": "scripts/intervene_trade.py — 즉시 개입 단일 진입점(dry-run 기본), 클라우드: scripts/cloud_cycle.py intervene",
-    "workflow": "execution/market_autotrade.yml.template(UTC 08~21 프리장+정규장) + execution/intervene_trade.yml.template"
+    "workflow": "github: .github/workflows/intervene_trade.yml (workflow_dispatch 수동 1건) — 자동 크론(market_autotrade.yml)은 정규장만"
   },
   "notes": [
     "이 파일이 enabled=false이거나 승인 기록이 없으면 OrderRouter.place(order_type='61'|'62')는 디스패치하지 않고 BLOCKED_POLICY를 반환한다.",
+    "manual_intervention_only=true이면 ① 무인 집행기(autotrader)와 ② 클라우드 자동 사이클(cloud_cycle.py market)이 프리장에서 주문하지 않는다. 사람이 지시한 intervene_trade.py(61)만 61 주문을 낼 수 있다.",
+    "자동 프리장 매매를 열려면 manual_intervention_only=false로 바꾸고, enable_requirements의 OOS t>=2.0 재검증을 통과해야 한다.",
     "NH Open API 프리마켓 주문은 지정가만 지원한다(price > 0 필수).",
     "60분봉 프리장 거래량이 대부분 0으로 기록돼 유동성 필터는 데이터로 검증할 수 없다 — 방어는 지정가·예산·건수·시세 신선도로만 건다."
   ]
