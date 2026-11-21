@@ -1,6 +1,6 @@
 {
   "engine": "CUBE-M8 v1",
-  "generated_at_kst": "2026-11-21 11:15:17",
+  "generated_at_kst": "2026-11-21 11:28:27",
   "as_of": "2026-11-19",
   "extra_lag_days": 0,
   "composite": {
@@ -144,7 +144,7 @@
           "lag_days": 0,
           "known_from": "2026-11-21",
           "last_period": "2026-11-21",
-          "latest_value": -31.9847,
+          "latest_value": -32.0797,
           "z_unsigned": -1.71,
           "z_signed": 1.32,
           "available": true
@@ -161,8 +161,8 @@
           "lag_days": 0,
           "known_from": "2026-11-21",
           "last_period": "2026-11-21",
-          "latest_value": -18.7902,
-          "z_unsigned": -1.12,
+          "latest_value": -18.9031,
+          "z_unsigned": -1.13,
           "z_signed": -0.92,
           "available": true
         },
@@ -178,8 +178,8 @@
           "lag_days": 0,
           "known_from": "2026-11-21",
           "last_period": "2026-11-21",
-          "latest_value": 41.7223,
-          "z_unsigned": 0.57,
+          "latest_value": 41.8734,
+          "z_unsigned": 0.58,
           "z_signed": 0.43,
           "available": true
         }
@@ -598,7 +598,7 @@
     "entry_filter": {
       "enabled": false,
       "min_z": -1.0,
-      "note": "이진 진입 차단은 OOS에서 성과가 더 나빴다(BINARY 계열) — 쓰지 않는다."
+      "note": "이진 진입 차단(z>0이면 투자·아니면 현금)은 OOS Sharpe가 가장 좋았지만(SPY 0.97) 하루 단위 스위치가 잦아 실전 체결·슬리피지 위험이 크다. 기본 적용식은 연속 노출(linear)로 두고, 이진 게이트는 승인 후 별도 옵션으로만 검토한다."
     },
     "note": "shadow — 계산·보고만 하며 주문 크기를 바꾸지 않는다. 동훈님 승인 후 config/macro_leading_policy.json의 enabled_for_sizing을 true로.",
     "approval_required": true,
@@ -609,59 +609,83 @@
         "SPY": {
           "incumbent": "SMA200",
           "incumbent_oos": {
-            "cagr_pct": 15.33,
-            "mdd_pct": -8.41,
-            "sharpe": 1.32,
+            "cagr_pct": 5.17,
+            "mdd_pct": -22.36,
+            "sharpe": 0.5,
             "avg_exposure_pct": 75.9
           },
-          "best_variant": "M8F_LINEAR_X_SMA200",
-          "best_oos": {
-            "cagr_pct": 12.24,
-            "mdd_pct": -7.69,
-            "sharpe": 1.37,
-            "avg_exposure_pct": 58.8
+          "buy_hold_oos": {
+            "cagr_pct": 8.8,
+            "mdd_pct": -25.36,
+            "sharpe": 0.57
           },
-          "sharpe_delta_vs_incumbent": 0.05,
-          "mdd_delta_pp_vs_incumbent": 0.72,
-          "cagr_delta_pp_vs_incumbent": -3.09
+          "best_variant": "M8F_BINARY",
+          "best_oos": {
+            "cagr_pct": 11.73,
+            "mdd_pct": -19.0,
+            "sharpe": 0.97,
+            "avg_exposure_pct": 62.9
+          },
+          "sharpe_delta_vs_incumbent": 0.47,
+          "mdd_delta_pp_vs_incumbent": 3.36,
+          "cagr_delta_pp_vs_incumbent": 6.56,
+          "sharpe_delta_vs_bh": 0.4,
+          "mdd_delta_pp_vs_bh": 6.36,
+          "cagr_delta_pp_vs_bh": 2.93
         },
         "SOXX": {
           "incumbent": "SMA200",
           "incumbent_oos": {
-            "cagr_pct": 29.82,
-            "mdd_pct": -39.59,
-            "sharpe": 0.96,
+            "cagr_pct": 8.66,
+            "mdd_pct": -40.4,
+            "sharpe": 0.42,
             "avg_exposure_pct": 75.9
           },
-          "best_variant": "M8F_LINEAR_X_SMA200",
-          "best_oos": {
-            "cagr_pct": 24.55,
-            "mdd_pct": -27.42,
-            "sharpe": 1.01,
-            "avg_exposure_pct": 58.8
+          "buy_hold_oos": {
+            "cagr_pct": 18.56,
+            "mdd_pct": -46.0,
+            "sharpe": 0.63
           },
-          "sharpe_delta_vs_incumbent": 0.05,
-          "mdd_delta_pp_vs_incumbent": 12.17,
-          "cagr_delta_pp_vs_incumbent": -5.27
+          "best_variant": "M8F_BINARY",
+          "best_oos": {
+            "cagr_pct": 23.15,
+            "mdd_pct": -41.67,
+            "sharpe": 0.88,
+            "avg_exposure_pct": 62.9
+          },
+          "sharpe_delta_vs_incumbent": 0.46,
+          "mdd_delta_pp_vs_incumbent": -1.27,
+          "cagr_delta_pp_vs_incumbent": 14.49,
+          "sharpe_delta_vs_bh": 0.25,
+          "mdd_delta_pp_vs_bh": 4.33,
+          "cagr_delta_pp_vs_bh": 4.59
         },
         "SOXL": {
           "incumbent": "SMA200",
           "incumbent_oos": {
-            "cagr_pct": 47.99,
+            "cagr_pct": -13.63,
             "mdd_pct": -86.41,
-            "sharpe": 0.9,
+            "sharpe": 0.34,
             "avg_exposure_pct": 75.9
           },
-          "best_variant": "M8F_LINEAR_X_SMA200",
-          "best_oos": {
-            "cagr_pct": 53.72,
-            "mdd_pct": -69.83,
-            "sharpe": 0.96,
-            "avg_exposure_pct": 58.8
+          "buy_hold_oos": {
+            "cagr_pct": -8.01,
+            "mdd_pct": -90.39,
+            "sharpe": 0.53
           },
-          "sharpe_delta_vs_incumbent": 0.06,
-          "mdd_delta_pp_vs_incumbent": 16.58,
-          "cagr_delta_pp_vs_incumbent": 5.73
+          "best_variant": "M8F_BINARY",
+          "best_oos": {
+            "cagr_pct": 39.64,
+            "mdd_pct": -87.97,
+            "sharpe": 0.82,
+            "avg_exposure_pct": 62.9
+          },
+          "sharpe_delta_vs_incumbent": 0.48,
+          "mdd_delta_pp_vs_incumbent": -1.56,
+          "cagr_delta_pp_vs_incumbent": 53.27,
+          "sharpe_delta_vs_bh": 0.29,
+          "mdd_delta_pp_vs_bh": 2.42,
+          "cagr_delta_pp_vs_bh": 47.65
         }
       },
       "oos_ic_isfit_spy": {
@@ -886,7 +910,7 @@
         "available": true,
         "bars": 4448,
         "last_date": "2026-11-21",
-        "last": 58903.1914
+        "last": 58820.9219
       },
       "GC=F": {
         "available": true,

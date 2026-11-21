@@ -610,8 +610,9 @@ def summarize(panel: Dict[str, Any], raw: Dict[str, Any], extra_lag_days: int = 
     z_prev = float(comp.iloc[-2]) if len(comp) > 1 else None
     z_3m_ago = _value_asof(comp, _shift_months(comp.index[-1], -3)) if len(comp) else None
 
+    pol = load_policy()
     regime, regime_ko, step_scale = regime_for(z)
-    lin_scale = linear_scale(z)
+    lin_scale = linear_scale(z, (pol.get("exposure_linear") or {}))
 
     blocks: List[Dict[str, Any]] = []
     for bkey, meta in BLOCK_META.items():
@@ -662,7 +663,6 @@ def summarize(panel: Dict[str, Any], raw: Dict[str, Any], extra_lag_days: int = 
         except Exception:
             monthly_hist = []
 
-    pol = load_policy()
     enabled = bool(pol.get("enabled_for_sizing"))
     applied_scale = lin_scale if enabled else 1.0
     fit = load_sign_fit()
