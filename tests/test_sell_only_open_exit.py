@@ -232,6 +232,54 @@ def test_sell_only_trader_creates_no_buy_orders(tmp_trader, monkeypatch):
     assert blocked and "매도 전용" in blocked[0]["reason"]
 
 
+# ------------------------------------------------------------------ CLI 배선
+def test_cli_passes_sell_only_from_gate(tmp_path, monkeypatch):
+    """`scripts/autotrader.py --execute`가 게이트의 sell_only를 엔진에 전달하는가."""
+    from core import market_clock
+    from scripts import autotrader as cli
+
+    monkeypatch.setattr(cli, "BASE_DIR", str(tmp_path))
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "live_execution_gate.json").write_text(
+        '{"enabled":true,"session_date":"2026-11-23","expires_at_kst":"2099-01-01 06:00:00",'
+        '"sell_only":true,"max_buy_order_usd":0,"max_session_buy_usd":0,'
+        '"max_session_buy_orders":0}', encoding="utf-8")
+    monkeypatch.setattr(market_clock, "resolve", lambda *a, **k: dict(CLOCK))
+    seen = {}
+
+    class FakeTrader:
+        def __init__(self, **kw):
+            seen.update(kw)
+
+        def acquire_lease(self, owner="autotrader"):
+            return True
+
+        def release_lease(self, owner="autotrader"):
+            return None
+
+        def run(self, execute=False):
+            seen["execute"] = execute
+            return {"mode": "EXECUTE", "exits": [], "entries": [], "policy": {}}
+
+    monkeypatch.setattr(cli, "AutonomousTrader", FakeTrader)
+    assert cli.main(["--execute"]) == 0
+    assert seen["sell_only"] is True and seen["dry_run"] is False and seen["execute"] is True
+
+
+def test_cli_refuses_execute_when_gate_is_closed(tmp_path, monkeypatch):
+    from core import market_clock
+    from scripts import autotrader as cli
+
+    monkeypatch.setattr(cli, "BASE_DIR", str(tmp_path))
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "live_execution_gate.json").write_text(
+        '{"enabled":false}', encoding="utf-8")
+    monkeypatch.setattr(market_clock, "resolve", lambda *a, **k: dict(CLOCK))
+    monkeypatch.setattr(cli, "AutonomousTrader",
+                        lambda **kw: pytest.fail("게이트가 닫혔는데 엔진을 만들었다"))
+    assert cli.main(["--execute"]) == 2
+
+
 # ------------------------------------------------------------------ stale broker mark
 def test_stale_broker_mark_does_not_drive_the_sell_price():
     """2026-11-21 05:57 사고: 브로커 잔고 시세(직전 세션 종가 $49.68)로 청산가를 계산."""
