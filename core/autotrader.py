@@ -1397,7 +1397,8 @@ def refresh_status(by: str = "pulse") -> Dict[str, Any]:
     desc = execution_policy.describe(policy, equity, cash, vix,
                                      extra_scale=float(params.get("risk_scale") or 1.0) * _macro8_gate()[0])
 
-    helper = AutonomousTrader(policy=policy, dry_run=True)
+    helper = AutonomousTrader(policy=policy, dry_run=True,
+                             session_plan=session_routing.status(session_routing.load_policy()))
     positions = {tk: {"qty": exit_rules.remaining_qty(b), "entry": b.get("entry_price"),
                       "sl": b.get("sl"), "exit_mode": b.get("exit_mode") or b.get("bracket_version"),
                       "bracket_class": b.get("bracket_class"), "trail_atr_mult": b.get("trail_atr_mult"),
