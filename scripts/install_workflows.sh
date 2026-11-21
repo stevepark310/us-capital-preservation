@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # 클라우드 워크플로 설치 — execution/*.yml.template → .github/workflows/
 #
-# 왜 필요한가: 이 저장소에 연결된 GitHub App에는 `workflows` 권한이 없어서
-# `.github/workflows/*.yml` 푸시가 403으로 거절된다(2026-11-19 실측).
-# 권한이 있는 곳(동훈님 로컬 clone 또는 GitHub 웹 UI)에서 한 번만 설치하면 된다.
+# 왜 필요한가: 2026-11-19에는 GitHub App에 `workflows` 권한이 없어
+# `.github/workflows/*.yml` 푸시가 403으로 거절됐다. 2026-11-21 동훈님이 workflows
+# (Read & write)를 허용한 뒤로는 이 저장소에서 바로 설치·푸시할 수 있다.
+# 템플릿이 정본이고, 설치된 워크플로가 다르면(=미설치/드리프트) 여기서 맞춘다.
 #
 # 사용법
 #   bash scripts/install_workflows.sh          # 설치(이미 같으면 건너뜀)
@@ -16,6 +17,7 @@ cd "$(dirname "$0")/.."
 PAIRS=(
   "execution/market_autotrade.yml.template:.github/workflows/market_autotrade.yml"
   "execution/intervene_trade.yml.template:.github/workflows/intervene_trade.yml"
+  "execution/nh_trade_dispatch.yml.template:.github/workflows/nh_trade_dispatch.yml"
   "execution/cube_pulse.yml.template:.github/workflows/cube_pulse.yml"
   "execution/macro_leading_sync.yml.template:.github/workflows/macro_leading_sync.yml"
 )
