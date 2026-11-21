@@ -107,20 +107,22 @@ def main(argv=None) -> int:
         return 0
 
     execute = "--execute" in args
-    if execute:
-        # The CLI itself must not bypass the cloud-level approval gate.
-        gate_path = os.path.join(BASE_DIR, "config", "live_execution_gate.json")
-        try:
-            with open(gate_path, "r", encoding="utf-8") as handle:
-                live_gate = json.load(handle)
-        except (OSError, ValueError):
-            live_gate = {}
-        from core import market_clock
-        from core.live_session_gate import check_live_gate
-        authorization = check_live_gate(live_gate, market_clock.resolve())
-        if not authorization["ok"]:
-            print(f"[autotrader] BLOCKED: {authorization['reason']}")
-            return 2
+    # The CLI itself must not bypass the cloud-level approval gate. 게이트는 dry-run
+    # 미리보기에도 읽어서 '지금 이 세션이 매도 전용인지'를 판단에 반영한다(주문은 없다).
+    gate_path = os.path.join(BASE_DIR, "config", "live_execution_gate.json")
+    try:
+        with open(gate_path, "r", encoding="utf-8") as handle:
+            live_gate = json.load(handle)
+    except (OSError, ValueError):
+        live_gate = {}
+    from core import market_clock
+    from core.live_session_gate import check_live_gate
+    authorization = check_live_gate(live_gate, market_clock.resolve())
+    if execute and not authorization["ok"]:
+        print(f"[autotrader] BLOCKED: {authorization['reason']}")
+        return 2
+    if authorization.get("sell_only"):
+        print("[autotrader] 매도 전용 게이트 — 신규 매수 0건, 청산만 집행합니다")
     if not execute and "--dry-run" not in args:
         print("사용법: python3 scripts/autotrader.py --execute | --dry-run | --status")
         return 2
@@ -129,7 +131,8 @@ def main(argv=None) -> int:
         print("[autotrader] 정책 비활성(config/swing_approval.json autonomous_execution.enabled=false)")
         return 2
 
-    trader = AutonomousTrader(policy=policy, dry_run=not execute)
+    trader = AutonomousTrader(policy=policy, dry_run=not execute,
+                              sell_only=bool(authorization.get("sell_only")))
     if not trader.acquire_lease("autotrader"):
         owner = AutonomousTrader.lease_owner_fresh(
             float(((policy.get("safety") or {}).get("single_writer_lease_min") or 15)))

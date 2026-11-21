@@ -106,8 +106,14 @@ def write_status(mode: str, payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # --------------------------------------------------------------------- market
-def _live_account_preflight() -> Dict[str, Any]:
-    """Fail closed unless the live NH account matches the checked-in ledger."""
+def _live_account_preflight(sell_only: bool = False) -> Dict[str, Any]:
+    """Fail closed unless the live NH account matches the checked-in ledger.
+
+    sell_only(매도 전용 세션)에서는 NH 잔고가 **읽히는 것**이 조건이고, 원장과의
+    보유수량 일치까지 요구하지 않는다 — 책 한 권이 어긋났다고 사용자가 지시한
+    청산을 막으면 3배 인버스 포지션이 그대로 넘어간다. 수량·매도가능 여부는 주문
+    직전 `order_bridge._live_pretrade_check`가 NH에서 다시 확인한다(이중 확인 유지).
+    """
     required = ("NH_APP_KEY", "NH_APP_SECRET", "NH_ACT_NO")
     missing = [key for key in required if not os.getenv(key)]
     if missing:
@@ -129,8 +135,14 @@ def _live_account_preflight() -> Dict[str, Any]:
         ledger_positions = {p.get("ticker"): int(p.get("qty") or 0) for p in
                             (live.get("positions") or []) if int(p.get("qty") or 0) > 0}
         if broker_positions != ledger_positions:
-            return {"ok": False, "reason": "NH holdings differ from ledger; reconcile before trading",
-                    "nh_positions": broker_positions, "ledger_positions": ledger_positions}
+            mismatch = {"nh_positions": broker_positions, "ledger_positions": ledger_positions}
+            if not sell_only:
+                return {"ok": False, "reason": "NH holdings differ from ledger; reconcile before trading",
+                        **mismatch}
+            return {"ok": True, "sell_only": True, "warning": "NH holdings differ from ledger",
+                    "nh_positions": broker_positions, "ledger_positions": ledger_positions,
+                    "nh_equity_usd": round(float(account["equity"]), 2),
+                    "nh_cash_usd": round(float(account["cash"]), 2)}
         return {"ok": True, "nh_positions": broker_positions,
                 "nh_equity_usd": round(float(account["equity"]), 2),
                 "nh_cash_usd": round(float(account["cash"]), 2)}
@@ -173,6 +185,7 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
     gate = _load(LIVE_GATE_PATH, {})
     gate_check = check_live_gate(gate, clock)
     live_enabled = gate_check["ok"]
+    sell_only = bool(gate_check.get("sell_only"))
     requested_dry = bool(dry_run if dry_run is not None else os.getenv("CUBE_CLOUD_DRY_RUN") == "1")
     base: Dict[str, Any] = {"last_cycle_kst": now_str(), "phase": clock.get("phase"),
                             "session_date": clock.get("session_date"),
@@ -181,8 +194,11 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
                             "dry_run": requested_dry or not live_enabled,
                             "live_gate_enabled": live_enabled,
                             "live_gate_reason": gate_check.get("reason"),
+                            "live_gate_sell_only": sell_only,
                             "note": (f"실주문 비활성 — {gate_check.get('reason')}"
-                                     if not live_enabled else "오늘 미국장 기간한정 실주문 게이트 활성")}
+                                     if not live_enabled else
+                                     ("오늘 미국장 기간한정 실주문 게이트 활성 · 매도 전용(신규 매수 0건)"
+                                      if sell_only else "오늘 미국장 기간한정 실주문 게이트 활성"))}
     if clock.get("phase") != "REGULAR":
         # 정규장 밖이라도 '연체된 강제청산'은 계산해서 남긴다 — 종전에는 SKIPPED로 끝나
         # 05:40 청산이 통째로 사라졌다(2026-11-19 SQQQ). 다음 정규장 첫 사이클이 닫는다.
@@ -226,11 +242,15 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
         team = _team_preflight()
         base["team_preflight"] = team
         if not team["ok"]:
-            base.update({"result": "BLOCKED_TEAM", "seconds": round(time.time() - t0, 1),
-                         "stages": stages, "note": team["reason"]})
-            write_status("market", base)
-            return base
-        preflight = _live_account_preflight()
+            if not sell_only:
+                base.update({"result": "BLOCKED_TEAM", "seconds": round(time.time() - t0, 1),
+                             "stages": stages, "note": team["reason"]})
+                write_status("market", base)
+                return base
+            # 매도 전용 세션: 10인 업무보고·협업 하드락은 청산의 전제가 아니다.
+            # (포지션·매도가능 수량은 아래 NH preflight와 주문 직전 재확인이 한다.)
+            base["team_preflight_advisory"] = team.get("reason")
+        preflight = _live_account_preflight(sell_only=sell_only)
         base["preflight"] = preflight
         if not preflight["ok"]:
             base.update({"result": "BLOCKED_PREFLIGHT", "seconds": round(time.time() - t0, 1),

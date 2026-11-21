@@ -289,6 +289,9 @@ class OrderRouter:
         authorized = check_live_gate(gate, market_clock.resolve())
         if not authorized["ok"]:
             return authorized
+        if side == "BUY" and authorized.get("sell_only"):
+            # 매도 전용 세션 — 어떤 금액의 신규 매수도 나가지 않는다(2026-11-23).
+            return {"ok": False, "reason": "live gate is sell-only; new buys are blocked"}
         if side == "BUY" and qty * price > authorized["max_buy_order_usd"] + 1e-6:
             return {"ok": False, "reason": "live per-order buy cap exceeded"}
         try:

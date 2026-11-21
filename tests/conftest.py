@@ -39,6 +39,10 @@ def tmp_trader(tmp_path, monkeypatch):
     monkeypatch.setattr(strategy_evolver, "PARAMS_PATH", str(tmp_path / "strategy_params.json"))
     monkeypatch.setattr(strategy_evolver, "LOG_PATH", str(tmp_path / "strategy_evolution_log.json"))
     monkeypatch.setattr(strategy_evolver, "LEDGER_PATH", str(tmp_path / "strategy_trade_ledger.json"))
+    # 개장 청산 지시(config/open_exit_plan.json)도 실제 파일을 읽지 않게 돌린다.
+    from core import open_exit
+    monkeypatch.setattr(open_exit, "CONFIG_PATH", str(tmp_path / "open_exit_plan.json"))
+    monkeypatch.setattr(open_exit, "STATE_PATH", str(tmp_path / "open_exit_state.json"))
 
     brackets_path = tmp_path / "active_brackets.json"
     brackets_path.write_text(json.dumps({

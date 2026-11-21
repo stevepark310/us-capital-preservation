@@ -117,7 +117,7 @@ def test_enabled_gate_requires_successful_nh_preflight(sandbox, monkeypatch):
     (tmp / "live_execution_gate.json").write_text('{"enabled":true,"session_date":"2026-11-18","expires_at_kst":"2099-01-01 06:00:00","max_buy_order_usd":65,"max_session_buy_usd":120,"max_session_buy_orders":2}', encoding="utf-8")
     monkeypatch.setattr(cc, "_team_preflight", lambda: {"ok": True})
     monkeypatch.setattr(cc, "_live_account_preflight",
-                        lambda: {"ok": False, "reason": "NH account mismatch"})
+                        lambda **kw: {"ok": False, "reason": "NH account mismatch"})
     out = cc.market_cycle()
     assert out["result"] == "BLOCKED_PREFLIGHT"
     assert out["dry_run"] is False
@@ -129,7 +129,7 @@ def test_enabled_gate_with_preflight_runs_only_one_execution_engine(sandbox, mon
     monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: REGULAR)
     (tmp / "live_execution_gate.json").write_text('{"enabled":true,"session_date":"2026-11-18","expires_at_kst":"2099-01-01 06:00:00","max_buy_order_usd":65,"max_session_buy_usd":120,"max_session_buy_orders":2}', encoding="utf-8")
     monkeypatch.setattr(cc, "_team_preflight", lambda: {"ok": True})
-    monkeypatch.setattr(cc, "_live_account_preflight", lambda: {"ok": True})
+    monkeypatch.setattr(cc, "_live_account_preflight", lambda **kw: {"ok": True})
     out = cc.market_cycle()
     assert out["result"] == "OK"
     assert dict(calls)["무인 집행"][-1] == "--execute"
@@ -150,6 +150,32 @@ def test_failed_execution_blocks_followup_stages(sandbox, monkeypatch):
     assert len(calls) == 5
 
 
+def test_sell_only_gate_liquidates_even_when_team_reports_are_stale(sandbox, monkeypatch):
+    """매도 전용 세션 — 10인 하드락은 청산의 전제가 아니다(2026-11-23 지시)."""
+    tmp, calls = sandbox
+    monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: REGULAR)
+    (tmp / "live_execution_gate.json").write_text(
+        '{"enabled":true,"session_date":"2026-11-18","expires_at_kst":"2099-01-01 06:00:00",'
+        '"sell_only":true,"max_buy_order_usd":0,"max_session_buy_usd":0,'
+        '"max_session_buy_orders":0}', encoding="utf-8")
+    seen = {}
+
+    def preflight(**kw):
+        seen.update(kw)
+        return {"ok": True, "nh_positions": {"SQQQ": 1}}
+
+    monkeypatch.setattr(cc, "_team_preflight", lambda: {"ok": False, "reason": "stale",
+                                                         "missing_agents": [4]})
+    monkeypatch.setattr(cc, "_live_account_preflight", preflight)
+    out = cc.market_cycle()
+    assert out["result"] == "OK"
+    assert out["live_gate_sell_only"] is True
+    assert out["dry_run"] is False
+    assert seen.get("sell_only") is True
+    assert out["team_preflight_advisory"] == "stale"
+    assert dict(calls)["무인 집행"][-1] == "--execute"
+
+
 def test_partial_cycle_returns_nonzero_exit_code(sandbox, monkeypatch):
     monkeypatch.setattr(cc, "pulse_cycle", lambda: {"result": "PARTIAL"})
     assert cc.main(["pulse"]) == 1
@@ -162,7 +188,7 @@ def test_live_execution_fails_closed_on_stale_agent_reporting(sandbox, monkeypat
     monkeypatch.setattr(cc, "_team_preflight",
                         lambda: {"ok": False, "reason": "stale", "missing_agents": [4]})
     monkeypatch.setattr(cc, "_live_account_preflight",
-                        lambda: pytest.fail("NH should not be called when team is stale"))
+                        lambda **kw: pytest.fail("NH should not be called when team is stale"))
     out = cc.market_cycle()
     assert out["result"] == "BLOCKED_TEAM"
     assert all("--execute" not in cmd for _, cmd in calls)

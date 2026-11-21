@@ -1,19 +1,23 @@
 {
-  "enabled": false,
-  "session_date": "2026-11-19",
-  "expires_at_kst": "2026-11-20 06:00:00",
-  "max_buy_order_usd": 65,
-  "max_session_buy_usd": 120,
-  "max_session_buy_orders": 2,
-  "reason": "2026-11-19 미국 정규장 승인 만료. 신규 퀀트 위험관리 검증 중 실주문 비활성. 다음 실거래는 새 세션 기준 별도 승인 필요.",
+  "enabled": true,
+  "session_date": "2026-11-23",
+  "expires_at_kst": "2026-11-24 06:00:00",
+  "sell_only": true,
+  "max_buy_order_usd": 0,
+  "max_session_buy_usd": 0,
+  "max_session_buy_orders": 0,
+  "reason": "2026-11-23 미국 정규장 매도 전용 — 보유 SQQQ 1주 개장 청산만 허용, 신규 매수 0건·$0. 인버스 3주 확대는 보류.",
   "requirements": [
     "NH 읽기 전용 주문가능금액 API 성공",
     "GitHub CI green",
     "미국 장중 only",
-    "주문 직전 NH 주문가능 현금 및 매도가능수량 확인"
+    "주문 직전 NH 주문가능 현금 및 매도가능수량 확인",
+    "매도 전용(sell_only): max_buy_order_usd·max_session_buy_usd·max_session_buy_orders 모두 0이어야 유효"
   ],
-  "updated_at": "2026-11-20",
-  "last_dry_run_requested_at_kst": "2026-11-20 03:28:00",
-  "activated_at_kst": "2026-11-20 03:30:00",
-  "disabled_reason": "session_expired_and_quant_hardening"
+  "approved_by": "박동훈 (사용자)",
+  "approved_at_kst": "2026-11-21 10:41",
+  "approval_quote": "월요일 게이트 매도 전용 재개하고, SQQQ 1주는 11/23 개장 직후 시장가 익절로 준비해줘. 3주 확대는 보류할게.",
+  "updated_at": "2026-11-21",
+  "activated_at_kst": null,
+  "note": "세션(2026-11-23 ET)과 만료(2026-11-24 06:00 KST)가 모두 일치해야 열린다. 만료 뒤에는 자동으로 DRY_RUN으로 떨어진다(fail-closed)."
 }

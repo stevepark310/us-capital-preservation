@@ -39,6 +39,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from core import execution_policy, exit_rules, market_clock, session_time
 from core import bracket_specs, entry_signals
 from core import exit_authority, exit_failsafe, live_integrity, regime_model, risk_guard, portfolio_quant_risk
+from core import open_exit
 
 
 def _shadow_model(market: Dict[str, Any]) -> Dict[str, Any]:
@@ -74,6 +75,10 @@ HEDGE_NOTIONAL_CAP = 60.0        # config hedge.max_notional_usd
 HEDGE_SOURCES = {"BEAR_ALPHA_HEDGE", "NVDA_EARNINGS_GAP_SOXS"}
 BEAR_VIX_MIN = 24.0             # 헤지 게이트 하한(고정)
 STOP_LIMIT_OFFSET_BPS = 120     # 손절 주문 지정가 오프셋(체결 우선)
+# 개장 청산('시장가') 오프셋 — NH 해외주식은 지정가만 받으므로 최우선 매수호가 아래로
+# 크게 걸어 즉시 체결시키는 방식. 매수호가가 실제 체결가이므로 이 오프셋은 '체결 확률'만
+# 올리고 체결가를 더 나쁘게 만들지 않는다(2026-11-21 SQQQ 1주 개장 익절).
+OPEN_EXIT_LIMIT_OFFSET_BPS = 300
 
 
 def _now_kst() -> datetime:
@@ -133,10 +138,14 @@ class AutonomousTrader:
                  router: Optional[OrderRouter] = None, dry_run: bool = False,
                  market: Optional[Dict[str, Any]] = None,
                  account: Optional[Dict[str, Any]] = None,
-                 base_dir: str = BASE_DIR):
+                 base_dir: str = BASE_DIR, sell_only: bool = False):
         self.base_dir = base_dir
         self.policy = policy or execution_policy.load_policy()
         self.dry_run = bool(dry_run)
+        # 매도 전용 세션(config/live_execution_gate.json sell_only) — 신규 매수를 아예
+        # 만들지 않는다. 호출부(scripts/autotrader.py)가 게이트 판정으로 넘긴다.
+        # 기본값 False: 테스트·수동 실행은 종전과 같이 동작한다.
+        self.sell_only = bool(sell_only)
         self.router = router or OrderRouter(
             repo=(self.policy.get("execution_channel") or {}).get("repo"),
             workflow=(self.policy.get("execution_channel") or {}).get("workflow", "nh_trade_dispatch.yml"),
@@ -233,17 +242,34 @@ class AutonomousTrader:
         vix = (snap.get("macro") or {}).get("vix") or {}
         # 실시간 정합성(VIX·시세) — 틀린 숫자로는 주문하지 않는다(fail-closed).
         broker_marks: Dict[str, float] = {}
+        stale_marks: Dict[str, Any] = {}
         try:
             led_now = self._ledger()
             for p in (led_now.get("positions") or []):
                 mark = p.get("broker_mark_price") or p.get("quote_last")
-                if p.get("ticker") and mark:
-                    broker_marks[str(p["ticker"]).upper()] = float(mark)
+                if not (p.get("ticker") and mark):
+                    continue
+                # 원장의 브로커 시세는 '직전 세션 종가'인 경우가 많다(2026-11-21 SQQQ:
+                # price_as_of 11-19 $49.68 vs 실제 $58대). 세션 날짜가 다르면 판정
+                # 기준가에서 빼 둔다 — '낮은 쪽을 쓰는 보수 규칙'이 유령 가격을 집어
+                # 청산가를 계산하던 결함($49.53)의 상류 차단.
+                as_of = str(p.get("price_as_of") or "")
+                tk = str(p["ticker"]).upper()
+                if as_of and session and as_of != session:
+                    stale_marks[tk] = {"broker_mark": float(mark), "price_as_of": as_of,
+                                       "session_date": session}
+                    continue
+                broker_marks[tk] = float(mark)
         except Exception:
             broker_marks = {}
+        if stale_marks:
+            print(f"  [integrity] 직전 세션 브로커 시세 제외: "
+                  f"{', '.join(sorted(stale_marks))}")
         integrity = live_integrity.evaluate(
             snap, clock, tickers=set(DIP_UNIVERSE + HEDGE_UNIVERSE + ["NVDA", "SPY"]),
             broker_marks=broker_marks, policy=self.policy, persist=True)
+        if stale_marks:
+            integrity["stale_broker_marks"] = stale_marks
         return {"clock": clock, "snapshot": snap, "quotes": quotes, "techs": techs,
                 "daily": hist, "vix": vix.get("last") if isinstance(vix, dict) else None,
                 "integrity": integrity, "broker_marks": broker_marks}
@@ -456,6 +482,8 @@ class AutonomousTrader:
             equity = float((self._ledger().get("equity_usd")) or 0.0) or None
         except Exception:
             equity = None
+        open_plan = open_exit.load_plan()
+        open_state = open_exit.load_state()
         for tk, b in list(brackets.items()):
             if not isinstance(b, dict):
                 continue
@@ -472,6 +500,17 @@ class AutonomousTrader:
                 continue
             b["highest_high"] = max(float(b.get("highest_high") or b.get("entry_price") or price), float(price))
             decision = None
+            # ⓪ 개장 청산 지시 — 사용자가 세션·종목을 지정한 '개장 직후 정리'
+            #    (config/open_exit_plan.json). 손절·트레일·종가청산보다 먼저 본다.
+            intent = open_exit.intent_for(tk, open_plan, open_state, clock) if open_plan else None
+            if intent:
+                qty = min(int(intent["qty"]), exit_rules.remaining_qty(b))
+                if qty > 0:
+                    decision = {"action": "SELL", "qty": qty, "stop": False, "close": True,
+                                "market": True, "open_exit": True,
+                                "reason": f"개장 청산 — {intent['reason']}",
+                                "post": {"closed": True, "open_exit_done": True,
+                                         "open_exit_session": intent["session_date"]}}
             # ① 연체 강제청산 — 이전 세션에서 못 지킨 05:40 청산은 정규장 첫 사이클에서 즉시.
             if b.get("force_exit_due") and not b.get("force_exited"):
                 decision = {"action": "SELL", "qty": exit_rules.remaining_qty(b), "stop": False,
@@ -503,6 +542,10 @@ class AutonomousTrader:
             if qty <= 0:
                 continue
             limit = self._limit_price(price, "SELL")
+            if decision.get("market"):
+                # '시장가' 대응 — 최우선 매수호가 아래로 크게 걸어 즉시 체결시킨다.
+                limit = max(0.01, round(float(price) * (1 - OPEN_EXIT_LIMIT_OFFSET_BPS / 10000.0), 2))
+                decision["limit_offset_bps"] = -OPEN_EXIT_LIMIT_OFFSET_BPS
             if decision.get("stop"):
                 # 손절은 '체결'이 목적이다. 종전 -30bp 지정가로는 급락 시 미체결로 남아
                 # 다음 사이클까지 기다렸고(11-17 SOXL: 손절선 49.17 → 실제 47.46, -3.5% 추가),
@@ -517,9 +560,15 @@ class AutonomousTrader:
             status = res.get("status")
             rec = {"ticker": tk, "side": "SELL", "qty": qty, "price": limit, "reason": decision["reason"],
                    "status": status, "order_no": res.get("orr_no"), "run_id": res.get("run_id")}
+            if decision.get("market"):
+                rec["market"] = True
             actions.append(rec)
             st.setdefault("orders", []).append({**rec, "ts_kst": _now_str()})
             self._emit("EXIT_ORDER", **rec)
+            if decision.get("open_exit"):
+                open_state = open_exit.mark_attempt(tk, status, order_no=res.get("orr_no"),
+                                                    price=limit, dry_run=self.dry_run,
+                                                    state=open_state)
             if status in ("SUBMITTED", "PENDING", "DISPATCHED") and not self.dry_run:
                 st["pending"].append({
                     "ticker": tk, "side": "SELL", "qty": qty, "limit_price": limit,
@@ -742,6 +791,8 @@ class AutonomousTrader:
             global_block = "연체 강제청산 미해결 — 신규 매수 동결: " + ", ".join(overdue_exit_tickers)
         elif not self.policy.get("enabled"):
             global_block = "위임 비활성(autonomous_execution.enabled=false)"
+        elif self.sell_only:
+            global_block = "매도 전용 게이트(config/live_execution_gate.json sell_only) — 신규 매수 금지"
         elif execution_policy.halt_file_active(self.policy):
             global_block = "비상 정지 파일 존재"
         elif st.get("halted"):
@@ -1119,6 +1170,8 @@ class AutonomousTrader:
             "integrity": market.get("integrity") or {},
             "risk_alerts": [e for e in self.events if e.get("kind") == "POSITION_RISK_ALERT"][-10:],
             "failsafe": failsafe,
+            "sell_only_gate": self.sell_only,
+            "open_exit": open_exit.report(open_exit.load_plan(), open_exit.load_state(), clock),
             "exit_authority": exit_authority_report(brackets),
             "shadow_model": _shadow_model(market),
             "ledger": {"equity_usd": equity, "cash_usd": cash},

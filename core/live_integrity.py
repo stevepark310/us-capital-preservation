@@ -246,11 +246,23 @@ def price_view(quotes: Dict[str, Any], ticker: str, clock: Dict[str, Any],
             stale = True
             reasons.append(f"5분봉 {bar_age:.0f}분 지연 > {cfg['max_intraday_bar_age_min']:.0f}분")
     divergence = None
+    broker_ignored = False
     if intraday and mark:
         divergence = round(abs(intraday / mark - 1.0) * 100.0, 3)
         if divergence > float(cfg["price_divergence_max_pct"]):
             reasons.append(f"시세 괴리 {divergence:.2f}% > {cfg['price_divergence_max_pct']}% "
                            f"(5분봉 {intraday} / 브로커 {mark})")
+            # 브로커 잔고 시세는 **직전 세션 종가**인 경우가 많다(2026-11-21 SQQQ:
+            # 브로커 $49.68 = 11-19 종가 vs 실제 $58대). 5분봉이 신선한데 괴리가 이렇게
+            # 크면 가격 기준에서 브로커 값을 빼야 한다 — 종전에는 '보수적 = 낮은 쪽'
+            # 규칙이 이 유령 가격을 집어 청산 판정가를 16% 낮게 계산했다($49.53).
+            bar_fresh = (intraday is not None
+                         and (bar_age is None or bar_age <= float(cfg["max_intraday_bar_age_min"])))
+            if bar_fresh:
+                broker_ignored = True
+                reasons.append("브로커 시세 무시 — 5분봉이 신선해 오래된 잔고 시세를 배제")
+    if broker_ignored:
+        values = [v for v in (intraday, last) if v is not None and v > 0]
     if prev_close and phase == "REGULAR":
         move = abs(max(values) / prev_close - 1.0) * 100.0
         if move > float(cfg["price_sanity_pct"]):
@@ -262,6 +274,7 @@ def price_view(quotes: Dict[str, Any], ticker: str, clock: Dict[str, Any],
     return {
         "ticker": ticker, "trusted": trusted, "stale": stale,
         "intraday": intraday, "last": last, "broker": mark,
+        "broker_ignored": broker_ignored,
         "bar_age_min": bar_age, "divergence_pct": divergence,
         "price": intraday if intraday is not None else last,
         "conservative": round(low, 4), "aggressive": round(high, 4),
