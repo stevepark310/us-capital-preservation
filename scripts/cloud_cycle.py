@@ -252,6 +252,7 @@ def market_cycle(dry_run: Optional[bool] = None) -> Dict[str, Any]:
     stages.append(run("유령 포지션 점검", [py, "-m", "core.position_reconciler", "--apply"], 120))
     # Refresh all ten duty reports and validation before each market decision.
     stages.append(run("10인 업무보고", [py, "scripts/update_feed.py"], 360))
+    stages.append(run("10인 10분 펄스 누적", [py, "scripts/run_10m_pulse.py", "--pulse-only", "--no-html"], 120))
     stages.append(run("10인 협업 검증", [py, "scripts/run_collab_cycle.py"], 180))
     if not all(stage["ok"] for stage in stages):
         base.update({"result": "BLOCKED_DEPENDENCY", "seconds": round(time.time() - t0, 1),
@@ -332,6 +333,7 @@ def pulse_cycle() -> Dict[str, Any]:
     stages.append(run("협업·빌드업 사이클", [py, "scripts/run_collab_cycle.py"], 300))
     stages.append(run("성과·학습 후보 평가", [py, "scripts/agent_performance.py"], 120))
     stages.append(run("퀀트 포트폴리오 위험 감시", [py, "scripts/quant_monitor.py"], 120))
+    stages.append(run("10인 10분 펄스 누적", [py, "scripts/run_10m_pulse.py", "--pulse-only", "--no-html"], 120))
     stages.append(run("대시보드 렌더", [py, "scripts/build_full_cube.py"], 300))
     base = {"last_cycle_kst": now_str(), "result": "OK" if all(s["ok"] for s in stages) else "PARTIAL",
             "seconds": round(time.time() - t0, 1), "stages": stages}

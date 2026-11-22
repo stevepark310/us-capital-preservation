@@ -247,7 +247,7 @@ def pulse_posts(clock, report, status, evolution):
             "title": f"[{hhmm} 10분 업무보고] {agent_profiles.SHORT_NAMES[aid]} — {ROLE_DUTIES.get(aid, '')}"[:220],
             "content": content,
             "metrics": metrics,
-            "action_required": _next_action(aid, status),
+            "action_required": _next_action(aid, status, report),
             "reactions": {},
             "pinned": False,
             "phase": clock.get("phase"),
@@ -255,18 +255,29 @@ def pulse_posts(clock, report, status, evolution):
     return posts
 
 
-def _next_action(aid, status):
+def _next_action(aid, status, report=None):
     at = status or {}
+    pos = at.get("positions") or {}
     if aid == 10:
-        return (f"다음 10분 사이클에서 {'청산·' if at.get('positions') else ''}진입 게이트 재평가 "
-                f"({at.get('next_gate') or '세션 대기'}). 주문은 정규장에서만 나갑니다.")
+        held = ", ".join(f"{k} {v.get('qty')}주" for k, v in pos.items()) or "없음"
+        return (f"다음 10분 사이클에서 {'청산·' if pos else ''}진입 게이트 재평가 "
+                f"(보유 {held} · {at.get('next_gate') or '세션 대기'}). 게이트·원장·하드락 3중 통과 시에만 주문.")
     if aid == 7:
-        return "표본 20건 전까지는 방어 모드·변동성 계수만 적용하고 파라미터 교체는 보류합니다."
+        return "표본 20건 전까지는 방어 모드·변동성 계수만 적용하고, 모든 신규 전략·파라미터는 백테스트 실측 검증 후에만 승인합니다."
     if aid == 4:
-        return "VIX 24 이상 + 확인 2개가 되면 숏 헤지 게이트가 열립니다(현재 조건 미충족 시 대기)."
+        return "CUBE-M8(3h 동기화·shadow) · CUBE-LEI · VIX/HY OAS 기반으로 국면 및 숏 헤지 게이트를 상시 감시합니다."
     if aid == 3:
-        return "NVDA 실적(11-18 06:20 KST) 전 신규 레버리지 노출 금지 · 05:40 강제청산 유지."
-    return "다음 10분 주기에 실측값을 갱신해 재보고합니다."
+        by_id = {a.get("agent_id"): a.get("report") or {} for a in ((report or {}).get("agents") or [])}
+        a3 = by_id.get(3) or {}
+        nxt = a3.get("next_major_event")
+        if isinstance(nxt, dict) and nxt.get("event"):
+            ev_txt = f"{nxt.get('event')} ({nxt.get('kst')})"
+        elif isinstance(nxt, str) and nxt.strip():
+            ev_txt = nxt.strip()
+        else:
+            ev_txt = "주요 실적·거시 이벤트"
+        return f"다음 촉매({ev_txt}) 대비 이벤트 리스크 및 변동성 확대 여부 상시 점검."
+    return "다음 10분 주기에 실측값을 갱신해 누적 보고합니다."
 
 
 def autotrader_summary(status):
@@ -351,46 +362,107 @@ def push_to_main(message):
     return False
 
 
+def append_pulse_to_feed(clock, report, status, evolution, stages, t0=None):
+    """기존 10분 업무보고(post-pulse-*)를 지우지 않고 최신 회차를 앞에 누적한다(최대 396건 ≈ 6시간)."""
+    feed = _load(FEED_PATH, {}) or {}
+    existing = feed.get("posts") or []
+    live = [p for p in existing if str(p.get("id", "")).startswith("post-live-")]
+    digests = [p for p in existing if p.get("id") == "post-backtest-digest"]
+    prev_pulses = [p for p in existing if str(p.get("id", "")).startswith("post-pulse-")]
+    others = [p for p in existing if not str(p.get("id", "")).startswith(("post-live-", "post-pulse-"))
+              and p.get("id") != "post-backtest-digest"]
+
+    # 이전 자율집행 펄스 포스트의 상단 고정 해제(최신 1건만 pinned=True 유지)
+    for p in prev_pulses:
+        if p.get("category") == "AUTOTRADER" and p.get("pinned"):
+            p["pinned"] = False
+
+    new_posts = build_pulse(clock, report, status, evolution, stages)
+    new_ids = {p.get("id") for p in new_posts}
+    merged_pulses = (new_posts + [p for p in prev_pulses if p.get("id") not in new_ids])[:396]
+
+    feed["posts"] = live + digests + merged_pulses + others
+    feed["total_posts"] = len(feed["posts"])
+    elapsed = round(time.time() - t0, 1) if t0 else 0.0
+    feed["pulse"] = {
+        "cycle_kst": clock["now_kst"][:16],
+        "interval_min": 10,
+        "employees_updated": 10,
+        "stage_seconds": stages,
+        "elapsed_sec": elapsed,
+        "autotrader_mode": status.get("mode"),
+        "next_gate": status.get("next_gate"),
+    }
+    feed["last_updated"] = clock["now_kst"] + " KST"
+    _save(FEED_PATH, feed)
+    _save(DOCS_FEED_PATH, feed)
+
+    pulse = {
+        "generated_at_kst": clock["now_kst"],
+        "phase": clock["phase"],
+        "employees": [
+            {"agent_id": aid, "name": NAMES[aid], "duty": ROLE_DUTIES.get(aid),
+             "post_id": f"post-pulse-{aid:02d}-{clock['now_kst'][:16].replace('-', '').replace(':', '').replace(' ', '')}",
+             "research_review": research_review(aid)}
+            for aid in range(1, 11)
+        ],
+        "autotrader": {k: status.get(k) for k in ("mode", "phase", "next_gate", "realized_pnl_today_usd",
+                                                   "halted", "entries", "exits", "pending_orders")},
+        "evolution": {"decision": evolution.get("decision"), "decisions": evolution.get("decisions")},
+        "stage_seconds": stages,
+        "total_posts": len(feed["posts"]),
+        "elapsed_sec": elapsed,
+    }
+    _save(PULSE_PATH, pulse)
+    with open(PULSE_LOG, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"ts_kst": clock["now_kst"], "elapsed_sec": elapsed,
+                            "stages": stages, "posts": len(feed["posts"])}, ensure_ascii=False) + "\n")
+    return feed, pulse
+
+
 def main(argv=None):
     args = list(argv if argv is not None else sys.argv[1:])
     do_push = "--push" in args
     build_html = "--no-html" not in args
+    pulse_only = "--pulse-only" in args
     t0 = time.time()
     stages = {}
     clock = market_clock.resolve()
     print(f"=== 10분 업무보고 파이프라인 {clock['now_kst']} KST phase={clock['phase']}")
 
-    ok, dt = _run([sys.executable, "scripts/sync_live_portfolio.py"], "1/6 원장 동기화")
-    stages["ledger_sync"] = dt
+    if not pulse_only:
+        ok, dt = _run([sys.executable, "scripts/sync_live_portfolio.py"], "1/6 원장 동기화")
+        stages["ledger_sync"] = dt
 
-    # 유령 포지션(원장에 없는 사다리·브래킷) 정리 — 매 사이클 원장과 일치시킨다.
-    okr, dt = _run([sys.executable, "-m", "core.position_reconciler", "--apply"], "2/6 유령 포지션 점검")
-    stages["reconcile"] = dt
+        # 유령 포지션(원장에 없는 사다리·브래킷) 정리 — 매 사이클 원장과 일치시킨다.
+        okr, dt = _run([sys.executable, "-m", "core.position_reconciler", "--apply"], "2/6 유령 포지션 점검")
+        stages["reconcile"] = dt
 
-    # 집행 상태 파일을 '지금' 기준으로 다시 쓴다(시계·phase·보유·예산).
-    oks, dt = _run([sys.executable, "scripts/autotrader.py", "--refresh-status"], "3/6 집행 상태 최신화")
-    stages["status_sync"] = dt
+        # 집행 상태 파일을 '지금' 기준으로 다시 쓴다(시계·phase·보유·예산).
+        oks, dt = _run([sys.executable, "scripts/autotrader.py", "--refresh-status"], "3/6 집행 상태 최신화")
+        stages["status_sync"] = dt
 
-    # CUBE-M8 8대 거시·자산 선행지표 — 3시간 이상 묵었을 때만 FRED·Yahoo를 다시 읽는다.
-    # (평소에는 data/macro_leading.json이 3시간 이내라 즉시 반환 — 10분 펄스를 느리게 하지 않는다.)
-    okm, dt = _run([sys.executable, "scripts/sync_macro_leading.py", "--if-stale", "3", "--quiet"],
-                   "3b/6 선행지표(M8) 동기화", timeout=420)
-    stages["macro8_sync"] = dt
+        # CUBE-M8 8대 거시·자산 선행지표 — 3시간 이상 묵었을 때만 FRED·Yahoo를 다시 읽는다.
+        okm, dt = _run([sys.executable, "scripts/sync_macro_leading.py", "--if-stale", "3", "--quiet"],
+                       "3b/6 선행지표(M8) 동기화", timeout=420)
+        stages["macro8_sync"] = dt
 
-    ok2, dt = _run([sys.executable, "scripts/update_feed.py"], "4/6 10인 에이전트 업무보고")
-    stages["agents"] = dt
-    if not ok2:
-        print("RESULT: FAILED (agent pipeline)")
-        return 1
+        ok2, dt = _run([sys.executable, "scripts/update_feed.py"], "4/6 10인 에이전트 업무보고")
+        stages["agents"] = dt
+        if not ok2:
+            print("RESULT: FAILED (agent pipeline)")
+            return 1
 
-    # 협업·빌드업 사이클 — 10분 펄스마다 돌리면 같은 후보를 반복 측정하므로 20분 간격으로 제한한다.
-    if _collab_due(min_minutes=20):
-        okc, dt = _run([sys.executable, "scripts/run_collab_cycle.py"], "5/6 협업·빌드업 사이클")
-        stages["collab"] = dt
+        # 협업·빌드업 사이클 — 10분 펄스마다 돌리면 같은 후보를 반복 측정하므로 20분 간격으로 제한한다.
+        if _collab_due(min_minutes=20):
+            okc, dt = _run([sys.executable, "scripts/run_collab_cycle.py"], "5/6 협업·빌드업 사이클")
+            stages["collab"] = dt
+        else:
+            print("  [5/6 협업·빌드업] 20분 미경과 — 이번 사이클은 건너뜁니다")
+            stages["collab"] = 0.0
+            okc = True
     else:
-        print("  [5/6 협업·빌드업] 20분 미경과 — 이번 사이클은 건너뜁니다")
-        stages["collab"] = 0.0
-        okc = True
+        ok = ok2 = okc = True
 
     report = _load(REPORT_PATH, {}) or {}
     status = _load(AUTOTRADER_STATUS, {}) or {}
@@ -399,25 +471,8 @@ def main(argv=None):
         ev_log = _load(os.path.join(DATA, "strategy_evolution_log.json"), {}) or {}
         evolution = (ev_log.get("entries") or [{}])[-1]
 
-    feed = _load(FEED_PATH, {}) or {}
-    posts = [p for p in (feed.get("posts") or []) if not str(p.get("id", "")).startswith("post-pulse-")]
-    new_posts = build_pulse(clock, report, status, evolution, stages)
-    # 백테스트 고정 요약은 항상 맨 위에 둔다(같은 분 타임스탬프에서 배열 순서가 유지된다).
-    digests = [p for p in posts if p.get("id") == "post-backtest-digest"]
-    others = [p for p in posts if p.get("id") != "post-backtest-digest"]
-    feed["posts"] = digests + new_posts + others
-    feed["total_posts"] = len(feed["posts"])
-    feed["pulse"] = {
-        "cycle_kst": clock["now_kst"][:16],
-        "interval_min": 10,
-        "employees_updated": 10,
-        "stage_seconds": stages,
-        "autotrader_mode": status.get("mode"),
-        "next_gate": status.get("next_gate"),
-    }
-    feed["last_updated"] = clock["now_kst"] + " KST"
-    _save(FEED_PATH, feed)
-    _save(DOCS_FEED_PATH, feed)
+    # 먼저 피드·펄스 JSON을 저장한 뒤 대시보드(index.html + 위젯)를 굽는다.
+    feed, pulse = append_pulse_to_feed(clock, report, status, evolution, stages, t0=t0)
 
     if build_html:
         ok3, dt = _run([sys.executable, "scripts/build_full_cube.py"], "6/6 대시보드 렌더")
@@ -433,32 +488,6 @@ def main(argv=None):
             print(f"  [위젯] {os.path.join(WIDGET_BUNDLE, 'index.html')}")
     else:
         ok3 = True
-
-    pulse = {
-        "generated_at_kst": clock["now_kst"],
-        "phase": clock["phase"],
-        "employees": [
-            {"agent_id": aid, "name": NAMES[aid], "duty": ROLE_DUTIES.get(aid),
-             "post_id": f"post-pulse-{aid:02d}",
-             "research_review": research_review(aid)}
-            for aid in range(1, 11)
-        ],
-        "autotrader": {k: status.get(k) for k in ("mode", "phase", "next_gate", "realized_pnl_today_usd",
-                                                   "halted", "entries", "exits", "pending_orders")},
-        "evolution": {"decision": evolution.get("decision"), "decisions": evolution.get("decisions")},
-        "stage_seconds": stages,
-        "total_posts": len(feed["posts"]),
-        "elapsed_sec": round(time.time() - t0, 1),
-    }
-    # 렌더까지 끝난 뒤 단계 시간을 최종값으로 다시 기록한다(대시보드가 읽는 feed).
-    feed.setdefault("pulse", {})["stage_seconds"] = stages
-    feed["pulse"]["elapsed_sec"] = pulse["elapsed_sec"]
-    _save(FEED_PATH, feed)
-    _save(DOCS_FEED_PATH, feed)
-    _save(PULSE_PATH, pulse)
-    with open(PULSE_LOG, "a", encoding="utf-8") as f:
-        f.write(json.dumps({"ts_kst": clock["now_kst"], "elapsed_sec": pulse["elapsed_sec"],
-                            "stages": stages, "posts": len(feed["posts"])}, ensure_ascii=False) + "\n")
 
     pushed = False
     if do_push:

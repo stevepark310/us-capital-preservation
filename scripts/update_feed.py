@@ -755,13 +755,16 @@ def main():
     digest = backtest_digest.collect()
     posts = [backtest_post(clock, digest)] + posts
 
-    # preserve manually recorded live-execution posts
+    # preserve manually recorded live-execution posts AND accumulated 10m pulse posts
     if os.path.exists(FEED_PATH):
         try:
             with open(FEED_PATH, "r", encoding="utf-8") as f:
                 prev = json.load(f).get("posts", [])
             live = [p for p in prev if str(p.get("id", "")).startswith("post-live-")]
-            posts = live + posts
+            pulses = [p for p in prev if str(p.get("id", "")).startswith("post-pulse-")]
+            # Keep newest 396 pulse posts (~6h at 10m intervals * 11 posts/cycle)
+            pulses = pulses[:396]
+            posts = live + [posts[0]] + pulses + posts[1:]
         except Exception:
             pass
 
