@@ -1,10 +1,10 @@
 {
   "title": "CUBE 10-Agent Quantitative Trading System (24/7)",
-  "generated_at": "2026-11-23 14:31:37",
+  "generated_at": "2026-11-23 14:41:48",
   "phase": "OFF_HOURS",
   "phase_label": "휴장 시간대 (아시아·유럽 세션)",
   "next_open_kst": "2026-11-23 23:30 KST",
-  "hours_to_next_open": 8.98,
+  "hours_to_next_open": 8.81,
   "system_status": "OPERATIONAL",
   "agents_ok": 10,
   "agents_failed": [],
@@ -13,7 +13,7 @@
     "market": "Yahoo Finance (yfinance) — daily + 5m intraday",
     "macro_official": "FRED fredgraph.csv — T10Y3M/T10Y2Y/DGS2/DGS10/BAMLH0A0HYM2/NFCI/ICSA/UMCSENT (API 키 불필요, 6시간 캐시)",
     "leading_index": "CUBE-LEI 99.8 (LATE_CYCLE_SLOWDOWN) — Estrella & Mishkin (1998) · Stock & Watson (1989) · Gilchrist & Zakrajšek (2012) · Burns & Mitchell (1946) 기반 core/leading_indicators.py",
-    "news": "18/26 feeds, 233 items, health OK",
+    "news": "18/26 feeds, 227 items, health OK",
     "ledger": "data/daily_trading_calendar.json + data/live_portfolio.json (single FX source)",
     "backtest": "data/1y_backtest_report.json (hourly-path simulation)",
     "hardcoded_market_values": false
@@ -30,7 +30,7 @@
     "fx_rate": 1330.81,
     "realized_pnl_usd": -22.25,
     "unrealized_pnl_usd": 7.01,
-    "last_inquiry_time": "2026-11-23 14:31 KST"
+    "last_inquiry_time": "2026-11-23 14:41 KST"
   },
   "agents": [
     {
@@ -59,22 +59,22 @@
       "role": "RSS·뉴스 API 실시간 수집, 종목별 센티먼트 점수화, 매수·매도 브래킷 동적 보정",
       "description": "Yahoo/CNBC/MarketWatch/Nasdaq/CoinDesk/Google News RSS와 yfinance 뉴스 API를 1시간마다 수집해 종목 관련도·감성·최신성으로 점수화하고, 시장 내재 리스크 점수와 블렌딩해 종목별 익절·손절 폭을 산출합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-23 14:31:33",
+      "last_run": "2026-11-23 14:41:48",
       "confidence_score": 0.8,
       "report": {
-        "scan_timestamp": "2026-11-23 14:31:33",
+        "scan_timestamp": "2026-11-23 14:41:48",
         "phase": "OFF_HOURS",
         "phase_label": "휴장 시간대 (아시아·유럽 세션)",
         "hourly_cadence": "EVERY_1_HOUR",
         "data_sources": {
           "news_feeds_ok": "18/26",
-          "news_items": 233,
-          "items_last_24h": 231,
+          "news_items": 227,
+          "items_last_24h": 224,
           "source_health": "OK",
           "market_data": "Yahoo Finance 일봉·분봉 (core/market_snapshot)",
           "hardcoded_values": false
         },
-        "average_sentiment_score": 34.1,
+        "average_sentiment_score": 34.8,
         "overall_market_mood": "RISK_OFF (매크로 악화)",
         "market_implied_anchor": {
           "score": 31.6,
@@ -99,12 +99,12 @@
         "ticker_reports": {
           "SOXL": {
             "name": "디렉시온 반도체 3배 레버리지 (SOXL)",
-            "sentiment_score": 22.9,
+            "sentiment_score": 24.1,
             "sentiment_grade": "STRONG_BEARISH (강한 악재)",
             "breaking_news": [
-              "[재경일보] US semiconductor index plunges 10.73%... concerns over 'Black Monday' for KOSPI : Economy : JKN - 재경일보",
               "[아시아경제] [Good Morning Stock Market] U.S. Semiconductors Plunge 10.7%... KOSPI Braces for Further Shock from 'AI Sell-Off' - 아시아경제",
-              "[매일경제] Samsung Electronics, SK hynix fall as U.S. tech sell-off rattles market - 매일경제"
+              "[매일경제] Samsung Electronics, SK hynix fall as U.S. tech sell-off rattles market - 매일경제",
+              "[머니투데이] Musk Warns of Severe AI Funding Shortage Next Year… Academic Calls It a Buying Opportunity for Semiconductor Stocks [IT Insights] - 머니투데이"
             ],
             "ib_insights": [],
             "community_sentiment": {
@@ -113,9 +113,9 @@
               "summary": "소셜 버즈는 수집하지 않습니다(연동 없음). 대신 실제 옵션 미결제약정과 뉴스 플로우로 대체합니다."
             },
             "news_flow": {
-              "headline_count": 17,
-              "weighted_sentiment": -18.36,
-              "news_only_score": 12.3,
+              "headline_count": 16,
+              "weighted_sentiment": -14.16,
+              "news_only_score": 14.9,
               "market_implied_score": 31.6
             },
             "dynamic_exit_adjustment": {
@@ -124,28 +124,34 @@
               "tp2": "+9.0% ($33.66)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
               "sl": "-3.19% ($29.89) · 본전스탑 $30.98",
-              "rationale": "뉴스 점수 12.3 + 시장 내재 31.6 (NQ 2.94%, VIX 35.89) → 종합 22.9. 최근 헤드라인: US semiconductor index plunges 10.73%... concerns over 'Black Monday' "
+              "rationale": "뉴스 점수 14.9 + 시장 내재 31.6 (NQ 2.94%, VIX 35.89) → 종합 24.1. 최근 헤드라인: [Good Morning Stock Market] U.S. Semiconductors Plunge 10.7%... KOSPI "
             }
           },
           "TQQQ": {
             "name": "프로셰어즈 나스닥100 3배 레버리지 (TQQQ)",
-            "sentiment_score": 48.5,
+            "sentiment_score": 50.0,
             "sentiment_grade": "NEUTRAL (중립)",
             "breaking_news": [
               "[Fortune] Stock market today: Dow futures jump 800 points and Nasdaq soars 3% after entering correction - Fortune",
               "[scanx.trade] Nasdaq 100 futures climb 2.9% as US equity futures extend gains - scanx.trade",
               "[FlipItMoney] Nasdaq futures soar 3%, S&P 500 up 2% after major tech stock rout - FlipItMoney"
             ],
-            "ib_insights": [],
+            "ib_insights": [
+              {
+                "firm": "Wall Street",
+                "view": "상향",
+                "comment": "Nvidia: Crisis Prices Won't Last (Rating Upgrade) (NASDAQ:NVDA) - Seeking Alpha"
+              }
+            ],
             "community_sentiment": {
               "source": "SNS(레딧·X) 미연동 → 기관 옵션 포지셔닝으로 대체",
               "call_put_ratio": "옵션 데이터 수집 전",
               "summary": "소셜 버즈는 수집하지 않습니다(연동 없음). 대신 실제 옵션 미결제약정과 뉴스 플로우로 대체합니다."
             },
             "news_flow": {
-              "headline_count": 12,
-              "weighted_sentiment": 5.47,
-              "news_only_score": 73.8,
+              "headline_count": 13,
+              "weighted_sentiment": 7.36,
+              "news_only_score": 77.5,
               "market_implied_score": 31.6
             },
             "dynamic_exit_adjustment": {
@@ -154,7 +160,7 @@
               "tp2": "+11.09% ($45.77)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
               "sl": "-4.25% ($39.45) · 본전스탑 $41.34",
-              "rationale": "뉴스 점수 73.8 + 시장 내재 31.6 (NQ 2.94%, VIX 35.89) → 종합 48.5. 최근 헤드라인: Stock market today: Dow futures jump 800 points and Nasdaq soars 3% af"
+              "rationale": "뉴스 점수 77.5 + 시장 내재 31.6 (NQ 2.94%, VIX 35.89) → 종합 50.0. 최근 헤드라인: Stock market today: Dow futures jump 800 points and Nasdaq soars 3% af"
             }
           },
           "NVDA": {
@@ -166,16 +172,22 @@
               "[Yahoo Finance] Michael Burry on Nvidia Board? ‘Big Short’ Investor Jokes He’d ‘Volunteer’ as NVDA Stock Sinks 40% - Yahoo Finance",
               "[Digg] Grok claims Jensen Huang resigned as Nvidia CEO amid chip-export probes - Digg"
             ],
-            "ib_insights": [],
+            "ib_insights": [
+              {
+                "firm": "Wall Street",
+                "view": "상향",
+                "comment": "Nvidia: Crisis Prices Won't Last (Rating Upgrade) (NASDAQ:NVDA) - Seeking Alpha"
+              }
+            ],
             "community_sentiment": {
               "source": "SNS(레딧·X) 미연동 → 기관 옵션 포지셔닝으로 대체",
               "call_put_ratio": "옵션 데이터 수집 전",
               "summary": "소셜 버즈는 수집하지 않습니다(연동 없음). 대신 실제 옵션 미결제약정과 뉴스 플로우로 대체합니다."
             },
             "news_flow": {
-              "headline_count": 51,
-              "weighted_sentiment": -9.79,
-              "news_only_score": 19.0,
+              "headline_count": 53,
+              "weighted_sentiment": -9.73,
+              "news_only_score": 19.1,
               "market_implied_score": 31.6
             },
             "dynamic_exit_adjustment": {
@@ -184,12 +196,12 @@
               "tp2": "+6.08% ($133.16)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
               "sl": "-2.99% ($121.78) · 본전스탑 $125.96",
-              "rationale": "뉴스 점수 19.0 + 시장 내재 31.6 (NQ 2.94%, VIX 35.89) → 종합 24.7. 최근 헤드라인: Nvidia suffers worst weekly slump since 2008 as shares plunge 23% amid"
+              "rationale": "뉴스 점수 19.1 + 시장 내재 31.6 (NQ 2.94%, VIX 35.89) → 종합 24.7. 최근 헤드라인: Nvidia suffers worst weekly slump since 2008 as shares plunge 23% amid"
             }
           },
           "TSLA": {
             "name": "테슬라 (Tesla)",
-            "sentiment_score": 40.3,
+            "sentiment_score": 40.4,
             "sentiment_grade": "BEARISH (부정적)",
             "breaking_news": [
               "[Nasdaq Markets] Forget Flying Roadsters. Tesla Investors Have 3 Bigger Challenges to Watch.",
@@ -204,7 +216,7 @@
             },
             "news_flow": {
               "headline_count": 4,
-              "weighted_sentiment": -0.5,
+              "weighted_sentiment": -0.49,
               "news_only_score": 46.2,
               "market_implied_score": 31.6
             },
@@ -214,12 +226,12 @@
               "tp2": "+4.71% ($362.11)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
               "sl": "-2.32% ($337.8) · 본전스탑 $347.0",
-              "rationale": "뉴스 점수 46.2 + 시장 내재 31.6 (NQ 2.94%, VIX 35.89) → 종합 40.3. 최근 헤드라인: Forget Flying Roadsters. Tesla Investors Have 3 Bigger Challenges to W"
+              "rationale": "뉴스 점수 46.2 + 시장 내재 31.6 (NQ 2.94%, VIX 35.89) → 종합 40.4. 최근 헤드라인: Forget Flying Roadsters. Tesla Investors Have 3 Bigger Challenges to W"
             }
           },
           "SGOV": {
             "name": "아이셰어즈 0-3개월 초단기 국채 (SGOV)",
-            "sentiment_score": 34.0,
+            "sentiment_score": 34.1,
             "sentiment_grade": "BEARISH (부정적)",
             "breaking_news": [
               "[TOP1markets] The US stock sell-off prompted a statement from the Treasury Secretary, easing expectations of a December rate hike by the Federal Reserve! When will the US stock market bottom out? - TOP1markets",
@@ -234,8 +246,8 @@
             },
             "news_flow": {
               "headline_count": 10,
-              "weighted_sentiment": -2.66,
-              "news_only_score": 34.6,
+              "weighted_sentiment": -2.64,
+              "news_only_score": 34.7,
               "market_implied_score": 31.6
             },
             "dynamic_exit_adjustment": {
@@ -244,18 +256,18 @@
               "tp2": "+1.65% ($102.3)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
               "sl": "-0.76% ($99.88) · 본전스탑 $100.98",
-              "rationale": "뉴스 점수 34.6 + 시장 내재 31.6 (NQ 2.94%, VIX 35.89) → 종합 34.0. 최근 헤드라인: The US stock sell-off prompted a statement from the Treasury Secretary"
+              "rationale": "뉴스 점수 34.7 + 시장 내재 31.6 (NQ 2.94%, VIX 35.89) → 종합 34.1. 최근 헤드라인: The US stock sell-off prompted a statement from the Treasury Secretary"
             }
           }
         },
         "macro_news_flow": {
           "FED_RATES": [
             {
-              "title": "Could Fed Rate Hike Uncertainty Weigh on Bitcoin (BTC) Market? - Kalkine Media",
-              "source": "Kalkine Media",
-              "published": "2026-11-23T05:01:00+00:00",
-              "link": "https://news.google.com/rss/articles/CBMipwFBVV95cUxPOXJNZE1xeXZ6dUpsMG9ma3JWSFZ6REJNbEN5dmJabGllS1VzVl9qeWNXMk54VURZcEppZUlYUnlsdWRuck5wejBpVVd1X25PcmRGSlhPczJ2cXA5eDVWbWxPZVZ1UjlLaG1JLV90X0xzckMtbUZQLXUzLXpiOXNZbXNpbkZQeU9IUGF6a2RwaXZnOGJJeGpVbGhFSkRXdUQ3OU1SakV6cw?oc=5",
-              "sentiment": -2.31
+              "title": "The Federal Reserve’s balance sheet yo-yo - Financial Times",
+              "source": "Financial Times",
+              "published": "2026-11-23T05:34:23+00:00",
+              "link": "https://news.google.com/rss/articles/CBMicEFVX3lxTE1zVWg4dzdvbGJIdk9fOVIxTVBCNUdjVkFMSGQwSTBINldJZWdXQXlhRU9qSGRjZnpZdkRhdERmcFpQX2ZHZkxCUk5nOFZjZWlOWkpIaUFHQW5ZcFIyVGdIcU5xd3pJaFNZXzRZMFAtYXg?oc=5",
+              "sentiment": 0.0
             },
             {
               "title": "Federal Reserve Chairman Kevin Warsh during a conference on the economic impacts of new technologies - The Daily News | Texas' Oldest Newspaper",
@@ -327,18 +339,18 @@
               "sentiment": 0.0
             },
             {
+              "title": "Bitcoin Open Interest Plunges 40% on Binance Amid Historic Deleveraging - Kriptofoni",
+              "source": "Kriptofoni",
+              "published": "2026-11-23T05:18:00+00:00",
+              "link": "https://news.google.com/rss/articles/CBMiggFBVV95cUxNOHozaXBVczRhZzlMeGNGU3pIQmp3aXZBaWlVU08wOGkwT0hrOGFtRjYwZnR6c2VRMXVvY1lBTjFkRGtwNnRMU3FLc25sWVpoeHFSMDRJdkFGdElJOGV0c3RBQWpKRHQtNDg0ejVNaGlBVjEyZ2R1cHREVFpaSVJ0VERB?oc=5",
+              "sentiment": -5.04
+            },
+            {
               "title": "Strategy's Bitcoin Stack Is 22% Underwater. Peter Schiff Says It's ‘About to Blow Up'",
               "source": "BeInCrypto",
               "published": "2026-11-23T05:06:28+00:00",
               "link": "https://beincrypto.com/strategy-net-reserve-bitcoin-below-cost/",
               "sentiment": 0.0
-            },
-            {
-              "title": "Could Fed Rate Hike Uncertainty Weigh on Bitcoin (BTC) Market? - Kalkine Media",
-              "source": "Kalkine Media",
-              "published": "2026-11-23T05:01:00+00:00",
-              "link": "https://news.google.com/rss/articles/CBMipwFBVV95cUxPOXJNZE1xeXZ6dUpsMG9ma3JWSFZ6REJNbEN5dmJabGllS1VzVl9qeWNXMk54VURZcEppZUlYUnlsdWRuck5wejBpVVd1X25PcmRGSlhPczJ2cXA5eDVWbWxPZVZ1UjlLaG1JLV90X0xzckMtbUZQLXUzLXpiOXNZbXNpbkZQeU9IUGF6a2RwaXZnOGJJeGpVbGhFSkRXdUQ3OU1SakV6cw?oc=5",
-              "sentiment": -2.31
             }
           ],
           "AI_CAPEX": [
@@ -362,12 +374,12 @@
           "BONDS_FED": {
             "label": "채권·연준 (국채/금리/FOMC)",
             "proxy": "TLT / IEF / SHY · 10Y-3M 스프레드",
-            "sentiment_score": 12.3,
+            "sentiment_score": 13.6,
             "grade": "STRONG_BEARISH (강한 악재)",
             "headline_count": 27,
             "positive": 0,
             "negative": 0,
-            "weighted_sentiment": -18.4,
+            "weighted_sentiment": -16.03,
             "top_headlines": [
               {
                 "title": "The US stock sell-off prompted a statement from the Treasury Secretary, easing expectations of a December rate hike by the Federal Reserve! When will the US stock market bottom out? - TOP1markets",
@@ -391,10 +403,10 @@
                 "sentiment": -3.57
               },
               {
-                "title": "Could Fed Rate Hike Uncertainty Weigh on Bitcoin (BTC) Market? - Kalkine Media",
-                "source": "Kalkine Media",
-                "published": "2026-11-23T05:01:00+00:00",
-                "link": "https://news.google.com/rss/articles/CBMipwFBVV95cUxPOXJNZE1xeXZ6dUpsMG9ma3JWSFZ6REJNbEN5dmJabGllS1VzVl9qeWNXMk54VURZcEppZUlYUnlsdWRuck5wejBpVVd1X25PcmRGSlhPczJ2cXA5eDVWbWxPZVZ1UjlLaG1JLV90X0xzckMtbUZQLXUzLXpiOXNZbXNpbkZQeU9IUGF6a2RwaXZnOGJJeGpVbGhFSkRXdUQ3OU1SakV6cw?oc=5",
+                "title": "Market rout kills 50 basis points December Fed rate hike bets",
+                "source": "CoinDesk",
+                "published": "2026-11-23T04:45:47+00:00",
+                "link": "https://www.coindesk.com/markets/2026/11/23/market-rout-kills-50-basis-points-december-fed-rate-hike-bets",
                 "sentiment": -2.31
               }
             ]
@@ -402,12 +414,12 @@
           "FX": {
             "label": "외환 (달러/원/엔/유로)",
             "proxy": "DXY / USD-KRW / USD-JPY",
-            "sentiment_score": 67.4,
+            "sentiment_score": 69.7,
             "grade": "MODERATE_BULLISH (우호적)",
             "headline_count": 4,
             "positive": 0,
             "negative": 0,
-            "weighted_sentiment": 3.21,
+            "weighted_sentiment": 3.91,
             "top_headlines": [
               {
                 "title": "Analysis-Europe’s cloud sovereignty push gains ground, but US hyperscalers remain dominant",
@@ -417,11 +429,11 @@
                 "sentiment": 2.24
               },
               {
-                "title": "Beijing steps up market rescue with record 90B yuan ETF purchases",
+                "title": "Nvidia: Crisis Prices Won't Last (Rating Upgrade) (NASDAQ:NVDA) - Seeking Alpha",
                 "source": "Seeking Alpha",
-                "published": "2026-11-22T23:37:10-05:00",
-                "link": "https://seekingalpha.com/news/4675420-beijing-steps-up-market-rescue-with-record-90b-yuan-etf-purchases?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
-                "sentiment": 1.26
+                "published": "2026-11-23T01:00:00+00:00",
+                "link": "https://news.google.com/rss/articles/CBMijwFBVV95cUxPbC1nNWxqaUtsZ3oyOVFoOFJQd0ozS0VvZ1FWZmVmRTNPdm1sZXhCUk9fYTNPdkxXTk9mMGtEX3FqSzM2TXY1dUdLa1hUZ21MOEpBbU5XekQ5U1IyeE5RYWo4WlNJTHNDVERLOFdVLTJ4X2V5X19CV3VDOW90RkJWZ3VGbVFQNTNXaXZoMy1qUQ?oc=5",
+                "sentiment": 2.31
               },
               {
                 "title": "Tech back in the firing line as traders track Wall Street rout",
@@ -442,26 +454,26 @@
           "CRYPTO": {
             "label": "크립토 (비트코인/이더/알트)",
             "proxy": "BTC-USD / ETH-USD · IBIT",
-            "sentiment_score": 11.0,
+            "sentiment_score": 16.3,
             "grade": "STRONG_BEARISH (강한 악재)",
-            "headline_count": 62,
+            "headline_count": 52,
             "positive": 0,
             "negative": 0,
-            "weighted_sentiment": -21.18,
+            "weighted_sentiment": -12.4,
             "top_headlines": [
+              {
+                "title": "Bitcoin Open Interest Plunges 40% on Binance Amid Historic Deleveraging - Kriptofoni",
+                "source": "Kriptofoni",
+                "published": "2026-11-23T05:18:00+00:00",
+                "link": "https://news.google.com/rss/articles/CBMiggFBVV95cUxNOHozaXBVczRhZzlMeGNGU3pIQmp3aXZBaWlVU08wOGkwT0hrOGFtRjYwZnR6c2VRMXVvY1lBTjFkRGtwNnRMU3FLc25sWVpoeHFSMDRJdkFGdElJOGV0c3RBQWpKRHQtNDg0ejVNaGlBVjEyZ2R1cHREVFpaSVJ0VERB?oc=5",
+                "sentiment": -5.04
+              },
               {
                 "title": "Bitcoin slumps as it pays the price for Wall Street’s souring AI bets - AFR",
                 "source": "AFR",
                 "published": "2026-11-23T04:00:00+00:00",
                 "link": "https://news.google.com/rss/articles/CBMiwgFBVV95cUxNZlMzYUVNTGVqNzVtQ0VDMm1RYUFGRXZVeVZReWRxRlRWUnhkYjJScjlNZFliZ1NhcjZoNjRtczFpVjVCdDlCY0c4QWZwNDV6Sk5WVVhvNjQzdzZiQWRXZ25jMDZWcV9oVEZFcVZ3N1ZJMDNqOE1Bd29OTkp6UzJSTHVOTE9nLVM3SmdYeUt0b05ENGJGTlZkYjBfWHhuYTZjRVRvaTgtV2JjanF5RDV0MTEwS1JKWFhxRmhVYUxZRHIwdw?oc=5",
                 "sentiment": -4.62
-              },
-              {
-                "title": "Bitcoin plunges to $55K triggering $2B in liqui... - Pluang",
-                "source": "Pluang",
-                "published": "2026-11-22T22:43:38+00:00",
-                "link": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxQM3FtSVhZZUZSaHQ5REt1Z2RtSDVLWC0xUHBneW9OUUNCWG9DMlJ2am02VEFGTU8ya0dSeDVQWXlFbjVrYm9qOEIzNThqb2p3NmhhTllhMDBWSURNb1Biblhja1VIaUNXOWo1SG9LcWpqV0hIXzA1LWFvU0hxdzBZMGE4cVZ6SnFVMkFocTR4WkZodWl3RHhXbmF1OEhUQkVNWkc1bC02X0Y?oc=5",
-                "sentiment": -5.04
               },
               {
                 "title": "Cathie Wood Drops Bitcoin-Free Crypto ETF as Altcoin Market Selloff Deepens - Coinpaper",
@@ -503,10 +515,36 @@
             "usd_jpy": 158.945
           },
           "next_open": "2026-11-23 23:30 KST",
-          "hours_to_open": 8.98,
+          "hours_to_open": 8.81,
           "source_note": "주말에는 지수·주식 선물이 휴장이므로 마지막 금요일 종가와 크립토/외환만 신규 데이터입니다."
         },
         "top_headlines": [
+          {
+            "title": "US stock futures rebound as Asian stocks tumble. Wall Street sees more trouble ahead for the AI trade. - Business Insider",
+            "source": "Business Insider",
+            "published": "2026-11-23T05:34:00+00:00",
+            "link": "https://news.google.com/rss/articles/CBMimAFBVV95cUxORlNPdE9xWncxZ0dJOHNQaWhXVlZ4QWNlRUVEeElvM2p0X3VGZllWN0U5dXRWZDBkc2Y2TkhTTGQyYXNYcU1KR1RINlBaODl5YXhfdG9VVEthN0FWSFZ5Z1VaVTVINGdDWENQMUxBMk5WM0hRNE82aUlwSm82UDR3WWE4dmpybW5RTi1STGJNYUEzaDhqaXBFZQ?oc=5",
+            "tickers": [],
+            "sentiment": -0.21
+          },
+          {
+            "title": "Scott Bessent's advice to Nvidia was to hire an outsider. Now he says Jensen Huang is one. - Business Insider",
+            "source": "Business Insider",
+            "published": "2026-11-23T05:35:00+00:00",
+            "link": "https://news.google.com/rss/articles/CBMinAFBVV95cUxNaXVqa3ZHT0VlU3RzWDZyZ1JHbllBcHVfY3Z6Mk9oYUhuTHF4Y1JFQ2s4LUJaN1pKcXkycnNXWFBKSGN6c0tkVGdkRkJIUnZNYngxaTBWOE9ZQXFOSTBwTG9tNXZvZGpicVAwcVBhSXJMblVWX3hXV3dNb0p1NzNhTWkzVV93SldtTDVzQlVfTDFFa19MbEZ4Zml2Skc?oc=5",
+            "tickers": [
+              "NVDA"
+            ],
+            "sentiment": 0.0
+          },
+          {
+            "title": "The Federal Reserve’s balance sheet yo-yo - Financial Times",
+            "source": "Financial Times",
+            "published": "2026-11-23T05:34:23+00:00",
+            "link": "https://news.google.com/rss/articles/CBMicEFVX3lxTE1zVWg4dzdvbGJIdk9fOVIxTVBCNUdjVkFMSGQwSTBINldJZWdXQXlhRU9qSGRjZnpZdkRhdERmcFpQX2ZHZkxCUk5nOFZjZWlOWkpIaUFHQW5ZcFIyVGdIcU5xd3pJaFNZXzRZMFAtYXg?oc=5",
+            "tickers": [],
+            "sentiment": 0.0
+          },
           {
             "title": "China's gold imports said to have surged to record $209B through Oct.",
             "source": "Seeking Alpha",
@@ -514,6 +552,22 @@
             "link": "https://seekingalpha.com/news/4675430-chinas-gold-imports-said-to-have-surged-to-record-209b-through-oct?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
             "tickers": [],
             "sentiment": 4.62
+          },
+          {
+            "title": "Brookfield agrees to buy PGP Glass from Blackstone for $1.7B",
+            "source": "Seeking Alpha",
+            "published": "2026-11-23T00:32:11-05:00",
+            "link": "https://seekingalpha.com/news/4675431-brookfield-agrees-to-buy-pgp-glass-from-blackstone-for-17b?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
+            "tickers": [],
+            "sentiment": 0.0
+          },
+          {
+            "title": "U.S. AI Stocks Face 'Perfect Storm' Sell-Off - 조선일보",
+            "source": "조선일보",
+            "published": "2026-11-23T05:24:59+00:00",
+            "link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxQQmplajVhT3FMT1YzSmo2VkZZTG1MUlh1cHk1VFlDUTlGaldwR2tWV2x2dFVwU1AyWkFHemsxdUxmaWRzbVdDdVBLcHEwOFhPekN0Uld1LXJhVktfV1ZkWFpqdW9NTVhELV9PYmt2WTd2RDBxa0lHMVBMM0JjNlhNV2lvUDJwSmhvWFhrRXdR?oc=5",
+            "tickers": [],
+            "sentiment": -2.31
           },
           {
             "title": "Bitcoin rebounds over US$60,000 after weekend sell-off - Ticker News",
@@ -535,40 +589,12 @@
             "sentiment": 0.0
           },
           {
-            "title": "Tech back in the firing line as traders track Wall Street rout",
-            "source": "Euronews",
-            "published": "2026-11-23T05:20:14+00:00",
-            "link": "https://www.euronews.com/2026/11/23/tech-back-in-the-firing-line-as-traders-track-wall-street-rout",
+            "title": "Bitcoin Open Interest Plunges 40% on Binance Amid Historic Deleveraging - Kriptofoni",
+            "source": "Kriptofoni",
+            "published": "2026-11-23T05:18:00+00:00",
+            "link": "https://news.google.com/rss/articles/CBMiggFBVV95cUxNOHozaXBVczRhZzlMeGNGU3pIQmp3aXZBaWlVU08wOGkwT0hrOGFtRjYwZnR6c2VRMXVvY1lBTjFkRGtwNnRMU3FLc25sWVpoeHFSMDRJdkFGdElJOGV0c3RBQWpKRHQtNDg0ejVNaGlBVjEyZ2R1cHREVFpaSVJ0VERB?oc=5",
             "tickers": [],
-            "sentiment": -0.21
-          },
-          {
-            "title": "These 5 Stocks Could Double by 2028. Here's What Has to Go Right.",
-            "source": "Nasdaq Markets",
-            "published": "2026-11-23T05:20:02+00:00",
-            "link": "https://www.nasdaq.com/articles/these-5-stocks-could-double-2028-heres-what-has-go-right",
-            "tickers": [
-              "SOXL"
-            ],
-            "sentiment": 0.0
-          },
-          {
-            "title": "Alice Huang linked to Chinese spy agency during Nvidia CEO affair: NYT - Ticker News",
-            "source": "Ticker News",
-            "published": "2026-11-23T05:18:43+00:00",
-            "link": "https://news.google.com/rss/articles/CBMilwFBVV95cUxNN3liZlQ3ajVyOEJ0bDJFZ2FJTFg2WWxDdnFPbnNIemNBVm5EaUl3Qng2N0pBUWd6RkwxZTE4MzBScm4zZWNzSEo5YkRhenZ4VkRDeHBXMzcwTG5NOG9RM2lDNk0wdTlDbGV2UXFfdUw3X0REbTV4cTV5YlVpMFM0bTlTVDc4a0N1ajNWNHo2c3VDaDdtbmdJ?oc=5",
-            "tickers": [
-              "NVDA"
-            ],
-            "sentiment": 0.0
-          },
-          {
-            "title": "ALS Ltd. H1 Profit Surges, Lifts FY27 Organic Revenue Growth View; But Stock Drops",
-            "source": "Nasdaq Markets",
-            "published": "2026-11-23T05:12:12+00:00",
-            "link": "https://www.nasdaq.com/articles/als-ltd-h1-profit-surges-lifts-fy27-organic-revenue-growth-view-stock-drops",
-            "tickers": [],
-            "sentiment": 3.64
+            "sentiment": -5.04
           },
           {
             "title": "Nasdaq futures soar 3%, S&P 500 up 2% after major tech stock rout - FlipItMoney",
@@ -581,41 +607,23 @@
             "sentiment": 2.52
           },
           {
-            "title": "Futures Jump as AI Rout Pauses, Asia Steps In - Briefs Finance",
-            "source": "Briefs Finance",
-            "published": "2026-11-23T05:12:56+00:00",
-            "link": "https://news.google.com/rss/articles/CBMifEFVX3lxTE5wQ2RZNlBFQWlucjlsRURNRC16eVMyUk9aWjJndzFTTUtxbTlGRUIxd2szTFctODRtcG9WVTZhd09LcEUtc1k1NzZhdzJkeTdETWZ2cmNOa0RFMVY3STM0dlFLMWNROWtPM015MGRzWGFYTy1hYnhueXdTUV8?oc=5",
+            "title": "US Stock Futures Rebound on November 23 After Tech Selloff - SuaraGarut.ID",
+            "source": "SuaraGarut.ID",
+            "published": "2026-11-23T05:20:29+00:00",
+            "link": "https://news.google.com/rss/articles/CBMibkFVX3lxTE5Cd0tGNV9zLVVldlBzRnlyV2QwQnlmc3JfT1ZEQkZfa19FNDI1dEtwQTZXU0R1UVZjeVZiTF9IMFdWUDUzaGlBUkt1X3Y4Y1l1TzNVVy01X1BtMlRiZE9qOGl5Q21ITHZJYlRVYUdB?oc=5",
             "tickers": [],
-            "sentiment": 2.1
+            "sentiment": -0.21
           },
           {
-            "title": "MSCI reportedly discussed avoiding Indonesia downgrade with Prabowo, Dalio",
-            "source": "Seeking Alpha",
-            "published": "2026-11-23T00:12:10-05:00",
-            "link": "https://seekingalpha.com/news/4675427-msci-reportedly-discussed-avoiding-indonesia-downgrade-with-prabowo-dalio?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
+            "title": "Tech back in the firing line as traders track Wall Street rout",
+            "source": "Euronews",
+            "published": "2026-11-23T05:20:14+00:00",
+            "link": "https://www.euronews.com/2026/11/23/tech-back-in-the-firing-line-as-traders-track-wall-street-rout",
             "tickers": [],
-            "sentiment": -1.68
-          },
-          {
-            "title": "Why Did NVDA, NFLX, ORCL Slip To 52-Week Lows Last Week?",
-            "source": "Stocktwits",
-            "published": "2026-11-23T05:11:19+00:00",
-            "link": "https://stocktwits.com/news-articles/markets/equity/why-did-nvda-nflx-orcl-slip-to-52-week-lows-last-week/cNbYpPuR9SJ",
-            "tickers": [
-              "NVDA"
-            ],
-            "sentiment": -1.26
-          },
-          {
-            "title": "Morgan Stanley Infrastructure Partners To Sell StraitNZ To Partners Group",
-            "source": "Nasdaq Markets",
-            "published": "2026-11-23T05:13:53+00:00",
-            "link": "https://www.nasdaq.com/articles/morgan-stanley-infrastructure-partners-sell-straitnz-partners-group",
-            "tickers": [],
-            "sentiment": 0.56
+            "sentiment": -0.21
           }
         ],
-        "key_takeaway": "뉴스 233건(24시간 내 231건) 수집. 시장 내재 리스크 점수 31.6/100 (RISK_OFF), 종목 평균 센티먼트 34.1/100 → RISK_OFF (매크로 악화). NVDA 24.7점, SOXL 22.9점."
+        "key_takeaway": "뉴스 227건(24시간 내 224건) 수집. 시장 내재 리스크 점수 31.6/100 (RISK_OFF), 종목 평균 센티먼트 34.8/100 → RISK_OFF (매크로 악화). NVDA 24.7점, SOXL 24.1점."
       }
     },
     {
@@ -645,7 +653,7 @@
       "role": "실측 OHLCV 기반 변동성 돌파·과매도 반등·갭 시나리오 산출 — 주식 외 채권(TLT·IEF)·환율(DXY·원/달러·엔/달러)·코인(BTC·ETH) 포함",
       "description": "일봉 실데이터로 ATR·RSI2·볼린저 %B·RVOL·EMA를 계산해 래리 윌리엄스 돌파 기준가와 과매도 반등 진입 점수를 산출하고, 채권·환율·코인 15개 심볼의 추세·변동성·지지저항을 별도 블록으로 보고합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-23 14:31:33",
+      "last_run": "2026-11-23 14:41:48",
       "confidence_score": 0.9,
       "report": {
         "phase": "OFF_HOURS",
@@ -1402,7 +1410,7 @@
             "risk_per_trade_pct": 2.0,
             "max_positions": 2,
             "position_cap_pct": 25.0,
-            "as_of_kst": "2026-11-23 14:31:33",
+            "as_of_kst": "2026-11-23 14:41:48",
             "params_consistent": true,
             "param_checks": {
               "rsi2_max": true,
@@ -1468,7 +1476,7 @@
       "role": "실적 D-day 캘린더와 갭 유발 이벤트 관리",
       "description": "Yahoo Finance 실적 캘린더를 KST로 변환해 D-day를 계산하고, FOMC·CPI 등 공식 일정과 결합해 이벤트 전후 포지션 규칙을 제시합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-23 14:31:33",
+      "last_run": "2026-11-23 14:41:48",
       "confidence_score": 0.9,
       "report": {
         "phase": "OFF_HOURS",
@@ -1556,15 +1564,10 @@
             "title": "Downer shares jump over 3% on $730 million NSW transmission contract",
             "source": "Investing.com",
             "published": "2026-11-23T03:33:47+00:00"
-          },
-          {
-            "title": "Solo bitcoin miner wins $190K jackpot against 1... - Pluang",
-            "source": "Pluang",
-            "published": "2026-11-23T00:43:39+00:00"
           }
         ],
         "next_major_event": "AVGO 2026-12-10 06:00 KST",
-        "key_takeaway": "AVGO 실적 D-17 (2026-12-10 06:00 KST), EPS 컨센서스 3.83018. 매크로 이벤트 3건 추적, 최근접 11월 고용보고서(NFP) D-11. 헤드라인 촉매 2건."
+        "key_takeaway": "AVGO 실적 D-17 (2026-12-10 06:00 KST), EPS 컨센서스 3.83018. 매크로 이벤트 3건 추적, 최근접 11월 고용보고서(NFP) D-11. 헤드라인 촉매 1건."
       }
     },
     {
@@ -1593,7 +1596,7 @@
       "role": "경기선행지표(CUBE-LEI·침체확률)·미국 국채 커브·환율·코인 4대 영역 정량 분석 및 리스크 레짐 판정",
       "description": "Estrella & Mishkin(1998)·Stock & Watson(1989)·Gilchrist & Zakrajšek(2012)·Burns & Mitchell(1946) 방법론으로 CUBE-LEI와 12개월 침체확률을 실측 산출하고, 국채 커브(2Y/5Y/10Y/30Y)·크레딧(HY OAS)·환율(DXY·원/달러)·코인(BTC/ETH)을 4대 영역으로 보고합니다. VIX 22·DXY 104.5 초과 시 레버리지를 제한합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-23 14:31:33",
+      "last_run": "2026-11-23 14:41:48",
       "confidence_score": 0.94,
       "report": {
         "phase": "OFF_HOURS",
@@ -2935,12 +2938,12 @@
       "role": "실제 옵션 체인 기반 Put/Call·감마월·맥스페인 산출",
       "description": "QQQ·NVDA 옵션 체인의 미결제약정과 거래량으로 기관 포지셔닝을 측정합니다. 소셜 버즈 데이터는 연동되어 있지 않아 사용하지 않습니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-23 14:31:33",
+      "last_run": "2026-11-23 14:41:48",
       "confidence_score": 0.9,
       "report": {
         "phase": "OFF_HOURS",
         "expiry_used": "2026-11-23",
-        "data_as_of": "2026-11-23 14:31:33",
+        "data_as_of": "2026-11-23T14:31:34.324343",
         "stale_note": "주말·휴장일에는 마지막 금요일 체인 값입니다.",
         "chains": {
           "QQQ": {
@@ -3918,7 +3921,7 @@
       "role": "10대 단기 시나리오의 ATR 단위 재정규화 + 주말·월요일 개장 시나리오 설계",
       "description": "래리 윌리엄스 돌파, 볼린저 회귀, VWAP 추종 등 10개 시나리오를 실측 ATR로 재정규화하고, 주말에는 갭업/갭다운/보합 3개 개장 시나리오를 브래킷과 함께 산출합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-23 14:31:37",
+      "last_run": "2026-11-23 14:41:48",
       "confidence_score": 0.9,
       "report": {
         "phase": "OFF_HOURS",
@@ -4220,13 +4223,13 @@
       "role": "시간봉 경로 기반 개선 전/후 성과 검증",
       "description": "core/backtest_lab의 시간봉(60m) 백테스트 결과를 읽어 개선 전·후, DIP_SWING, 하락장 숏 엔진 민감도를 실측 수치로 보고합니다. 왕복 0.24% 마찰 반영.",
       "status": "COMPLETED",
-      "last_run": "2026-11-23 14:31:37",
+      "last_run": "2026-11-23 14:41:48",
       "confidence_score": 0.95,
       "report": {
         "phase": "OFF_HOURS",
         "report_path": "data/1y_backtest_report.json",
         "report_generated_at_kst": "2026-11-14 14:05:31",
-        "report_age_hours": 216.4,
+        "report_age_hours": 216.6,
         "is_simulation": true,
         "friction": "왕복 0.24% (NH 0.09% + 슬리피지 0.15%)",
         "fill_model": "시가/트리거 체결 + 슬리피지. 진입 봉에서는 봉 종가가 목표가를 넘긴 경우에만 익절 인정, 손절은 저가 터치 인정. 같은 봉에서 손절·목표가가 동시에 닿으면 손절 우선(보수적). 러너는 당일 종가 강제 청산(당일 회전 원칙).",
@@ -4847,7 +4850,7 @@
       "role": "실측 백테스트 승인/폐기 + 환노출·단기채 캐리·코인 주말 갭 리스크 평가",
       "description": "손익비(PF) 1.3 이상·샤프 0.8 이상·MDD 15% 이내·거래 20회 이상을 동시에 만족하는 전략만 승인합니다. 추가로 USD/KRW 환노출 민감도, SGOV 단기채 캐리 vs 현금 기회비용, BTC 주말 변동→월요일 나스닥 갭 회귀를 실측값으로 산출해 Agent 9·10의 포지션 태세와 사이징에 넘깁니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-23 14:31:37",
+      "last_run": "2026-11-23 14:41:48",
       "confidence_score": 0.92,
       "report": {
         "phase": "OFF_HOURS",
@@ -4921,7 +4924,7 @@
           "risk_per_trade_pct": 2.0,
           "max_positions": 2,
           "position_cap_pct": 25.0,
-          "as_of_kst": "2026-11-23 14:31:37"
+          "as_of_kst": "2026-11-23 14:41:48"
         },
         "approval_note": "1개 전략 승인. 최우선 DIP_SWING. 오버나이트 보유(DIP_SWING) 승인 완료 (2026-11-14 21:29 KST·사용자 승인).",
         "fx_exposure": {
@@ -5012,7 +5015,7 @@
       "role": "주식·채권·외환·코인·경기선행지표 5축 신호 융합 → 시장 포지션 태세와 목표 비중 결정",
       "description": "주식(센티먼트·모멘텀)·채권(금리차·크레딧)·외환(달러·원화)·코인(리스크온 프록시)·경기선행지표(CUBE-LEI·침체확률)를 -100~+100 신호로 정규화해 RISK_ON / CAUTIOUS_ROTATION / DEFENSIVE_TBILL / BEAR_HEDGE 중 하나를 결정하고, 국면 계수로 레버리지·현금 비중을 조정합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-23 14:31:37",
+      "last_run": "2026-11-23 14:41:48",
       "confidence_score": 0.9,
       "report": {
         "phase": "OFF_HOURS",
@@ -5024,14 +5027,14 @@
         "execution_mode": "DIP_SWING",
         "five_axis": {
           "equity": {
-            "score": -59.9,
+            "score": -59.5,
             "components": {
-              "sentiment": -31.8,
+              "sentiment": -30.4,
               "entry_score": -48.0,
               "vix": -100.0
             },
             "vix": 35.89,
-            "sentiment_avg": 34.1
+            "sentiment_avg": 34.8
           },
           "bond": {
             "score": 10.0,
@@ -5071,7 +5074,7 @@
             "recession_prob_pct": 13.7
           }
         },
-        "composite_score": -12.7,
+        "composite_score": -12.6,
         "market_stance": "CAUTIOUS_ROTATION",
         "stance_target": {
           "equity_gross": 0.4,
@@ -5142,7 +5145,7 @@
       "role": "실전 원장 정합성·브래킷 재산정·개장 대기 주문 계획",
       "description": "실전 원장과 활성 브래킷을 검증하고, 체결가 기준으로 매도 브래킷을 재산정하며, 다음 개장(23:30 KST) 대기 계획과 현금 배분을 보고합니다. 주문 집행은 시장 개장 시 별도 확인 절차를 따릅니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-23 14:31:37",
+      "last_run": "2026-11-23 14:41:48",
       "confidence_score": 0.94,
       "report": {
         "phase": "OFF_HOURS",
@@ -5162,7 +5165,7 @@
           "cash_pct": 71.0,
           "win_rate_pct": 50.0,
           "trades": 10,
-          "as_of": "2026-11-23 14:31 KST"
+          "as_of": "2026-11-23 14:41 KST"
         },
         "consistency_check": {
           "status": "CONSISTENT",
@@ -5414,7 +5417,7 @@
             "risk_per_trade_pct": 2.0,
             "max_positions": 2,
             "position_cap_pct": 25.0,
-            "as_of_kst": "2026-11-23 14:31:37"
+            "as_of_kst": "2026-11-23 14:41:48"
           },
           "policy": "오버나이트 보유는 config/swing_approval.json의 사용자 승인(2026-11-14 21:29)으로 활성화됨. DIP_SWING은 장중 회전 매매와 병행하며 대체하지 않습니다."
         },
@@ -5491,7 +5494,7 @@
           "nvda_levels_locked": "TP $173.0 / SL $150.0 — 사용자 지정, 변경 금지",
           "bear_alpha_gate": "VIX ≥ 24 + 확인 2개 (변경 금지)",
           "intraday_rotation": "유지 — DIP_SWING은 병행이며 회전 매매를 대체하지 않음",
-          "checked_at": "2026-11-23 14:31:37"
+          "checked_at": "2026-11-23 14:41:48"
         },
         "avg_anchor_plan": {
           "engine": "AVG_ANCHOR_PROFIT_DESK",
@@ -6347,7 +6350,7 @@
   },
   "reconciliation": {
     "status": "CONSISTENT",
-    "checked_at_kst": "2026-11-23 14:31:22",
+    "checked_at_kst": "2026-11-23 14:41:35",
     "ghost_count": 0,
     "holdings": {
       "SGOV": 1,
@@ -6431,7 +6434,7 @@
     "recession_probability_pct": 13.7,
     "credit_level": "WATCH",
     "market_stance": "CAUTIOUS_ROTATION",
-    "sentiment_avg": 34.1,
+    "sentiment_avg": 34.8,
     "market_implied_anchor": 31.6,
     "approved_strategies": [
       "DIP_SWING"
@@ -6445,5 +6448,5 @@
     "next_open": "2026-11-23 23:30 KST",
     "simulation_disclaimer": "백테스트 수치는 시뮬레이션이며 실전 원장과 분리되어 있습니다."
   },
-  "pipeline_seconds": 11.4
+  "pipeline_seconds": 9.6
 }
