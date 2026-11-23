@@ -51,7 +51,7 @@ def test_normalize_priority_and_rejection():
 
 
 def test_order_type_codes_table():
-    assert set(ORDER_TYPE_CODES) == {"00", "61", "62"}
+    assert set(ORDER_TYPE_CODES) == {"00", "61", "62", "63"}
     assert ORDER_TYPE_CODES["61"][0] == "premarket_limit"
 
 

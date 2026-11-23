@@ -32,6 +32,21 @@ from core import session_routing
 KST = timezone(timedelta(hours=9))
 
 
+def _is_daytime_kst(clock: Dict[str, Any]) -> bool:
+    """한국 평일 10:00~17:50 KST 주간거래 창 여부."""
+    raw = str(clock.get("now_kst") or "").strip()[:19]
+    if not raw:
+        return False
+    try:
+        dt = datetime.strptime(raw, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return False
+    if dt.weekday() >= 5:
+        return False
+    hm = dt.hour * 60 + dt.minute
+    return 10 * 60 <= hm < 17 * 60 + 50
+
+
 def check_live_gate(gate: Any, clock: Dict[str, Any],
                     now_utc: Optional[datetime] = None,
                     premarket_policy: Optional[Dict[str, Any]] = None,
@@ -46,18 +61,28 @@ def check_live_gate(gate: Any, clock: Dict[str, Any],
         session_routing.status(premarket_policy) if premarket_policy is not None
         else session_routing.default_plan())
     phase = str(clock.get("phase") or "")
-    if phase not in (plan.get("phases") or ["REGULAR"]):
-        if phase == "PRE_MARKET":
-            return {"ok": False, "phase": phase,
-                    "reason": f"premarket not authorized — {plan.get('blocked_reason') or 'premarket_policy'}"}
-        return {"ok": False, "phase": phase, "reason": "US regular session required"}
-    order_type = session_routing.order_type_for_phase(phase, plan)
-    if not order_type:
-        return {"ok": False, "phase": phase, "reason": f"no order type for phase {phase}"}
+    daytime_active = bool(gate.get("daytime_allowed") is True and _is_daytime_kst(clock)
+                          and phase in ("WEEKEND_PREP", "OFF_HOURS"))
+    if daytime_active:
+        order_type = "63"
+    else:
+        if phase not in (plan.get("phases") or ["REGULAR"]):
+            if phase == "PRE_MARKET":
+                return {"ok": False, "phase": phase,
+                        "reason": f"premarket not authorized — {plan.get('blocked_reason') or 'premarket_policy'}"}
+            return {"ok": False, "phase": phase, "reason": "US regular session required"}
+        order_type = session_routing.order_type_for_phase(phase, plan)
+        if not order_type:
+            return {"ok": False, "phase": phase, "reason": f"no order type for phase {phase}"}
     sell_only = gate.get("sell_only") is True
     session_date = str(clock.get("session_date") or "")
-    if not session_date or not gate.get("session_date") or gate.get("session_date") != session_date:
+    kst_date = str(clock.get("now_kst") or "")[:10]
+    gate_session = gate.get("session_date")
+    session_match = bool(gate_session and (gate_session == session_date or (daytime_active and gate_session == kst_date)))
+    if not session_match:
         return {"ok": False, "reason": "live gate does not authorize this US session"}
+    if daytime_active:
+        session_date = kst_date
     expiry = gate.get("expires_at_kst")
     if not isinstance(expiry, str):
         return {"ok": False, "reason": "live gate expiration missing"}

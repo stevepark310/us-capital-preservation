@@ -39,6 +39,7 @@ ORDER_TYPE_CODES = {
     "00": ("regular_limit", "정규장 지정가"),
     "61": ("premarket_limit", "프리마켓 지정가"),
     "62": ("aftermarket_limit", "애프터마켓 지정가"),
+    "63": ("daytime_limit", "주간거래 지정가"),
 }
 ORDER_TYPE_ALIASES = {
     "00": "00", "regular": "00", "regularlimit": "00", "normal": "00", "limit": "00",
@@ -47,6 +48,8 @@ ORDER_TYPE_ALIASES = {
     "프리": "61", "프리장": "61", "프리마켓": "61",
     "62": "62", "aftermarket": "62", "aftermarketlimit": "62", "after": "62",
     "afterhours": "62", "애프터": "62", "애프터마켓": "62", "시간외": "62",
+    "63": "63", "daytime": "63", "daytimelimit": "63", "day": "63", "daymarket": "63",
+    "주간": "63", "주간거래": "63", "주간거래지정가": "63",
 }
 
 
@@ -64,7 +67,7 @@ def normalize_order_type(order_type=None, ahi_nmn_pr_tp_cd=None) -> str:
     code = ORDER_TYPE_ALIASES.get(key)
     if code is None:
         raise ValueError(
-            f"Unsupported order type: {raw!r} (use '00' 정규장, '61' 프리마켓, '62' 애프터마켓)")
+            f"Unsupported order type: {raw!r} (use '00' 정규장, '61' 프리마켓, '62' 애프터마켓, '63' 주간거래)")
     return code
 
 
