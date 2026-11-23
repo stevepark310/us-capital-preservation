@@ -84,7 +84,7 @@ def test_default_plan_never_enables_premarket():
 
 def test_monday_sell_only_gate_still_allows_premarket_sell_path():
     """월요일 게이트(매도 전용) — 프리장 수동 개입 경로는 열려 있고 매수는 게이트가 막는다."""
-    gate = {"enabled": True, "session_date": SESSION, "expires_at_kst": "2026-11-24 06:00:00",
+    gate = {"enabled": True, "session_date": SESSION, "expires_at_kst": "2099-01-01 06:00:00",
             "sell_only": True, "max_buy_order_usd": 0, "max_session_buy_usd": 0,
             "max_session_buy_orders": 0}
     from datetime import datetime, timezone
@@ -130,7 +130,7 @@ def test_auto_policy_still_trades_premarket(make_trader):
 
 
 # ------------------------------------------------------------------ 수동 개입 경로
-GATE = {"enabled": True, "session_date": SESSION, "expires_at_kst": "2026-11-24 06:00:00",
+GATE = {"enabled": True, "session_date": SESSION, "expires_at_kst": "2099-01-01 06:00:00",
         "sell_only": False, "max_buy_order_usd": 65.0, "max_session_buy_usd": 120.0,
         "max_session_buy_orders": 2}
 QUOTES = {"SOXL": {"intraday_price": 50.0, "prev_close": 50.0,

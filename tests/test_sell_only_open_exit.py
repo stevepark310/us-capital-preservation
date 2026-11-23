@@ -161,7 +161,7 @@ def _market(price=58.0, hhmm="23:40"):
 def test_open_exit_sells_marketable_limit_and_records_state(tmp_trader, monkeypatch):
     tmp_path, _ = tmp_trader
     _sqqq_brackets(tmp_path)
-    _plan_state(tmp_path, monkeypatch, PLAN)
+    _plan_state(tmp_path, monkeypatch, {**PLAN, "expires_at_kst": "2099-01-01 06:00:00"})
     router = FakeRouter()
     t = AutonomousTrader(policy=execution_policy.load_policy(), router=router, dry_run=False,
                          market=_market(58.0), base_dir=str(tmp_path), sell_only=True)
@@ -185,7 +185,7 @@ def test_open_exit_sells_marketable_limit_and_records_state(tmp_trader, monkeypa
 def test_open_exit_does_not_repeat_after_submission(tmp_trader, monkeypatch):
     tmp_path, _ = tmp_trader
     _sqqq_brackets(tmp_path)
-    _plan_state(tmp_path, monkeypatch, PLAN)
+    _plan_state(tmp_path, monkeypatch, {**PLAN, "expires_at_kst": "2099-01-01 06:00:00"})
     router = FakeRouter()
     for _ in range(2):
         t = AutonomousTrader(policy=execution_policy.load_policy(), router=router, dry_run=False,
@@ -200,7 +200,7 @@ def test_open_exit_is_skipped_when_gate_closed(tmp_trader, monkeypatch):
     """게이트가 닫힌 날(dry-run 사이클)에는 주문 없이 판단만 기록한다."""
     tmp_path, _ = tmp_trader
     _sqqq_brackets(tmp_path)
-    _plan_state(tmp_path, monkeypatch, PLAN)
+    _plan_state(tmp_path, monkeypatch, {**PLAN, "expires_at_kst": "2099-01-01 06:00:00"})
     router = FakeRouter()
     t = AutonomousTrader(policy=execution_policy.load_policy(), router=router, dry_run=True,
                          market=_market(58.0), base_dir=str(tmp_path))

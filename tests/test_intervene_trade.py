@@ -10,7 +10,7 @@ CLOCK = {"phase": "PRE_MARKET", "session_date": SESSION, "now_kst": f"{SESSION} 
          "now_et": f"{SESSION} 04:40:00", "kst_shift_min": 0}
 REGULAR = {"phase": "REGULAR", "session_date": SESSION, "now_kst": f"{SESSION} 23:45:00",
            "now_et": f"{SESSION} 09:45:00", "kst_shift_min": 0}
-GATE = {"enabled": True, "session_date": SESSION, "expires_at_kst": "2026-11-24 06:00:00",
+GATE = {"enabled": True, "session_date": SESSION, "expires_at_kst": "2099-01-01 06:00:00",
         "sell_only": False, "max_buy_order_usd": 65.0, "max_session_buy_usd": 120.0,
         "max_session_buy_orders": 2}
 APPROVED = {"enabled": True, "version": 2, "approved_by": "박동훈 (사용자)",
