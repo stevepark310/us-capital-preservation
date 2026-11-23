@@ -129,7 +129,8 @@ def plan_intervention(ticker: str, side: str, qty: Optional[int] = None,
                       integrity: Optional[Dict[str, Any]] = None,
                       manual: bool = True,
                       override_vix: bool = False,
-                      override_gap: bool = False) -> Dict[str, Any]:
+                      override_gap: bool = False,
+                      full_capital: bool = False) -> Dict[str, Any]:
     """한 건의 개입 계획(주문 없음). 통과하면 `ok=True`와 주문 인자를 돌려준다."""
     from core import execution_policy, market_clock, session_routing
     from core.live_session_gate import check_live_gate
@@ -219,7 +220,8 @@ def plan_intervention(ticker: str, side: str, qty: Optional[int] = None,
 
     # ---- 수량
     g = execution_policy.guardrails(policy)
-    reserve = float(g.get("cash_reserve_floor_usd", 150.0))
+    full_cap = bool(full_capital or (isinstance(gate, dict) and gate.get("full_capital_approved") is True))
+    reserve = 0.0 if (full_cap and manual) else float(g.get("cash_reserve_floor_usd", 150.0))
     cash = float(cash_usd if cash_usd is not None else 0.0)
     if cash_usd is None:
         led = _load(os.path.join(DATA, "live_portfolio.json"), {}) or {}
@@ -241,9 +243,12 @@ def plan_intervention(ticker: str, side: str, qty: Optional[int] = None,
             return fail(f"{ticker} 이미 {held}주 보유 — 물타기 금지")
         if notional and qty:
             return fail("--qty 와 --notional 중 하나만 주세요")
-        budget = execution_policy.entry_budget(equity_usd or cash, cash, policy, 1.0)["budget_usd"]
-        phase_room = session_routing.budget(clock.get("phase"), plan, budget)["budget_usd"]
-        cap = min(phase_room, float(g.get("entry_budget_cap_usd", 220.0)), max(0.0, cash - reserve))
+        if full_cap and manual:
+            cap = min(float(gate_check.get("max_buy_order_usd") or 700.0), max(0.0, cash))
+        else:
+            budget = execution_policy.entry_budget(equity_usd or cash, cash, policy, 1.0)["budget_usd"]
+            phase_room = session_routing.budget(clock.get("phase"), plan, budget)["budget_usd"]
+            cap = min(phase_room, float(g.get("entry_budget_cap_usd", 220.0)), max(0.0, cash - reserve))
         want_notional = float(notional) if notional else cap
         if want_notional > cap + 1e-6:
             return fail(f"1회 예산 상한 ${cap:.2f} < 요청 ${want_notional:.2f} "
@@ -377,6 +382,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--reason", default="")
     ap.add_argument("--override-vix", action="store_true", help="사용자 승인 세션 VIX 하드 차단 예외")
     ap.add_argument("--override-gap", action="store_true", help="사용자 승인 세션 프리장 갭 추격 예외")
+    ap.add_argument("--full-capital", action="store_true", help="사용자 승인 가용 현금 전액 활용(마지노선·예산 상한 해제)")
     ap.add_argument("--execute", action="store_true", help="실주문(없으면 미리보기)")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--status", action="store_true")
@@ -415,6 +421,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                            cash_usd=led.get("cash_deposit_usd", led.get("cash_buffer_usd")),
                            vix=vix, integrity=integrity,
                            override_vix=args.override_vix, override_gap=args.override_gap,
+                           full_capital=args.full_capital,
                            ticker=args.ticker, side=args.side.upper(), qty=args.qty,
                            price=args.price, notional=args.notional, reason=args.reason)
     if args.json:

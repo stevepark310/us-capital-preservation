@@ -74,11 +74,15 @@ def check_live_gate(gate: Any, clock: Dict[str, Any],
         cap = float(gate["max_buy_order_usd"])
         session_cap = float(gate["max_session_buy_usd"])
         count = int(gate["max_session_buy_orders"])
+        full_capital = gate.get("full_capital_approved") is True
+        cap_lim = 2000.0 if full_capital else 100.0
+        session_lim = 2000.0 if full_capital else 200.0
+        count_lim = 10 if full_capital else 3
         if sell_only:
             if not (cap == 0 and session_cap == 0 and count == 0):
                 return {"ok": False,
                         "reason": "live sell-only gate must set every buy cap to 0"}
-        elif not (0 < cap <= 100 and cap <= session_cap <= 200 and 1 <= count <= 3):
+        elif not (0 < cap <= cap_lim and cap <= session_cap <= session_lim and 1 <= count <= count_lim):
             return {"ok": False, "reason": "live gate risk caps invalid"}
     except (TypeError, KeyError, ValueError, OverflowError):
         return {"ok": False, "reason": "live gate risk caps missing"}
