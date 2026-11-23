@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at_kst": "2026-11-23 08:48:56",
+  "updated_at_kst": "2026-11-23 12:26:38",
   "schedule": {
     "market_cron_utc": "4-59/10 13-21 * * 1-5",
     "pulse_cron_utc": "9-59/10 * * * *",
@@ -102,18 +102,18 @@
     }
   },
   "last_run": {
-    "workflow": "CUBE Collab Pulse (24/7)",
-    "run_id": "45085146941",
-    "event": "schedule",
+    "workflow": "CUBE Market Autotrade (10m)",
+    "run_id": "45105958694",
+    "event": "push",
     "attempt": "1",
     "runner": "github_actions",
-    "sha": "dae978bd",
-    "at_kst": "2026-11-23 08:48:56",
-    "mode": "pulse",
-    "result": "OK"
+    "sha": "fb75c26b",
+    "at_kst": "2026-11-23 12:26:38",
+    "mode": "market",
+    "result": "SKIPPED_OFF_HOURS"
   },
   "market": {
-    "last_cycle_kst": "2026-11-23 06:06:02",
+    "last_cycle_kst": "2026-11-23 12:26:38",
     "phase": "WEEKEND_PREP",
     "session_date": "2026-11-20",
     "kst_shift_min": 0,
@@ -143,31 +143,19 @@
     "dry_run": true,
     "live_gate_enabled": false,
     "live_gate_reason": "US regular session required",
-    "live_gate_sell_only": true,
-    "note": "phase=WEEKEND_PREP — 연체 강제청산/감시 공백 1건, 다음 정규장 즉시 청산 대상으로 기록.",
-    "result": "FAILSAFE_OVERDUE",
+    "live_gate_sell_only": false,
+    "note": "phase=WEEKEND_PREP — 정규장이 아니므로 주문은 하지 않습니다.",
+    "result": "SKIPPED_OFF_HOURS",
     "seconds": 0.0,
     "failsafe": {
-      "checked_at_kst": "2026-11-23 06:06:02",
+      "checked_at_kst": "2026-11-23 12:26:38",
       "phase": "WEEKEND_PREP",
       "session_date": "2026-11-20",
       "force_exit_early_min": 10,
-      "overdue": [
-        {
-          "ticker": "SQQQ",
-          "force_exit_kst": "05:40",
-          "minutes_late": 26,
-          "same_session": true,
-          "qty": 1,
-          "exit_rule": "chandelier_v2",
-          "phase": "WEEKEND_PREP",
-          "severity": "CRITICAL",
-          "note": "강제청산 시각 경과 — 정규장 밖이므로 다음 정규장 첫 사이클에서 즉시 청산"
-        }
-      ],
+      "overdue": [],
       "cloud": {
-        "last_market_cycle_kst": "2026-11-23 05:36:18",
-        "age_min": 29.7,
+        "last_market_cycle_kst": "2026-11-23 06:06:02",
+        "age_min": 380.6,
         "phase": "WEEKEND_PREP",
         "warn": false,
         "critical": false,
@@ -178,7 +166,7 @@
         "scheduled_triggers_reliable": false,
         "note": "GitHub Actions schedule 트리거는 지연·누락될 수 있다(11-19 05:40 미발화 실측). 감시 공백이 critical이면 보완 경로(`scripts/exit_watchdog.py`)가 사이클을 재촉한다."
       },
-      "action_required": true
+      "action_required": false
     }
   }
 }
