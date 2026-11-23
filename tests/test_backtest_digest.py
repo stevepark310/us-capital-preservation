@@ -36,7 +36,7 @@ def test_digest_reports_live_switch_state_separately():
     assert st["premarket"]["manual_intervention_only"] is True
     text = bd.summary_text(d)
     assert "현재 실전 반영 상태" in text and "manual_intervention_only=True" in text
-    assert "sell_only=True" in text
+    assert f"sell_only={st['live_gate']['sell_only']}" in text
 
 
 def test_digest_skips_missing_files_without_fake_numbers(tmp_path, monkeypatch):

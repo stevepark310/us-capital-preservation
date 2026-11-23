@@ -127,7 +127,9 @@ def plan_intervention(ticker: str, side: str, qty: Optional[int] = None,
                       log_path: Optional[str] = None,
                       vix: Optional[float] = None,
                       integrity: Optional[Dict[str, Any]] = None,
-                      manual: bool = True) -> Dict[str, Any]:
+                      manual: bool = True,
+                      override_vix: bool = False,
+                      override_gap: bool = False) -> Dict[str, Any]:
     """한 건의 개입 계획(주문 없음). 통과하면 `ok=True`와 주문 인자를 돌려준다."""
     from core import execution_policy, market_clock, session_routing
     from core.live_session_gate import check_live_gate
@@ -185,10 +187,15 @@ def plan_intervention(ticker: str, side: str, qty: Optional[int] = None,
     hedge_tickers = {"SOXS", "SQQQ"}
     vix_gate = ((integrity or {}).get("vix") or {}).get("gate") if isinstance(integrity, dict) else None
     vix_gate = vix_gate if vix_gate is not None else vix
+    vix_override = bool(override_vix or (isinstance(gate, dict) and gate.get("vix_override_allowed") is True))
+    gap_override = bool(override_gap or (isinstance(gate, dict) and gate.get("gap_override_allowed") is True))
     if side == "BUY" and vix_gate is not None:
         scale = execution_policy.vix_scale(vix_gate, policy)
         if scale <= 0 and not (ticker in hedge_tickers and float(vix_gate) >= 24.0):
-            return fail(f"VIX {vix_gate} 리스크오프 — 신규 롱 하드 차단(헤지 예외)")
+            if vix_override and manual:
+                ok_check("vix_override", {"vix": vix_gate, "reason": "사용자 지시 VIX 예외 허용"})
+            else:
+                return fail(f"VIX {vix_gate} 리스크오프 — 신규 롱 하드 차단(헤지 예외)")
         out["vix"] = vix_gate
         out["vix_scale"] = scale
     if not execution_policy.allowed_ticker(ticker, policy):
@@ -269,8 +276,13 @@ def plan_intervention(ticker: str, side: str, qty: Optional[int] = None,
                     gap = 0.0
                 chase = float(cond.get("max_gap_chase_pct") or 1.5)
                 if gap > chase:
-                    return fail(f"추격 금지 — 전일 종가 대비 +{gap:.2f}% > +{chase:.2f}%")
-                ok_check("gap_band", {"gap_pct": round(gap, 2), "cap_pct": chase})
+                    if gap_override and manual:
+                        ok_check("gap_override", {"gap_pct": round(gap, 2), "cap_pct": chase,
+                                                  "reason": "사용자 지시 갭 추격 예외 허용"})
+                    else:
+                        return fail(f"추격 금지 — 전일 종가 대비 +{gap:.2f}% > +{chase:.2f}%")
+                else:
+                    ok_check("gap_band", {"gap_pct": round(gap, 2), "cap_pct": chase})
         # 게이트 매수 한도
         cost = qty * px
         if cost > float(gate_check.get("max_buy_order_usd") or 0.0) + 1e-6:
@@ -363,6 +375,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--price", type=float)
     ap.add_argument("--notional", type=float)
     ap.add_argument("--reason", default="")
+    ap.add_argument("--override-vix", action="store_true", help="사용자 승인 세션 VIX 하드 차단 예외")
+    ap.add_argument("--override-gap", action="store_true", help="사용자 승인 세션 프리장 갭 추격 예외")
     ap.add_argument("--execute", action="store_true", help="실주문(없으면 미리보기)")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--status", action="store_true")
@@ -400,6 +414,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     rec = run_intervention(execute=args.execute, clock=clock, quotes=quotes, brackets=brackets,
                            cash_usd=led.get("cash_deposit_usd", led.get("cash_buffer_usd")),
                            vix=vix, integrity=integrity,
+                           override_vix=args.override_vix, override_gap=args.override_gap,
                            ticker=args.ticker, side=args.side.upper(), qty=args.qty,
                            price=args.price, notional=args.notional, reason=args.reason)
     if args.json:
