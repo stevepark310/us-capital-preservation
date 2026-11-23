@@ -1,10 +1,10 @@
 {
   "title": "CUBE 10-Agent Quantitative Trading System (24/7)",
-  "generated_at": "2026-11-24 06:31:49",
+  "generated_at": "2026-11-24 06:41:22",
   "phase": "POST_MARKET",
   "phase_label": "시간외 세션",
   "next_open_kst": "2026-11-24 23:30 KST",
-  "hours_to_next_open": 16.97,
+  "hours_to_next_open": 16.81,
   "system_status": "OPERATIONAL",
   "agents_ok": 10,
   "agents_failed": [],
@@ -13,7 +13,7 @@
     "market": "Yahoo Finance (yfinance) — daily + 5m intraday",
     "macro_official": "FRED fredgraph.csv — T10Y3M/T10Y2Y/DGS2/DGS10/BAMLH0A0HYM2/NFCI/ICSA/UMCSENT (API 키 불필요, 6시간 캐시)",
     "leading_index": "CUBE-LEI 99.2 (LATE_CYCLE_SLOWDOWN) — Estrella & Mishkin (1998) · Stock & Watson (1989) · Gilchrist & Zakrajšek (2012) · Burns & Mitchell (1946) 기반 core/leading_indicators.py",
-    "news": "18/26 feeds, 255 items, health OK",
+    "news": "18/26 feeds, 259 items, health OK",
     "ledger": "data/daily_trading_calendar.json + data/live_portfolio.json (single FX source)",
     "backtest": "data/1y_backtest_report.json (hourly-path simulation)",
     "hardcoded_market_values": false
@@ -30,7 +30,7 @@
     "fx_rate": 1337.3,
     "realized_pnl_usd": -17.43,
     "unrealized_pnl_usd": 0.11,
-    "last_inquiry_time": "2026-11-24 06:31 KST"
+    "last_inquiry_time": "2026-11-24 06:41 KST"
   },
   "agents": [
     {
@@ -59,22 +59,22 @@
       "role": "RSS·뉴스 API 실시간 수집, 종목별 센티먼트 점수화, 매수·매도 브래킷 동적 보정",
       "description": "Yahoo/CNBC/MarketWatch/Nasdaq/CoinDesk/Google News RSS와 yfinance 뉴스 API를 1시간마다 수집해 종목 관련도·감성·최신성으로 점수화하고, 시장 내재 리스크 점수와 블렌딩해 종목별 익절·손절 폭을 산출합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-24 06:31:46",
+      "last_run": "2026-11-24 06:41:22",
       "confidence_score": 0.8,
       "report": {
-        "scan_timestamp": "2026-11-24 06:31:46",
+        "scan_timestamp": "2026-11-24 06:41:22",
         "phase": "POST_MARKET",
         "phase_label": "시간외 세션",
         "hourly_cadence": "EVERY_1_HOUR",
         "data_sources": {
           "news_feeds_ok": "18/26",
-          "news_items": 255,
-          "items_last_24h": 253,
+          "news_items": 259,
+          "items_last_24h": 259,
           "source_health": "OK",
           "market_data": "Yahoo Finance 일봉·분봉 (core/market_snapshot)",
           "hardcoded_values": false
         },
-        "average_sentiment_score": 81.7,
+        "average_sentiment_score": 81.8,
         "overall_market_mood": "STRONG_RISK_ON",
         "market_implied_anchor": {
           "score": 78.8,
@@ -99,7 +99,7 @@
         "ticker_reports": {
           "SOXL": {
             "name": "디렉시온 반도체 3배 레버리지 (SOXL)",
-            "sentiment_score": 85.3,
+            "sentiment_score": 85.7,
             "sentiment_grade": "STRONG_BULLISH (강한 호재)",
             "breaking_news": [
               "[24/7 Wall St.] Taiwan Semiconductor Rallies 17% as Jensen Huang's Return to NVIDIA Lifts Chip Stocks; Intel Surges 15%, AMD Jumps 8% - 24/7 Wall St.",
@@ -113,9 +113,9 @@
               "summary": "소셜 버즈는 수집하지 않습니다(연동 없음). 대신 실제 옵션 미결제약정과 뉴스 플로우로 대체합니다."
             },
             "news_flow": {
-              "headline_count": 14,
-              "weighted_sentiment": 38.91,
-              "news_only_score": 93.3,
+              "headline_count": 18,
+              "weighted_sentiment": 44.47,
+              "news_only_score": 94.1,
               "market_implied_score": 78.8
             },
             "dynamic_exit_adjustment": {
@@ -124,17 +124,17 @@
               "tp2": "+13.8% ($48.46)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
               "sl": "-4.75% ($40.56) · 본전스탑 $42.72",
-              "rationale": "뉴스 점수 93.3 + 시장 내재 78.8 (NQ 6.57%, VIX 27.09) → 종합 85.3. 최근 헤드라인: Taiwan Semiconductor Rallies 17% as Jensen Huang's Return to NVIDIA Li"
+              "rationale": "뉴스 점수 94.1 + 시장 내재 78.8 (NQ 6.57%, VIX 27.09) → 종합 85.7. 최근 헤드라인: Taiwan Semiconductor Rallies 17% as Jensen Huang's Return to NVIDIA Li"
             }
           },
           "TQQQ": {
             "name": "프로셰어즈 나스닥100 3배 레버리지 (TQQQ)",
-            "sentiment_score": 85.1,
+            "sentiment_score": 85.4,
             "sentiment_grade": "STRONG_BULLISH (강한 호재)",
             "breaking_news": [
               "[CNBC] Dow soars 1,400 points; Nasdaq surges 6% in its best day since April 2025 as Jensen Huang returns to Nvidia - CNBC",
-              "[The Block] Bitcoin, crypto and tech stocks rally as Nvidia reinstates Jensen Huang as CEO; NVDA jumps 30% - The Block",
-              "[Beinsure] Nasdaq-100 futures surge 7%, S&P 500 gain 4.3%, Dow up 2.6% in Wall Street rebound - Beinsure"
+              "[Yahoo Finance] Stock market today: Nvidia stock soars after company reinstates Jensen Huang as CEO; Dow, S&P 500, Nasdaq futures surge - Yahoo Finance",
+              "[The Block] Bitcoin, crypto and tech stocks rally as Nvidia reinstates Jensen Huang as CEO; NVDA jumps 30% - The Block"
             ],
             "ib_insights": [],
             "community_sentiment": {
@@ -143,9 +143,9 @@
               "summary": "소셜 버즈는 수집하지 않습니다(연동 없음). 대신 실제 옵션 미결제약정과 뉴스 플로우로 대체합니다."
             },
             "news_flow": {
-              "headline_count": 20,
-              "weighted_sentiment": 48.84,
-              "news_only_score": 94.5,
+              "headline_count": 24,
+              "weighted_sentiment": 58.29,
+              "news_only_score": 95.3,
               "market_implied_score": 78.8
             },
             "dynamic_exit_adjustment": {
@@ -154,12 +154,12 @@
               "tp2": "+11.43% ($54.6)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
               "sl": "-4.75% ($46.67) · 본전스탑 $49.17",
-              "rationale": "뉴스 점수 94.5 + 시장 내재 78.8 (NQ 6.57%, VIX 27.09) → 종합 85.1. 최근 헤드라인: Dow soars 1,400 points; Nasdaq surges 6% in its best day since April 2"
+              "rationale": "뉴스 점수 95.3 + 시장 내재 78.8 (NQ 6.57%, VIX 27.09) → 종합 85.4. 최근 헤드라인: Dow soars 1,400 points; Nasdaq surges 6% in its best day since April 2"
             }
           },
           "NVDA": {
             "name": "엔비디아 (NVIDIA)",
-            "sentiment_score": 87.6,
+            "sentiment_score": 87.3,
             "sentiment_grade": "STRONG_BULLISH (강한 호재)",
             "breaking_news": [
               "[CNBC] Dow soars 1,400 points; Nasdaq surges 6% in its best day since April 2025 as Jensen Huang returns to Nvidia - CNBC",
@@ -179,9 +179,9 @@
               "summary": "소셜 버즈는 수집하지 않습니다(연동 없음). 대신 실제 옵션 미결제약정과 뉴스 플로우로 대체합니다."
             },
             "news_flow": {
-              "headline_count": 113,
-              "weighted_sentiment": 51.35,
-              "news_only_score": 94.8,
+              "headline_count": 115,
+              "weighted_sentiment": 45.63,
+              "news_only_score": 94.2,
               "market_implied_score": 78.8
             },
             "dynamic_exit_adjustment": {
@@ -190,7 +190,7 @@
               "tp2": "+8.77% ($179.05)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
               "sl": "-4.2% ($157.7) · 본전스탑 $165.17",
-              "rationale": "뉴스 점수 94.8 + 시장 내재 78.8 (NQ 6.57%, VIX 27.09) → 종합 87.6. 최근 헤드라인: Dow soars 1,400 points; Nasdaq surges 6% in its best day since April 2"
+              "rationale": "뉴스 점수 94.2 + 시장 내재 78.8 (NQ 6.57%, VIX 27.09) → 종합 87.3. 최근 헤드라인: Dow soars 1,400 points; Nasdaq surges 6% in its best day since April 2"
             }
           },
           "TSLA": {
@@ -216,8 +216,8 @@
             },
             "news_flow": {
               "headline_count": 7,
-              "weighted_sentiment": 1.93,
-              "news_only_score": 62.2,
+              "weighted_sentiment": 1.91,
+              "news_only_score": 62.1,
               "market_implied_score": 78.8
             },
             "dynamic_exit_adjustment": {
@@ -226,12 +226,12 @@
               "tp2": "+4.75% ($405.46)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
               "sl": "-2.75% ($376.43) · 본전스탑 $388.39",
-              "rationale": "뉴스 점수 62.2 + 시장 내재 78.8 (NQ 6.57%, VIX 27.09) → 종합 68.8. 최근 헤드라인: Tesla Stocks Surge 13.67% as SpaceX Merger Committees and Cybercab Sal"
+              "rationale": "뉴스 점수 62.1 + 시장 내재 78.8 (NQ 6.57%, VIX 27.09) → 종합 68.8. 최근 헤드라인: Tesla Stocks Surge 13.67% as SpaceX Merger Committees and Cybercab Sal"
             }
           },
           "SGOV": {
             "name": "아이셰어즈 0-3개월 초단기 국채 (SGOV)",
-            "sentiment_score": 70.8,
+            "sentiment_score": 65.1,
             "sentiment_grade": "MODERATE_BULLISH (우호적)",
             "breaking_news": [
               "[CNBC] 2-year Treasury yield jumps as stocks rebound, investors await New York Fed President Williams speech - CNBC",
@@ -246,8 +246,8 @@
             },
             "news_flow": {
               "headline_count": 7,
-              "weighted_sentiment": 3.61,
-              "news_only_score": 68.8,
+              "weighted_sentiment": 1.83,
+              "news_only_score": 61.7,
               "market_implied_score": 78.8
             },
             "dynamic_exit_adjustment": {
@@ -256,7 +256,7 @@
               "tp2": "+2.2% ($102.85)",
               "runner_weight": "33% (샹들리에+EMA 트레일)",
               "sl": "-1.2% ($99.43) · 본전스탑 $100.98",
-              "rationale": "뉴스 점수 68.8 + 시장 내재 78.8 (NQ 6.57%, VIX 27.09) → 종합 70.8. 최근 헤드라인: 2-year Treasury yield jumps as stocks rebound, investors await New Yor"
+              "rationale": "뉴스 점수 61.7 + 시장 내재 78.8 (NQ 6.57%, VIX 27.09) → 종합 65.1. 최근 헤드라인: 2-year Treasury yield jumps as stocks rebound, investors await New Yor"
             }
           }
         },
@@ -291,15 +291,7 @@
               "sentiment": -4.41
             }
           ],
-          "TARIFF_TRADE": [
-            {
-              "title": "Trump’s push to reinstate Jensen Huang signals Nvidia’s CEO is too big to fail",
-              "source": "MarketWatch",
-              "published": "2026-11-23T19:28:00+00:00",
-              "link": "https://www.marketwatch.com/story/trumps-push-to-reinstate-jensen-huang-signals-nvidias-ceo-is-too-big-to-fail-10709210?mod=mw_rss_topstories",
-              "sentiment": -0.63
-            }
-          ],
+          "TARIFF_TRADE": [],
           "OIL_ENERGY": [
             {
               "title": "Silver gains while investors await Federal Reserve signals during equity market turmoil - Traders Union",
@@ -311,6 +303,13 @@
           ],
           "CRYPTO": [
             {
+              "title": "Is XRP or Bitcoin the Better Buy After Both Fell About 20% in November? - 24/7 Wall St.",
+              "source": "24/7 Wall St.",
+              "published": "2026-11-23T21:38:00+00:00",
+              "link": "https://news.google.com/rss/articles/CBMi9gFBVV95cUxQVk9ib0tSdnh4SC15U3p6RjNnVHd4alJhWm8tRENaNExMMzhhSkREY2RYaEdmdnFENnNDNmFrOUpONGxCSkxjUFRYWmk1djBFMkNlanRuVlN2eG95MDFYSWlTMmdVOTZaazZXbHZqY2hJWi1PZWQ3RU9jRkdJQ2dnVXptWEdydy1pcE9FOVpUQXFHRDc5RW1ZWWhkdXJ3ajUwRFdIX011Ym1xNzI3dTdmcVd2aDFMNGZ2eG1LSV9GSHRBWGFWVG1wSDdKSnd3bEx1V3V2WmVDY2gzZG9BbXA2NzZWRVZ1M1NuNl9udjZNTmVnTmVXc3c?oc=5",
+              "sentiment": 0.0
+            },
+            {
               "title": "Bitcoin Needs Fresh Liquidity for $100K: Where Could It Come From? - Cryptonews.net",
               "source": "Cryptonews.net",
               "published": "2026-11-23T21:29:08+00:00",
@@ -318,11 +317,11 @@
               "sentiment": 0.0
             },
             {
-              "title": "Divided Wall Street: Wells Fargo Upgrades US Large Caps To ‘Most Favorable,’ But JPMorgan Is Taking A Measured Approach",
-              "source": "Stocktwits",
-              "published": "2026-11-23T21:24:44+00:00",
-              "link": "https://stocktwits.com/news-articles/markets/equity/divided-wall-street-wells-fargo-upgrades-us-large-caps-to-most-favorable-but-jp-morgan-is-taking-a-measured-approach/cNbpWcHR9jF",
-              "sentiment": 4.55
+              "title": "Grayscale picks 11 winners of AI's power crunch",
+              "source": "TheStreet",
+              "published": "2026-11-23T21:28:00+00:00",
+              "link": "https://www.thestreet.com/crypto/markets/grayscale-picks-11-winners-of-ais-power-crunch",
+              "sentiment": 0.0
             },
             {
               "title": "Fed’s Watchdog Probes Whether Bowman Broke Communications Rules - Bloomberg.com",
@@ -330,13 +329,6 @@
               "published": "2026-11-23T21:05:43+00:00",
               "link": "https://news.google.com/rss/articles/CBMitAFBVV95cUxNeldtdVNDSGw4TDdRc1hDblF6bmhqWkV2SEw4NTFkNjZWMEg5LXBDOHMyUHVQM1BLRGJJYU1QeEdpTFdYNWpaR25tSFo3ZnVBS1JNOG02Z2dBUWtKUVlndEpCU1lwSWM3VFk1VUhqdDVwU3FnbkFPTzdfd1gyRndXdXV2NmNxcWdBWHp2TGdrR21HNm1ETzVpUkxxWVlpQVhobEFxeUxJZDhMajRsREZDVnBCam0?oc=5",
               "sentiment": -1.89
-            },
-            {
-              "title": "US seeks to recover $1.1B in crypto stolen in North Korea-linked Binance hack",
-              "source": "Cointelegraph",
-              "published": "2026-11-23T21:04:03+00:00",
-              "link": "https://cointelegraph.com/news/us-seeks-11b-crypto-stolen-north-korea-binance-hack?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
-              "sentiment": 0.0
             }
           ],
           "AI_CAPEX": []
@@ -345,12 +337,12 @@
           "BONDS_FED": {
             "label": "채권·연준 (국채/금리/FOMC)",
             "proxy": "TLT / IEF / SHY · 10Y-3M 스프레드",
-            "sentiment_score": 10.6,
+            "sentiment_score": 14.1,
             "grade": "STRONG_BEARISH (강한 악재)",
-            "headline_count": 26,
+            "headline_count": 25,
             "positive": 0,
             "negative": 0,
-            "weighted_sentiment": -22.22,
+            "weighted_sentiment": -15.27,
             "top_headlines": [
               {
                 "title": "Binance Market Update | Bitcoin Rebounds to $61K as Nvidia Surges 9% and Traders Price Out a 50bp Fed Hike - TradingView",
@@ -385,12 +377,12 @@
           "FX": {
             "label": "외환 (달러/원/엔/유로)",
             "proxy": "DXY / USD-KRW / USD-JPY",
-            "sentiment_score": 70.0,
+            "sentiment_score": 72.2,
             "grade": "MODERATE_BULLISH (우호적)",
-            "headline_count": 2,
+            "headline_count": 3,
             "positive": 0,
             "negative": 0,
-            "weighted_sentiment": 3.99,
+            "weighted_sentiment": 4.79,
             "top_headlines": [
               {
                 "title": "Wall Street soars as Nvidia reinstates Huang, dollar jumps - Reuters",
@@ -398,6 +390,13 @@
                 "published": "2026-11-22T23:44:00+00:00",
                 "link": "https://news.google.com/rss/articles/CBMigwFBVV95cUxNR2c4ZVNmcHBzVFctOTBkRUd2d0VHTklseUhCcEtZT2VHbU1WbWprMUk2aDZSQ2tkZHNYVE9EWUgyaEkxeWtyN0M2V2NzR2ZCTHFmMEhvbHFDeExTNUdTeDF3WkxJZ2RSdmZ2cHBxWlFjTXdoa1hXdlZQRWtyTFFKVlJjMA?oc=5",
                 "sentiment": 9.24
+              },
+              {
+                "title": "Nvidia ends up more than 30% after Jensen Huang returns as CEO",
+                "source": "Euronews",
+                "published": "2026-11-23T21:31:36+00:00",
+                "link": "https://www.euronews.com/2026/11/23/nvidia-reinstates-jensen-huang-as-ceo-11-days-after-he-resigned",
+                "sentiment": 0.84
               },
               {
                 "title": "Jensen Huang went to war with Washington — and won a path to China - The Washington Post",
@@ -411,12 +410,12 @@
           "CRYPTO": {
             "label": "크립토 (비트코인/이더/알트)",
             "proxy": "BTC-USD / ETH-USD · IBIT",
-            "sentiment_score": 93.5,
+            "sentiment_score": 92.7,
             "grade": "STRONG_BULLISH (강한 호재)",
-            "headline_count": 58,
+            "headline_count": 57,
             "positive": 0,
             "negative": 0,
-            "weighted_sentiment": 40.47,
+            "weighted_sentiment": 35.04,
             "top_headlines": [
               {
                 "title": "Binance Market Update | Bitcoin Rebounds to $61K as Nvidia Surges 9% and Traders Price Out a 50bp Fed Hike - TradingView",
@@ -440,11 +439,11 @@
                 "sentiment": 5.04
               },
               {
-                "title": "Divided Wall Street: Wells Fargo Upgrades US Large Caps To ‘Most Favorable,’ But JPMorgan Is Taking A Measured Approach",
-                "source": "Stocktwits",
-                "published": "2026-11-23T21:24:44+00:00",
-                "link": "https://stocktwits.com/news-articles/markets/equity/divided-wall-street-wells-fargo-upgrades-us-large-caps-to-most-favorable-but-jp-morgan-is-taking-a-measured-approach/cNbpWcHR9jF",
-                "sentiment": 4.55
+                "title": "Citadel warns of market challenges as Fed signals potential rate hikes - Crypto Briefing",
+                "source": "Crypto Briefing",
+                "published": "2026-11-23T19:08:58+00:00",
+                "link": "https://news.google.com/rss/articles/CBMinwFBVV95cUxOZjhWbkxoTXhTYTFsYTZVR3VnNGtXOTFaWF83eWlwRXR1SW1oZ2lyOGxwZXQ4R0xzc19WR3d3ME9sbEYyTnR2WjItejAyWW9QVkhkUS1oYXVQblpicmxtYlNvNHVfMkcwcVVLOVg0cFhTQmVzR29xTUZqT0ViM2xTZ0FIalN5Q2Vpcjk3WnBCODdNc2x0MGpoMHdrVklmNlk?oc=5",
+                "sentiment": -4.41
               }
             ]
           }
@@ -472,118 +471,117 @@
             "usd_jpy": 159.117
           },
           "next_open": "2026-11-24 23:30 KST",
-          "hours_to_open": 16.97,
+          "hours_to_open": 16.81,
           "source_note": "주말에는 지수·주식 선물이 휴장이므로 마지막 금요일 종가와 크립토/외환만 신규 데이터입니다."
         },
         "top_headlines": [
           {
-            "title": "How Fed Monetary Policy Shapes the Housing Market Today - Darden Report",
-            "source": "Darden Report",
-            "published": "2026-11-23T21:29:39+00:00",
-            "link": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxPS2lDZUVGSGhEOFNXS29oUFRobDhjSWZnTzN3eTltaVJqNEZNcnJscm4tTjJrRTloN1psd1JPaUpCaGQ4b0ZCMzM4LWthMFl1aFZFUE1YY0FRWExHcGF4TXRMRkFCdVcwenlVWDJkOE5BcXZOdm1uQ3RmMmtoVGRjT2h3eENNejJjRXYzbXJzaWNJTUtPZHp4RGs0QmY4VHR1S2NRX3Z2VmNvZGFsclY0UmhnS2Y4bFJTSmJlY0h6ZDA5U0dSWnB3ekRqR1NGTEVWejdyQnJTbw?oc=5",
-            "tickers": [],
-            "sentiment": 0.0
-          },
-          {
-            "title": "Bitcoin Needs Fresh Liquidity for $100K: Where Could It Come From? - Cryptonews.net",
-            "source": "Cryptonews.net",
-            "published": "2026-11-23T21:29:08+00:00",
-            "link": "https://news.google.com/rss/articles/CBMiWEFVX3lxTE1VY0pMZmRvdmpfX1RBcTkxaThWSWJkdEdRbzBKcDNNZWNkX1NLTXc3ZXpLTWw1OXVidDFtTG5ZczU4WmJfU09tRGdYQ3JnV0EwWGdLVWtSeno?oc=5",
-            "tickers": [],
-            "sentiment": 0.0
-          },
-          {
-            "title": "Divided Wall Street: Wells Fargo Upgrades US Large Caps To ‘Most Favorable,’ But JPMorgan Is Taking A Measured Approach",
-            "source": "Stocktwits",
-            "published": "2026-11-23T21:24:44+00:00",
-            "link": "https://stocktwits.com/news-articles/markets/equity/divided-wall-street-wells-fargo-upgrades-us-large-caps-to-most-favorable-but-jp-morgan-is-taking-a-measured-approach/cNbpWcHR9jF",
-            "tickers": [],
-            "sentiment": 4.55
-          },
-          {
-            "title": "Alico GAAP EPS of -$0.44 beats by $1.06, revenue of $1.85M beats by $0.7M",
-            "source": "Seeking Alpha",
-            "published": "2026-11-23T16:25:09-05:00",
-            "link": "https://seekingalpha.com/news/4675870-alico-gaap-eps-of-0_44-beats-by-1_06-revenue-of-1_85m-beats-by-0_7m?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
-            "tickers": [],
-            "sentiment": 2.8
-          },
-          {
-            "title": "HPE just posted its strongest growth ever — but its stock is wavering",
+            "title": "These stocks are the biggest gainers after Jensen Huang’s return to Nvidia",
             "source": "MarketWatch",
-            "published": "2026-11-23T21:28:00+00:00",
-            "link": "https://www.marketwatch.com/story/hpe-just-posted-its-strongest-growth-ever-and-its-stock-is-tacking-on-more-big-gains-4421cebb?mod=mw_rss_topstories",
-            "tickers": [],
-            "sentiment": 2.73
-          },
-          {
-            "title": "Oracle and CoreWeave stocks stage big gains as investors bet the AI cash will keep flowing",
-            "source": "MarketWatch",
-            "published": "2026-11-23T21:24:00+00:00",
-            "link": "https://www.marketwatch.com/story/oracle-and-coreweave-stocks-stage-big-gains-as-investors-bet-the-ai-cash-will-keep-flowing-eeb1aa85?mod=mw_rss_topstories",
+            "published": "2026-11-23T21:36:00+00:00",
+            "link": "https://www.marketwatch.com/story/these-stocks-are-the-biggest-gainers-after-jensen-huangs-return-to-nvidia-bb886140?mod=mw_rss_topstories",
             "tickers": [
               "NVDA"
             ],
-            "sentiment": 2.24
+            "sentiment": 1.12
           },
           {
-            "title": "Nvidia stock has best day since May 2003, gaining nearly $1T in market cap after Jensen Huang is reinstated as CEO - Yahoo Finance",
-            "source": "Yahoo Finance",
-            "published": "2026-11-23T21:27:35+00:00",
-            "link": "https://news.google.com/rss/articles/CBMiggJBVV95cUxPWE52dEljX0cyZVo2a1A1dWJaNXFBemdNUE9jcU94RjNXc1JwMEJyZkpjd3h5cHF0VFUxZWpCOTRpTlRRSzJBTlJGa0tubHEwa3VROU9xRFd4a1czS1Z3d05tMklnTFdESzMyTVRpdVFUQXBoMmkwdE0zd0V4TkcxRnhocTdBSm9fS3pvcksteFlqRGtIMUpjdldDbElVQlgzX3hMNWotbEJXelczemJac2h0TWhKeW9PTmJrZlIwNVBpY2VQVFVaRHFadlNOV0d2bWN2aDl4WlVQeU9IVkFRRUNDSU9tSV9xcjNJcFdJVGhkQWw0cmpJbld3WWE5OHhKcnc?oc=5",
-            "tickers": [
-              "NVDA"
-            ],
-            "sentiment": 1.68
-          },
-          {
-            "title": "Tech rally pushes Analog Devices higher by 9%",
+            "title": "Amentum authorizes first-ever share buyback program of up to $500M",
             "source": "Seeking Alpha",
-            "published": "2026-11-23T16:25:51-05:00",
-            "link": "https://seekingalpha.com/news/4675860-tech-rally-pushes-analog-devices-higher-by-9?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
+            "published": "2026-11-23T16:36:38-05:00",
+            "link": "https://seekingalpha.com/news/4675891-amentum-authorizes-first-ever-share-buyback-program-of-up-to-500m?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
             "tickers": [],
-            "sentiment": 1.54
+            "sentiment": 1.12
           },
           {
-            "title": "Federal Reserve signals higher rates over time as inflation stays above target - Traders Union",
-            "source": "Traders Union",
-            "published": "2026-11-23T21:24:30+00:00",
-            "link": "https://news.google.com/rss/articles/CBMimAFBVV95cUxOUlhoVnNzOV96M0pNN01qOGZiMm90Znd5YkZsYzdSZXF1Y1VlV2lMODhzOHYwaEQtOFFyTDhiTUhMUlc2b1prczJJLU9CdnhhME9UV25fTFZ1NWxWOGg1eDZ5Q3VWeTVZcE12MlRrTzdrVmZIdlNOUGRfcHBQaVptbVZmdXpVc3c2VjctRzM5SUhHeHRaTUU3dg?oc=5",
-            "tickers": [],
-            "sentiment": -1.05
-          },
-          {
-            "title": "Earnings Snapshot: Hewlett Packard Q4 sales up 50% on servers growth; lifts FY27 targets",
-            "source": "Seeking Alpha",
-            "published": "2026-11-23T16:26:44-05:00",
-            "link": "https://seekingalpha.com/news/4675872-earnings-snapshot-hewlett-packard-q4-sales-up-50-on-servers-growth-lifts-fy27-targets?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
-            "tickers": [],
-            "sentiment": 0.84
-          },
-          {
-            "title": "Jensen Huang's reinstatement changes how politics, business interact forever",
-            "source": "Yahoo Finance Video",
-            "published": "2026-11-23T21:25:37+00:00",
-            "link": "https://finance.yahoo.com/video/jensen-huangs-reinstatement-changes-how-politics-business-interact-forever-212537409.html",
+            "title": "Amazon may have just found a ‘cheap’ way to get a lot more out of its chips",
+            "source": "MarketWatch",
+            "published": "2026-11-23T21:33:00+00:00",
+            "link": "https://www.marketwatch.com/story/amazon-may-have-just-found-a-cheap-way-to-get-a-lot-more-out-of-its-chips-bd822bd5?mod=mw_rss_topstories",
             "tickers": [
-              "NVDA",
+              "SOXL",
               "TQQQ"
             ],
-            "sentiment": 0.63
+            "sentiment": 0.56
           },
           {
-            "title": "Elon Musk on his support for Jensen Huang: 'Fair-weather friends are worthless'",
-            "source": "Yahoo Finance",
-            "published": "2026-11-23T21:26:13+00:00",
-            "link": "https://finance.yahoo.com/markets/article/musk-on-support-for-jensen-huangs-return-to-nvidia-fair-weather-friends-are-worthless-212613771.html",
+            "title": "Global X All-Equity Asset Allocation Covered Call ETF declares CAD 0.185 dividend",
+            "source": "Seeking Alpha",
+            "published": "2026-11-23T16:37:15-05:00",
+            "link": "https://seekingalpha.com/news/4675903-global-x-all-equity-asset-allocation-covered-call-etf-declares-cad-0_185-dividend?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
+            "tickers": [],
+            "sentiment": 0.0
+          },
+          {
+            "title": "Global X Enhanced All-Equity Asset Allocation Covered Call ETF declares CAD 0.25 dividend",
+            "source": "Seeking Alpha",
+            "published": "2026-11-23T16:37:11-05:00",
+            "link": "https://seekingalpha.com/news/4675902-global-x-enhanced-all-equity-asset-allocation-covered-call-etf-declares-cad-0_25-dividend?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
+            "tickers": [],
+            "sentiment": 0.0
+          },
+          {
+            "title": "Global X Gold Producer Equity Covered Call ETF declares CAD 0.525 dividend",
+            "source": "Seeking Alpha",
+            "published": "2026-11-23T16:36:26-05:00",
+            "link": "https://seekingalpha.com/news/4675900-global-x-gold-producer-equity-covered-call-etf-declares-cad-0_525-dividend?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
+            "tickers": [],
+            "sentiment": 0.0
+          },
+          {
+            "title": "Global X 1-10 Year Canadian Corporate Bond Idx ETF declares CAD 0.176 dividend",
+            "source": "Seeking Alpha",
+            "published": "2026-11-23T16:36:23-05:00",
+            "link": "https://seekingalpha.com/news/4675899-global-x-1minus-10-year-canadian-corporate-bond-idx-etf-declares-cad-0_176-dividend?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
+            "tickers": [],
+            "sentiment": 0.0
+          },
+          {
+            "title": "Global X Enhanced Gold Producer Equity Covered Call ETF declares CAD 0.405 dividend",
+            "source": "Seeking Alpha",
+            "published": "2026-11-23T16:35:41-05:00",
+            "link": "https://seekingalpha.com/news/4675898-global-x-enhanced-gold-producer-equity-covered-call-etf-declares-cad-0_405-dividend?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
+            "tickers": [],
+            "sentiment": 0.0
+          },
+          {
+            "title": "LCNB announces new stock repurchase program",
+            "source": "Seeking Alpha",
+            "published": "2026-11-23T16:35:18-05:00",
+            "link": "https://seekingalpha.com/news/4675892-lcnb-announces-new-stock-repurchase-program?utm_source=feed_news_all&utm_medium=referral&feed_item_type=news",
+            "tickers": [],
+            "sentiment": 0.0
+          },
+          {
+            "title": "Jensen Huang reinstated as Nvidia CEO after Trump pushes board - NBC News",
+            "source": "NBC News",
+            "published": "2026-11-23T21:34:39+00:00",
+            "link": "https://news.google.com/rss/articles/CBMihwFBVV95cUxNaEh6QTZFYnYwckh0TDFqV2ExekUtZ1VodWtvZGk4ci1MZFhObzhLM1V4Mms3RXBhcnZYMXRMcjFGUU5JNFhmMTZFUnZadGMyY3F3azJOc1UwUWtTWEFCMEMwZUEtODl4MmItQjdIOGNmMlI5aE1UX3puUVlwWjZoZ0dtNjNid28?oc=5",
             "tickers": [
-              "NVDA",
-              "TSLA"
+              "NVDA"
             ],
-            "sentiment": 0.56
+            "sentiment": 0.0
+          },
+          {
+            "title": "Jensen Huang is back as Nvidia CEO after 12 days — Steve Jobs needed 12 years, Sam Altman less than a week - Yahoo Finance",
+            "source": "Yahoo Finance",
+            "published": "2026-11-23T21:33:32+00:00",
+            "link": "https://news.google.com/rss/articles/CBMi8wFBVV95cUxQUXo0NUxHc05haUxwRmtPNWNMX2I0NEdwcWZ0QzhOR1FGUE9WZ21nY3dkU1VxTkNjc2xnMmEzVjVjQ1hLTHpVcmxwN0Z5MVJsR3Q3MGdkcmc3dDE5ME42eHFydUxqa0NzdENJTTRMcEFraUJJWC1EUkVfQ255dDA1dXZXbVpHbzFxSjdfSlRjLTBDbkxCRjB2VWMxYm9IbU1uNzBRMmlGZXh1QTMxTTE4LUNOZ29GaExBSV90XzRTMWpIUHkzRkJodjlfcFlXVXJBWmRYVFdOLWV1cVNTN2JtdE55MGh3TjJ4ZDRBQTZXQ05HNjg?oc=5",
+            "tickers": [
+              "NVDA"
+            ],
+            "sentiment": 0.0
+          },
+          {
+            "title": "Trump finds unlikely Democratic allies in push to cap credit card interest rates at 10% - WLOS",
+            "source": "WLOS",
+            "published": "2026-11-23T21:37:43+00:00",
+            "link": "https://news.google.com/rss/articles/CBMiygFBVV95cUxPa2tqS2FYUmtMNnhfQ2NaRndHNDBDTW1tSmgxM1RMSVdTN1lzdUtfWHhkWHYzWDNpODB1SThGWWlBdDVKYmV0UFRXV2xpSW5QVTFVLTZoREYtWDllSl9JMmlSYURyM1lOV3BGd09vXzMtaWsyNng4LXFYblJUblNCZ2E4dWpXblAwY0JfdnFvWjQ5aFF4UWhxQ1NoZ3Q4ZmRJQkNyNFJhdW1oaXR4cmVKMEJva01FZ2N2S0owdFFyeXhneUJSNVJDRUln?oc=5",
+            "tickers": [],
+            "sentiment": 0.0
           }
         ],
-        "key_takeaway": "뉴스 255건(24시간 내 253건) 수집. 시장 내재 리스크 점수 78.8/100 (RISK_ON), 종목 평균 센티먼트 81.7/100 → STRONG_RISK_ON. NVDA 87.6점, SOXL 85.3점."
+        "key_takeaway": "뉴스 259건(24시간 내 259건) 수집. 시장 내재 리스크 점수 78.8/100 (RISK_ON), 종목 평균 센티먼트 81.8/100 → STRONG_RISK_ON. NVDA 87.3점, SOXL 85.7점."
       }
     },
     {
@@ -613,7 +611,7 @@
       "role": "실측 OHLCV 기반 변동성 돌파·과매도 반등·갭 시나리오 산출 — 주식 외 채권(TLT·IEF)·환율(DXY·원/달러·엔/달러)·코인(BTC·ETH) 포함",
       "description": "일봉 실데이터로 ATR·RSI2·볼린저 %B·RVOL·EMA를 계산해 래리 윌리엄스 돌파 기준가와 과매도 반등 진입 점수를 산출하고, 채권·환율·코인 15개 심볼의 추세·변동성·지지저항을 별도 블록으로 보고합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-24 06:31:46",
+      "last_run": "2026-11-24 06:41:22",
       "confidence_score": 0.9,
       "report": {
         "phase": "POST_MARKET",
@@ -639,7 +637,7 @@
               "volume": 6.0,
               "trend": 0.0,
               "breakout_prox": 0.0,
-              "context": 14.12
+              "context": 14.280000000000001
             },
             "pivots": {
               "week_high": 56.36,
@@ -666,7 +664,7 @@
             "breakout_trigger": 51.73,
             "breakout_pct": 5.57,
             "breakdown_trigger": 45.75,
-            "entry_score": 10.0,
+            "entry_score": 10.1,
             "entry_signal": "NO_TRADE",
             "entry_components": {
               "oversold": 0.0,
@@ -674,7 +672,7 @@
               "volume": 6.0,
               "trend": 0.0,
               "breakout_prox": 0.0,
-              "context": 14.04
+              "context": 14.160000000000004
             },
             "pivots": {
               "week_high": 56.19,
@@ -709,7 +707,7 @@
               "volume": 20.0,
               "trend": 0.0,
               "breakout_prox": 0.0,
-              "context": 15.04
+              "context": 14.92
             },
             "pivots": {
               "week_high": 163.2,
@@ -779,7 +777,7 @@
               "volume": 6.0,
               "trend": 0.0,
               "breakout_prox": 8.0,
-              "context": 14.12
+              "context": 14.280000000000001
             },
             "pivots": {
               "week_high": 84.86,
@@ -806,7 +804,7 @@
             "breakout_trigger": 46.67,
             "breakout_pct": 1.37,
             "breakdown_trigger": 41.8,
-            "entry_score": 25.0,
+            "entry_score": 25.1,
             "entry_signal": "NO_TRADE",
             "entry_components": {
               "oversold": 0.0,
@@ -814,7 +812,7 @@
               "volume": 6.0,
               "trend": 10.0,
               "breakout_prox": 8.0,
-              "context": 14.04
+              "context": 14.160000000000004
             },
             "pivots": {
               "week_high": 58.43,
@@ -1222,7 +1220,7 @@
         "actionable_symbols": [],
         "best_setup": {
           "symbol": "SQQQ",
-          "score": 25.0,
+          "score": 25.1,
           "signal": "NO_TRADE"
         },
         "dip_swing_watchlist": {
@@ -1288,7 +1286,7 @@
             "risk_per_trade_pct": 2.0,
             "max_positions": 2,
             "position_cap_pct": 25.0,
-            "as_of_kst": "2026-11-24 06:31:46",
+            "as_of_kst": "2026-11-24 06:41:22",
             "params_consistent": true,
             "param_checks": {
               "rsi2_max": true,
@@ -1325,7 +1323,7 @@
           "last_backtest": "Engine A 승률 42.1% / 손익비 1.39 — 유동성 부족으로 실전 제외"
         },
         "weekend_plan": null,
-        "key_takeaway": "현재 진입 신호 없음. 최고 점수 SQQQ(25.0점, NO_TRADE). SOXL RSI2 57.8 · %B 0.27 · 돌파 기준 $46.9. [크로스애셋] TLT UPTREND (RSI14 58.8, ATR 0.95%, 20일 -0.11%), HYG-LQD 20일 상대 -0.64%p / BTC DOWNTREND (RSI14 27.8, 실현변동성 44.0%, 20일 -20.58%), ETH DOWNTREND"
+        "key_takeaway": "현재 진입 신호 없음. 최고 점수 SQQQ(25.1점, NO_TRADE). SOXL RSI2 57.8 · %B 0.27 · 돌파 기준 $46.9. [크로스애셋] TLT UPTREND (RSI14 58.8, ATR 0.95%, 20일 -0.11%), HYG-LQD 20일 상대 -0.64%p / BTC DOWNTREND (RSI14 27.8, 실현변동성 44.0%, 20일 -20.58%), ETH DOWNTREND"
       }
     },
     {
@@ -1354,7 +1352,7 @@
       "role": "실적 D-day 캘린더와 갭 유발 이벤트 관리",
       "description": "Yahoo Finance 실적 캘린더를 KST로 변환해 D-day를 계산하고, FOMC·CPI 등 공식 일정과 결합해 이벤트 전후 포지션 규칙을 제시합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-24 06:31:46",
+      "last_run": "2026-11-24 06:41:22",
       "confidence_score": 0.9,
       "report": {
         "phase": "POST_MARKET",
@@ -1439,16 +1437,6 @@
         ],
         "headline_catalysts": [
           {
-            "title": "Earnings Snapshot: Hewlett Packard Q4 sales up 50% on servers growth; lifts FY27 targets",
-            "source": "Seeking Alpha",
-            "published": "2026-11-23T16:26:44-05:00"
-          },
-          {
-            "title": "Zoom shares fall despite earnings beat and dividend initiation",
-            "source": "Investing.com",
-            "published": "2026-11-23T21:15:30+00:00"
-          },
-          {
             "title": "Descartes Systems Group Launches Descartes Spot",
             "source": "Nasdaq Markets",
             "published": "2026-11-23T20:55:29+00:00"
@@ -1460,7 +1448,7 @@
           }
         ],
         "next_major_event": "AVGO 2026-12-10 06:00 KST",
-        "key_takeaway": "AVGO 실적 D-16 (2026-12-10 06:00 KST), EPS 컨센서스 3.83018. 매크로 이벤트 3건 추적, 최근접 11월 고용보고서(NFP) D-10. 헤드라인 촉매 4건."
+        "key_takeaway": "AVGO 실적 D-16 (2026-12-10 06:00 KST), EPS 컨센서스 3.83018. 매크로 이벤트 3건 추적, 최근접 11월 고용보고서(NFP) D-10. 헤드라인 촉매 2건."
       }
     },
     {
@@ -1489,7 +1477,7 @@
       "role": "경기선행지표(CUBE-LEI·침체확률)·미국 국채 커브·환율·코인 4대 영역 정량 분석 및 리스크 레짐 판정",
       "description": "Estrella & Mishkin(1998)·Stock & Watson(1989)·Gilchrist & Zakrajšek(2012)·Burns & Mitchell(1946) 방법론으로 CUBE-LEI와 12개월 침체확률을 실측 산출하고, 국채 커브(2Y/5Y/10Y/30Y)·크레딧(HY OAS)·환율(DXY·원/달러)·코인(BTC/ETH)을 4대 영역으로 보고합니다. VIX 22·DXY 104.5 초과 시 레버리지를 제한합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-24 06:31:46",
+      "last_run": "2026-11-24 06:41:22",
       "confidence_score": 0.94,
       "report": {
         "phase": "POST_MARKET",
@@ -2831,12 +2819,12 @@
       "role": "실제 옵션 체인 기반 Put/Call·감마월·맥스페인 산출",
       "description": "QQQ·NVDA 옵션 체인의 미결제약정과 거래량으로 기관 포지셔닝을 측정합니다. 소셜 버즈 데이터는 연동되어 있지 않아 사용하지 않습니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-24 06:31:46",
+      "last_run": "2026-11-24 06:41:22",
       "confidence_score": 0.9,
       "report": {
         "phase": "POST_MARKET",
         "expiry_used": "2026-11-23",
-        "data_as_of": "2026-11-24 06:31:46",
+        "data_as_of": "2026-11-24T06:31:47.515343",
         "stale_note": "주말·휴장일에는 마지막 금요일 체인 값입니다.",
         "chains": {
           "QQQ": {
@@ -3804,7 +3792,7 @@
       "role": "10대 단기 시나리오의 ATR 단위 재정규화 + 주말·월요일 개장 시나리오 설계",
       "description": "래리 윌리엄스 돌파, 볼린저 회귀, VWAP 추종 등 10개 시나리오를 실측 ATR로 재정규화하고, 주말에는 갭업/갭다운/보합 3개 개장 시나리오를 브래킷과 함께 산출합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-24 06:31:49",
+      "last_run": "2026-11-24 06:41:22",
       "confidence_score": 0.9,
       "report": {
         "phase": "POST_MARKET",
@@ -4083,13 +4071,13 @@
       "role": "시간봉 경로 기반 개선 전/후 성과 검증",
       "description": "core/backtest_lab의 시간봉(60m) 백테스트 결과를 읽어 개선 전·후, DIP_SWING, 하락장 숏 엔진 민감도를 실측 수치로 보고합니다. 왕복 0.24% 마찰 반영.",
       "status": "COMPLETED",
-      "last_run": "2026-11-24 06:31:49",
+      "last_run": "2026-11-24 06:41:22",
       "confidence_score": 0.95,
       "report": {
         "phase": "POST_MARKET",
         "report_path": "data/1y_backtest_report.json",
         "report_generated_at_kst": "2026-11-14 14:05:31",
-        "report_age_hours": 232.4,
+        "report_age_hours": 232.6,
         "is_simulation": true,
         "friction": "왕복 0.24% (NH 0.09% + 슬리피지 0.15%)",
         "fill_model": "시가/트리거 체결 + 슬리피지. 진입 봉에서는 봉 종가가 목표가를 넘긴 경우에만 익절 인정, 손절은 저가 터치 인정. 같은 봉에서 손절·목표가가 동시에 닿으면 손절 우선(보수적). 러너는 당일 종가 강제 청산(당일 회전 원칙).",
@@ -4710,7 +4698,7 @@
       "role": "실측 백테스트 승인/폐기 + 환노출·단기채 캐리·코인 주말 갭 리스크 평가",
       "description": "손익비(PF) 1.3 이상·샤프 0.8 이상·MDD 15% 이내·거래 20회 이상을 동시에 만족하는 전략만 승인합니다. 추가로 USD/KRW 환노출 민감도, SGOV 단기채 캐리 vs 현금 기회비용, BTC 주말 변동→월요일 나스닥 갭 회귀를 실측값으로 산출해 Agent 9·10의 포지션 태세와 사이징에 넘깁니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-24 06:31:49",
+      "last_run": "2026-11-24 06:41:22",
       "confidence_score": 0.92,
       "report": {
         "phase": "POST_MARKET",
@@ -4784,7 +4772,7 @@
           "risk_per_trade_pct": 2.0,
           "max_positions": 2,
           "position_cap_pct": 25.0,
-          "as_of_kst": "2026-11-24 06:31:49"
+          "as_of_kst": "2026-11-24 06:41:22"
         },
         "approval_note": "1개 전략 승인. 최우선 DIP_SWING. 오버나이트 보유(DIP_SWING) 승인 완료 (2026-11-14 21:29 KST·사용자 승인).",
         "fx_exposure": {
@@ -4875,7 +4863,7 @@
       "role": "주식·채권·외환·코인·경기선행지표 5축 신호 융합 → 시장 포지션 태세와 목표 비중 결정",
       "description": "주식(센티먼트·모멘텀)·채권(금리차·크레딧)·외환(달러·원화)·코인(리스크온 프록시)·경기선행지표(CUBE-LEI·침체확률)를 -100~+100 신호로 정규화해 RISK_ON / CAUTIOUS_ROTATION / DEFENSIVE_TBILL / BEAR_HEDGE 중 하나를 결정하고, 국면 계수로 레버리지·현금 비중을 조정합니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-24 06:31:49",
+      "last_run": "2026-11-24 06:41:22",
       "confidence_score": 0.9,
       "report": {
         "phase": "POST_MARKET",
@@ -4887,14 +4875,14 @@
         "execution_mode": "DIP_SWING",
         "five_axis": {
           "equity": {
-            "score": -11.1,
+            "score": -11.0,
             "components": {
-              "sentiment": 63.4,
-              "entry_score": -40.0,
+              "sentiment": 63.6,
+              "entry_score": -39.8,
               "vix": -56.7
             },
             "vix": 27.09,
-            "sentiment_avg": 81.7
+            "sentiment_avg": 81.8
           },
           "bond": {
             "score": 3.9,
@@ -5005,7 +4993,7 @@
       "role": "실전 원장 정합성·브래킷 재산정·개장 대기 주문 계획",
       "description": "실전 원장과 활성 브래킷을 검증하고, 체결가 기준으로 매도 브래킷을 재산정하며, 다음 개장(23:30 KST) 대기 계획과 현금 배분을 보고합니다. 주문 집행은 시장 개장 시 별도 확인 절차를 따릅니다.",
       "status": "COMPLETED",
-      "last_run": "2026-11-24 06:31:49",
+      "last_run": "2026-11-24 06:41:22",
       "confidence_score": 0.94,
       "report": {
         "phase": "POST_MARKET",
@@ -5025,7 +5013,7 @@
           "cash_pct": 82.6,
           "win_rate_pct": 54.5,
           "trades": 11,
-          "as_of": "2026-11-24 06:31 KST"
+          "as_of": "2026-11-24 06:41 KST"
         },
         "consistency_check": {
           "status": "CONSISTENT",
@@ -5265,7 +5253,7 @@
             "risk_per_trade_pct": 2.0,
             "max_positions": 2,
             "position_cap_pct": 25.0,
-            "as_of_kst": "2026-11-24 06:31:49"
+            "as_of_kst": "2026-11-24 06:41:22"
           },
           "policy": "오버나이트 보유는 config/swing_approval.json의 사용자 승인(2026-11-14 21:29)으로 활성화됨. DIP_SWING은 장중 회전 매매와 병행하며 대체하지 않습니다."
         },
@@ -5342,7 +5330,7 @@
           "nvda_levels_locked": "TP $173.0 / SL $150.0 — 사용자 지정, 변경 금지",
           "bear_alpha_gate": "VIX ≥ 24 + 확인 2개 (변경 금지)",
           "intraday_rotation": "유지 — DIP_SWING은 병행이며 회전 매매를 대체하지 않음",
-          "checked_at": "2026-11-24 06:31:49"
+          "checked_at": "2026-11-24 06:41:22"
         },
         "avg_anchor_plan": {
           "engine": "AVG_ANCHOR_PROFIT_DESK",
@@ -6157,7 +6145,7 @@
   },
   "reconciliation": {
     "status": "CONSISTENT",
-    "checked_at_kst": "2026-11-24 06:31:36",
+    "checked_at_kst": "2026-11-24 06:41:11",
     "ghost_count": 0,
     "holdings": {
       "SGOV": 1
@@ -6240,7 +6228,7 @@
     "recession_probability_pct": 13.7,
     "credit_level": "WATCH",
     "market_stance": "CAUTIOUS_ROTATION",
-    "sentiment_avg": 81.7,
+    "sentiment_avg": 81.8,
     "market_implied_anchor": 78.8,
     "approved_strategies": [
       "DIP_SWING"
@@ -6254,5 +6242,5 @@
     "next_open": "2026-11-24 23:30 KST",
     "simulation_disclaimer": "백테스트 수치는 시뮬레이션이며 실전 원장과 분리되어 있습니다."
   },
-  "pipeline_seconds": 9.5
+  "pipeline_seconds": 9.0
 }
