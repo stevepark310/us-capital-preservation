@@ -4400,6 +4400,213 @@
           "apply_cooldown_hours": 12
         }
       }
+    },
+    {
+      "id": "H-0022",
+      "created_at_kst": "2026-11-24 10:47:08",
+      "owner": 2,
+      "owner_name": "이도현",
+      "axis": "ENTRY_FILTER",
+      "auto_apply": true,
+      "title": "RSI2 상한 20 → 15",
+      "claim": "RSI2를 더 조이면 눌림 진입의 질이 올라가 기대값이 개선되는가",
+      "candidate": {
+        "entry_filters": {
+          "rsi2_max": 15.0
+        }
+      },
+      "changes": {
+        "entry_filters.rsi2_max": {
+          "from": 20.0,
+          "to": 15.0
+        }
+      },
+      "status": "HELD",
+      "decisions": [
+        {
+          "at_kst": "2026-11-24 10:47:08",
+          "decision": "HOLD",
+          "by": 8,
+          "reasons": [
+            "OOS 기대값 개선 -0.253 (ΔEV ≥ +0.1%p)"
+          ]
+        }
+      ],
+      "data_fingerprint": "1c5b79fa5333843a",
+      "data_as_of": "2026-11-23",
+      "correlation_id": "T00167-HYPH-0022",
+      "measurement": {
+        "evaluated_at_kst": "2026-11-24 10:47:08",
+        "data_as_of": "2026-11-23",
+        "data_fingerprint": "1c5b79fa5333843a",
+        "cut_date": "2026-07-17",
+        "baseline": {
+          "all": {
+            "n": 51,
+            "available": true,
+            "ev_pct": 1.559,
+            "win_rate_pct": 60.8,
+            "profit_factor": 1.44,
+            "mdd_pct": -50.14,
+            "best_pct": 19.76,
+            "worst_pct": -15.24,
+            "total_pct": 79.49,
+            "t_stat": 1.08,
+            "stop_share_pct": 21.6,
+            "target_share_pct": 29.4
+          },
+          "is": {
+            "n": 34,
+            "available": true,
+            "ev_pct": -0.081,
+            "win_rate_pct": 55.9,
+            "profit_factor": 0.98,
+            "mdd_pct": -50.14,
+            "best_pct": 19.76,
+            "worst_pct": -15.24,
+            "total_pct": -2.74,
+            "t_stat": -0.05,
+            "stop_share_pct": 26.5,
+            "target_share_pct": 23.5
+          },
+          "oos": {
+            "n": 17,
+            "available": true,
+            "ev_pct": 4.837,
+            "win_rate_pct": 70.6,
+            "profit_factor": 3.31,
+            "mdd_pct": -17.08,
+            "best_pct": 19.76,
+            "worst_pct": -15.24,
+            "total_pct": 82.23,
+            "t_stat": 1.94,
+            "stop_share_pct": 11.8,
+            "target_share_pct": 41.2
+          }
+        },
+        "candidate": {
+          "all": {
+            "n": 43,
+            "available": true,
+            "ev_pct": 1.91,
+            "win_rate_pct": 60.5,
+            "profit_factor": 1.53,
+            "mdd_pct": -35.34,
+            "best_pct": 19.76,
+            "worst_pct": -15.24,
+            "total_pct": 82.15,
+            "t_stat": 1.14,
+            "stop_share_pct": 20.9,
+            "target_share_pct": 32.6
+          },
+          "is": {
+            "n": 28,
+            "available": true,
+            "ev_pct": 0.478,
+            "win_rate_pct": 57.1,
+            "profit_factor": 1.11,
+            "mdd_pct": -35.34,
+            "best_pct": 19.76,
+            "worst_pct": -15.24,
+            "total_pct": 13.39,
+            "t_stat": 0.23,
+            "stop_share_pct": 25.0,
+            "target_share_pct": 32.1
+          },
+          "oos": {
+            "n": 15,
+            "available": true,
+            "ev_pct": 4.584,
+            "win_rate_pct": 66.7,
+            "profit_factor": 2.92,
+            "mdd_pct": -17.08,
+            "best_pct": 19.76,
+            "worst_pct": -15.24,
+            "total_pct": 68.75,
+            "t_stat": 1.62,
+            "stop_share_pct": 13.3,
+            "target_share_pct": 33.3
+          }
+        },
+        "delta_oos_ev_pct": -0.253,
+        "delta_oos_pf": -0.39,
+        "mdd_worsening_pp": 0.0,
+        "spec_candidate": {
+          "mode": "swing",
+          "sl_atr_mult": 1.5,
+          "sl_min_pct": 3.0,
+          "sl_max_pct": 15.0,
+          "tp_atr_mult": 1.5,
+          "tp_min_pct": 3.0,
+          "tp_max_pct": 20.0,
+          "max_hold_sessions": 3
+        },
+        "filters_candidate": {
+          "rsi2_max": 15.0,
+          "pct_b_max": 0.15,
+          "rvol_min": 1.0,
+          "rvol_required": true
+        },
+        "note": "일봉 경로 근사(같은 봉에서 SL·TP 동시 도달은 손절 우선) · 왕복 0.24% 차감 · In-Sample=기간 앞 70%, Out-of-Sample=뒤 30% · DIP_SWING_DAILY 규격"
+      },
+      "gate": {
+        "pass": false,
+        "checks": [
+          {
+            "check": "표본",
+            "value": 43,
+            "rule": "전체 ≥ 20건",
+            "ok": true
+          },
+          {
+            "check": "OOS 표본",
+            "value": 15,
+            "rule": "OOS ≥ 8건",
+            "ok": true
+          },
+          {
+            "check": "OOS 기대값 개선",
+            "value": -0.253,
+            "rule": "ΔEV ≥ +0.1%p",
+            "ok": false
+          },
+          {
+            "check": "OOS PF",
+            "value": 2.92,
+            "rule": "≥ 1.2",
+            "ok": true
+          },
+          {
+            "check": "OOS MDD 악화",
+            "value": 0.0,
+            "rule": "≤ +2.0%p",
+            "ok": true
+          },
+          {
+            "check": "전체 MDD 악화",
+            "value": -14.8,
+            "rule": "≤ +3.0%p",
+            "ok": true
+          },
+          {
+            "check": "IS 후퇴 폭",
+            "value": 0.559,
+            "rule": "≥ -0.5%p",
+            "ok": true
+          }
+        ],
+        "reason": "OOS 기대값 개선 -0.253 (ΔEV ≥ +0.1%p)",
+        "thresholds": {
+          "min_sample": 20,
+          "min_oos_sample": 8,
+          "ev_improvement_pct": 0.1,
+          "min_oos_profit_factor": 1.2,
+          "max_mdd_worsening_pp": 2.0,
+          "max_all_mdd_worsening_pp": 3.0,
+          "max_is_regression_pct": 0.5,
+          "apply_cooldown_hours": 12
+        }
+      }
     }
   ],
   "improvements": [],
@@ -4409,17 +4616,17 @@
     "pct_b_max": 0.15,
     "rvol_min": 1.0
   },
-  "updated_at_kst": "2026-11-24 10:22:18",
+  "updated_at_kst": "2026-11-24 10:47:08",
   "counters": {
-    "hypotheses": 21,
+    "hypotheses": 22,
     "applied": 0,
     "recommended": 1,
-    "held": 20,
+    "held": 21,
     "rejected": 0,
     "open": 0,
     "improvements": 0,
     "by_status": {
-      "HELD": 20,
+      "HELD": 21,
       "RECOMMENDED": 1
     }
   },
