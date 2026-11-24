@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at_kst": "2026-11-24 05:36:44",
+  "updated_at_kst": "2026-11-24 09:39:57",
   "schedule": {
     "market_cron_utc": "4-59/10 13-21 * * 1-5",
     "pulse_cron_utc": "9-59/10 * * * *",
@@ -103,22 +103,22 @@
   },
   "last_run": {
     "workflow": "CUBE Market Autotrade (10m)",
-    "run_id": "45260943013",
-    "event": "workflow_dispatch",
+    "run_id": "45298880833",
+    "event": "schedule",
     "attempt": "1",
     "runner": "github_actions",
-    "sha": "7b520ffe",
-    "at_kst": "2026-11-24 05:36:44",
+    "sha": "fa2e6dfc",
+    "at_kst": "2026-11-24 09:39:57",
     "mode": "market",
-    "result": "BLOCKED_PREFLIGHT"
+    "result": "SKIPPED_OFF_HOURS"
   },
   "market": {
-    "last_cycle_kst": "2026-11-24 05:36:04",
-    "phase": "REGULAR",
+    "last_cycle_kst": "2026-11-24 09:39:57",
+    "phase": "POST_MARKET",
     "session_date": "2026-11-23",
     "kst_shift_min": 0,
     "next_open_kst": "2026-11-24 23:30 KST",
-    "order_type": "00",
+    "order_type": null,
     "session_plan": {
       "phases": [
         "REGULAR",
@@ -140,66 +140,33 @@
       "auto_blocked_reason": "프리장 수동·지시 개입 전용(manual_intervention_only) — 무인 엔진은 정규장만",
       "approved_by": "박동훈 (사용자)"
     },
-    "dry_run": false,
-    "live_gate_enabled": true,
-    "live_gate_reason": null,
+    "dry_run": true,
+    "live_gate_enabled": false,
+    "live_gate_reason": "US regular session required",
     "live_gate_sell_only": false,
-    "note": "NH holdings differ from ledger; reconcile before trading",
-    "team_preflight": {
-      "ok": true,
-      "agents": 10,
-      "cycle": 155,
-      "validation": null
-    },
-    "preflight": {
-      "ok": false,
-      "reason": "NH holdings differ from ledger; reconcile before trading",
-      "nh_positions": {
-        "SGOV": 1
+    "note": "phase=POST_MARKET — 정규장이 아니므로 주문은 하지 않습니다.",
+    "result": "SKIPPED_OFF_HOURS",
+    "seconds": 0.0,
+    "failsafe": {
+      "checked_at_kst": "2026-11-24 09:39:57",
+      "phase": "POST_MARKET",
+      "session_date": "2026-11-23",
+      "force_exit_early_min": 10,
+      "overdue": [],
+      "cloud": {
+        "last_market_cycle_kst": "2026-11-24 05:36:04",
+        "age_min": 243.9,
+        "phase": "POST_MARKET",
+        "warn": false,
+        "critical": false,
+        "thresholds_min": {
+          "warn": 25,
+          "critical": 45
+        },
+        "scheduled_triggers_reliable": false,
+        "note": "GitHub Actions schedule 트리거는 지연·누락될 수 있다(11-19 05:40 미발화 실측). 감시 공백이 critical이면 보완 경로(`scripts/exit_watchdog.py`)가 사이클을 재촉한다."
       },
-      "ledger_positions": {
-        "SGOV": 1,
-        "SQQQ": 1
-      }
-    },
-    "result": "BLOCKED_PREFLIGHT",
-    "seconds": 39.6,
-    "stages": [
-      {
-        "name": "원장 동기화",
-        "seconds": 19.6,
-        "rc": 0,
-        "ok": true,
-        "tail": "✅ live_portfolio synced 2026-11-24 05:36:24 KST | equity $883.42 (1,175,664원) | cash $626.86 (834,225원) | fx 1330.81 | CONSISTENT"
-      },
-      {
-        "name": "유령 포지션 점검",
-        "seconds": 0.0,
-        "rc": 0,
-        "ok": true,
-        "tail": "[reconciler] CONSISTENT · 보유 {'SGOV': 1, 'SQQQ': 1} · 사다리 유령 0 · 브래킷 유령 0 · 수량보정 0 · 대기주문취소 0"
-      },
-      {
-        "name": "10인 업무보고",
-        "seconds": 15.7,
-        "rc": 0,
-        "ok": true,
-        "tail": "✅ feed updated 2026-11-24 05:36:24 KST [REGULAR] posts 421 (agents 10/10)"
-      },
-      {
-        "name": "10인 10분 펄스 누적",
-        "seconds": 0.4,
-        "rc": 0,
-        "ok": true,
-        "tail": "RESULT: OK — 직원 10명 보고 + 자율집행 현황 · posts 421 · stages {} · total 0.1s"
-      },
-      {
-        "name": "10인 협업 검증",
-        "seconds": 0.4,
-        "rc": 0,
-        "ok": true,
-        "tail": "  버스 400건 (스레드 12, 인계 331) · 하드락 OK"
-      }
-    ]
+      "action_required": false
+    }
   }
 }
