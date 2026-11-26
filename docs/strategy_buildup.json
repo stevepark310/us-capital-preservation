@@ -1683,7 +1683,7 @@
           "to": true
         }
       },
-      "status": "RECOMMENDED",
+      "status": "APPLIED",
       "decisions": [
         {
           "at_kst": "2026-11-21 14:21:33",
@@ -1693,6 +1693,14 @@
             "게이트 통과 — 실행 스위치 config/regime_policy.json 승인 대기"
           ],
           "switch": "config/regime_policy.json"
+        },
+        {
+          "at_kst": "2026-11-26 21:06:04",
+          "decision": "APPLIED",
+          "by": 0,
+          "improvement": "I-0001",
+          "switch": "config/regime_policy.json",
+          "note": "스위치가 켜진 것을 확인해 장부를 APPLIED로 맞췄습니다."
         }
       ],
       "data_fingerprint": null,
@@ -1904,17 +1912,17 @@
       },
       "execution_link": {
         "switch": "config/regime_policy.json → enabled (+ approved_by)",
-        "auto": false,
-        "effect": "V2 레짐 차단·사이징 — 승인 후 다음 사이클부터",
-        "approval": "사용자 승인 필요(approved_by·approved_at_kst)",
+        "auto": true,
+        "effect": "V2 레짐 차단·사이징 — 게이트 통과 시 자동 활성화(approved_by에 근거 기록)",
+        "approval": "게이트 통과 시 자동(2026-11-26 지시, 화이트리스트 모델만)",
         "path": "config/regime_policy.json",
         "key": "enabled",
-        "value": false,
-        "approved_by": null,
-        "in_effect": false,
+        "value": true,
+        "approved_by": "박동훈",
+        "in_effect": true,
         "hypothesis": "H-0009",
         "gate_pass": true,
-        "next_action_ko": "스위치 변경 대기 — config/regime_policy.json → enabled (+ approved_by) (승인: 사용자 승인 필요(approved_by·approved_at_kst))"
+        "next_action_ko": "이미 실행 정책에 반영됨"
       }
     },
     {
@@ -5849,27 +5857,328 @@
           "apply_cooldown_hours": 12
         }
       }
+    },
+    {
+      "id": "H-0029",
+      "created_at_kst": "2026-11-26 21:07:49",
+      "owner": 2,
+      "owner_name": "이도현",
+      "axis": "EXIT_SPEC",
+      "auto_apply": true,
+      "title": "손절 하드캡 15% → 10%",
+      "claim": "손절 상한을 좁히면 건당 손실이 줄어 기대값·MDD가 개선되는가",
+      "candidate": {
+        "spec": {
+          "sl_max_pct": 10.0
+        }
+      },
+      "changes": {
+        "sl_max_pct": {
+          "from": 15.0,
+          "to": 10.0
+        }
+      },
+      "status": "HELD",
+      "decisions": [
+        {
+          "at_kst": "2026-11-26 21:07:49",
+          "decision": "HOLD",
+          "by": 8,
+          "reasons": [
+            "OOS 기대값 개선 -3.056 (ΔEV ≥ +0.1%p); OOS MDD 악화 5.24 (≤ +2.0%p); 전체 MDD 악화 5.33 (≤ +3.0%p)"
+          ]
+        }
+      ],
+      "data_fingerprint": "74389dcc33d1ad4e",
+      "data_as_of": "2026-11-18",
+      "correlation_id": "T00245-HYPH-0029",
+      "measurement": {
+        "evaluated_at_kst": "2026-11-26 21:07:49",
+        "data_as_of": "2026-11-18",
+        "data_fingerprint": "74389dcc33d1ad4e",
+        "cut_date": "2026-07-06",
+        "baseline": {
+          "all": {
+            "n": 52,
+            "available": true,
+            "ev_pct": 1.897,
+            "win_rate_pct": 61.5,
+            "profit_factor": 1.57,
+            "mdd_pct": -50.14,
+            "best_pct": 19.76,
+            "worst_pct": -15.24,
+            "total_pct": 98.65,
+            "t_stat": 1.33,
+            "stop_share_pct": 21.2,
+            "target_share_pct": 30.8
+          },
+          "is": {
+            "n": 34,
+            "available": true,
+            "ev_pct": -0.287,
+            "win_rate_pct": 55.9,
+            "profit_factor": 0.93,
+            "mdd_pct": -50.14,
+            "best_pct": 19.76,
+            "worst_pct": -15.24,
+            "total_pct": -9.77,
+            "t_stat": -0.17,
+            "stop_share_pct": 26.5,
+            "target_share_pct": 23.5
+          },
+          "oos": {
+            "n": 18,
+            "available": true,
+            "ev_pct": 6.024,
+            "win_rate_pct": 72.2,
+            "profit_factor": 4.71,
+            "mdd_pct": -17.08,
+            "best_pct": 19.76,
+            "worst_pct": -15.24,
+            "total_pct": 108.43,
+            "t_stat": 2.52,
+            "stop_share_pct": 11.1,
+            "target_share_pct": 44.4
+          }
+        },
+        "candidate": {
+          "all": {
+            "n": 52,
+            "available": true,
+            "ev_pct": 0.718,
+            "win_rate_pct": 55.8,
+            "profit_factor": 1.21,
+            "mdd_pct": -55.47,
+            "best_pct": 19.76,
+            "worst_pct": -10.24,
+            "total_pct": 37.33,
+            "t_stat": 0.59,
+            "stop_share_pct": 28.8,
+            "target_share_pct": 25.0
+          },
+          "is": {
+            "n": 34,
+            "available": true,
+            "ev_pct": -0.473,
+            "win_rate_pct": 52.9,
+            "profit_factor": 0.88,
+            "mdd_pct": -55.47,
+            "best_pct": 17.0,
+            "worst_pct": -10.24,
+            "total_pct": -16.09,
+            "t_stat": -0.34,
+            "stop_share_pct": 32.4,
+            "target_share_pct": 20.6
+          },
+          "oos": {
+            "n": 18,
+            "available": true,
+            "ev_pct": 2.968,
+            "win_rate_pct": 61.1,
+            "profit_factor": 2.2,
+            "mdd_pct": -22.32,
+            "best_pct": 19.76,
+            "worst_pct": -10.24,
+            "total_pct": 53.43,
+            "t_stat": 1.32,
+            "stop_share_pct": 22.2,
+            "target_share_pct": 33.3
+          }
+        },
+        "delta_oos_ev_pct": -3.056,
+        "delta_oos_pf": -2.51,
+        "mdd_worsening_pp": 5.24,
+        "spec_candidate": {
+          "mode": "swing",
+          "sl_atr_mult": 1.5,
+          "sl_min_pct": 3.0,
+          "sl_max_pct": 10.0,
+          "tp_atr_mult": 1.5,
+          "tp_min_pct": 3.0,
+          "tp_max_pct": 20.0,
+          "max_hold_sessions": 3
+        },
+        "filters_candidate": {
+          "rsi2_max": 20.0,
+          "pct_b_max": 0.15,
+          "rvol_min": 1.0,
+          "rvol_required": true
+        },
+        "note": "일봉 경로 근사(같은 봉에서 SL·TP 동시 도달은 손절 우선) · 왕복 0.24% 차감 · In-Sample=기간 앞 70%, Out-of-Sample=뒤 30% · DIP_SWING_DAILY 규격"
+      },
+      "gate": {
+        "pass": false,
+        "checks": [
+          {
+            "check": "표본",
+            "value": 52,
+            "rule": "전체 ≥ 20건",
+            "ok": true
+          },
+          {
+            "check": "OOS 표본",
+            "value": 18,
+            "rule": "OOS ≥ 8건",
+            "ok": true
+          },
+          {
+            "check": "OOS 기대값 개선",
+            "value": -3.056,
+            "rule": "ΔEV ≥ +0.1%p",
+            "ok": false
+          },
+          {
+            "check": "OOS PF",
+            "value": 2.2,
+            "rule": "≥ 1.2",
+            "ok": true
+          },
+          {
+            "check": "OOS MDD 악화",
+            "value": 5.24,
+            "rule": "≤ +2.0%p",
+            "ok": false
+          },
+          {
+            "check": "전체 MDD 악화",
+            "value": 5.33,
+            "rule": "≤ +3.0%p",
+            "ok": false
+          },
+          {
+            "check": "IS 후퇴 폭",
+            "value": -0.186,
+            "rule": "≥ -0.5%p",
+            "ok": true
+          }
+        ],
+        "reason": "OOS 기대값 개선 -3.056 (ΔEV ≥ +0.1%p); OOS MDD 악화 5.24 (≤ +2.0%p); 전체 MDD 악화 5.33 (≤ +3.0%p)",
+        "thresholds": {
+          "min_sample": 20,
+          "min_oos_sample": 8,
+          "ev_improvement_pct": 0.1,
+          "min_oos_profit_factor": 1.2,
+          "max_mdd_worsening_pp": 2.0,
+          "max_all_mdd_worsening_pp": 3.0,
+          "max_is_regression_pct": 0.5,
+          "apply_cooldown_hours": 12
+        }
+      }
     }
   ],
-  "improvements": [],
+  "improvements": [
+    {
+      "id": "I-0001",
+      "hypothesis": "H-0009",
+      "applied_at_kst": "2026-11-26 21:06:04",
+      "title": "레짐 적응형 다중확인 DIP 모델(REGIME_ADAPTIVE_DIP_V1) 도입",
+      "changes": {
+        "models.REGIME_ADAPTIVE_DIP_V1.enabled": {
+          "from": false,
+          "to": true
+        }
+      },
+      "before": {},
+      "after": {
+        "enabled": true
+      },
+      "gate": {
+        "pass": true,
+        "checks": [
+          {
+            "check": "전체 표본",
+            "value": 91,
+            "rule": "≥ 30건",
+            "ok": true
+          },
+          {
+            "check": "OOS 표본",
+            "value": 38,
+            "rule": "≥ 15건",
+            "ok": true
+          },
+          {
+            "check": "OOS 기대값 개선",
+            "value": 1.052,
+            "rule": "ΔEV ≥ +0.10%p",
+            "ok": true
+          },
+          {
+            "check": "OOS PF",
+            "value": 2.86,
+            "rule": "≥ 1.0",
+            "ok": true
+          },
+          {
+            "check": "전체 MDD 악화",
+            "value": -6.69,
+            "rule": "≤ +3%p 악화(작을수록 좋음)",
+            "ok": true
+          },
+          {
+            "check": "IS 후퇴 폭",
+            "value": 0.025,
+            "rule": "≥ -0.5%p",
+            "ok": true
+          }
+        ],
+        "reason": "OOS 기대값·PF·MDD·표본 기준 충족"
+      },
+      "execution_link": {
+        "switch": "config/regime_policy.json → enabled (+ approved_by)",
+        "auto": true,
+        "effect": "V2 레짐 차단·사이징 — 게이트 통과 시 자동 활성화(approved_by에 근거 기록)",
+        "approval": "게이트 통과 시 자동(2026-11-26 지시, 화이트리스트 모델만)",
+        "path": "config/regime_policy.json",
+        "key": "enabled",
+        "value": true,
+        "approved_by": "박동훈",
+        "in_effect": true,
+        "hypothesis": "H-0009",
+        "gate_pass": true,
+        "next_action_ko": "이미 실행 정책에 반영됨"
+      },
+      "evidence": {
+        "data_as_of": "2026-11-17",
+        "oos": {
+          "n": 38,
+          "available": true,
+          "ev_pct": 4.484,
+          "win_rate_pct": 60.5,
+          "profit_factor": 2.86,
+          "avg_win_pct": 11.39,
+          "avg_loss_pct": -6.11,
+          "best_pct": 19.76,
+          "worst_pct": -8.24,
+          "total_pct": 170.38,
+          "t_stat": 2.7,
+          "stop_share_pct": 26.3,
+          "time_share_pct": 21.1,
+          "target_share_pct": 52.6
+        }
+      },
+      "by": 0,
+      "sync": "execution_switch_observed"
+    }
+  ],
   "recent_measurements": [],
   "ratchet": {
     "rsi2_max": 20.0,
     "pct_b_max": 0.15,
     "rvol_min": 1.0
   },
-  "updated_at_kst": "2026-11-26 20:51:34",
+  "updated_at_kst": "2026-11-26 21:07:49",
   "counters": {
-    "hypotheses": 28,
-    "applied": 0,
-    "recommended": 1,
-    "held": 27,
+    "hypotheses": 29,
+    "applied": 1,
+    "recommended": 0,
+    "held": 28,
     "rejected": 0,
     "open": 0,
-    "improvements": 0,
+    "improvements": 1,
     "by_status": {
-      "HELD": 27,
-      "RECOMMENDED": 1
+      "HELD": 28,
+      "APPLIED": 1
     }
   },
   "hard_lock": {
@@ -5890,7 +6199,51 @@
       "guardrails.no_averaging_down": "== True",
       "vix_riskoff_28": "== 0.0",
       "nvda_levels_locked": "== {'tp': 173.0, 'sl': 150.0}",
-      "universe": "== ['SOXL', 'TQQQ', 'SOXS', 'SQQQ']"
+      "universe": "코어 포함 ['SOXL', 'TQQQ', 'SOXS', 'SQQQ'] + 스크리너 선정만 추가"
+    },
+    "universe_rule": {
+      "key": "universe",
+      "expected": "코어 4종목 포함 + 스크리너 선정 종목만 추가(금지 종목 제외)",
+      "core": [
+        "SOXL",
+        "TQQQ",
+        "SOXS",
+        "SQQQ"
+      ],
+      "allowed_source": "data/dynamic_universe.json (core/universe_screener)",
+      "note": "선정 목록은 실측 지표(거래대금·ATR·RSI2·%B·RVOL·모멘텀)로 매시간 다시 계산되고, `sync_policy_universe`가 config/swing_approval.json 유니버스에 반영한다."
+    },
+    "universe": {
+      "current": [
+        "SOXL",
+        "TQQQ",
+        "SOXS",
+        "SQQQ",
+        "SLV",
+        "LRCX",
+        "CRWD",
+        "QLD",
+        "XLI",
+        "SPXS"
+      ],
+      "core": [
+        "SOXL",
+        "TQQQ",
+        "SOXS",
+        "SQQQ"
+      ],
+      "allowed": [
+        "SOXL",
+        "TQQQ",
+        "SOXS",
+        "SQQQ",
+        "SLV",
+        "LRCX",
+        "CRWD",
+        "QLD",
+        "XLI",
+        "SPXS"
+      ]
     },
     "premarket_rule": {
       "key": "premarket_enabled",
@@ -5907,5 +6260,5 @@
       "approved_at_kst": "2026-11-21 18:41"
     }
   },
-  "execution_reconciled_at_kst": "2026-11-21 14:21:33"
+  "execution_reconciled_at_kst": "2026-11-26 21:06:04"
 }
