@@ -290,12 +290,12 @@ def score_hedge(m: Dict[str, Any]) -> float:
 
 # ------------------------------------------------------------------- screen
 def screen(frames: Optional[Dict[str, Any]] = None, pool: Optional[List[str]] = None,
-           save_doc: bool = True) -> Dict[str, Any]:
+           save_doc: bool = True, force: bool = False) -> Dict[str, Any]:
     """후보 풀을 스캔해 롱·헤지 후보를 고른다(코어는 항상 포함)."""
     pool = _dedupe(pool or CANDIDATE_POOL)
     meta: Dict[str, Any] = {"source": "injected", "network": False}
     if frames is None:
-        frames, meta = load_frames(pool)
+        frames, meta = load_frames(pool, force=force)
     scored: List[Dict[str, Any]] = []
     skipped: List[Dict[str, Any]] = []
     for sym in pool:
@@ -306,6 +306,16 @@ def screen(frames: Optional[Dict[str, Any]] = None, pool: Optional[List[str]] = 
         m = metrics_of(df) if df is not None else None
         if not m:
             skipped.append({"ticker": sym, "reason": "일봉 부족/없음"})
+            continue
+        if sym in CORE_UNIVERSE:
+            # 코어 4종목은 조건과 무관하게 항상 유니버스에 남는다 — 지표만 기록한다.
+            side = "HEDGE" if sym in INVERSE else "LONG"
+            rec = {"ticker": sym, "side": side, **m}
+            rec["affordable"] = bool(rec["close"] <= float(SCREEN["affordable_max_usd"]))
+            rec["leveraged"] = sym in LEVERAGED
+            rec["core"] = True
+            rec["score"] = score_hedge(rec) if side == "HEDGE" else score_long(rec)
+            scored.append(rec)
             continue
         if m["close"] < float(SCREEN["min_price_usd"]):
             skipped.append({"ticker": sym, "reason": f"가격 ${m['close']} < ${SCREEN['min_price_usd']}"})
@@ -355,6 +365,7 @@ def screen(frames: Optional[Dict[str, Any]] = None, pool: Optional[List[str]] = 
                                         "affordable", "leveraged", "as_of")} for r in selected],
         "core_detail": [{k: r[k] for k in ("ticker", "side", "score", "close", "atr_pct", "rsi2",
                                            "pct_b", "rvol", "affordable")} for r in core],
+        "note": "코어 4종목은 스크리닝 조건(ATR·거래대금·단가)과 무관하게 항상 포함된다.",
         "selected_long": [r["ticker"] for r in selected if r["side"] == "LONG"],
         "selected_hedge": [r["ticker"] for r in selected if r["side"] == "HEDGE"],
         "skipped": skipped[:40],
@@ -376,7 +387,7 @@ def refresh_if_stale(max_age_h: Optional[float] = None, force: bool = False) -> 
                 return doc, False
         except Exception:
             pass
-    fresh = screen()
+    fresh = screen(force=force)
     return fresh, True
 
 

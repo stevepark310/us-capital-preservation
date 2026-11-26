@@ -57,6 +57,16 @@ def test_screen_selects_liquid_affordable_oversold_only():
     assert doc["allowed"][:len(CORE)] == CORE
 
 
+def test_core_tickers_are_always_kept_even_outside_screen_conditions():
+    fr = frames()
+    fr["SOXL"] = make_frame(drift=-0.05)            # ATR이 커도(범위 밖) 코어는 유지
+    doc = us.screen(frames=fr, pool=POOL, save_doc=False)
+    core = {c["ticker"] for c in doc["core_detail"]}
+    assert set(CORE).issubset(core)
+    assert not any(s["ticker"] == "SOXL" for s in doc["skipped"])
+    assert set(CORE).issubset(set(doc["allowed"]))
+
+
 def test_screen_fails_closed_without_data():
     doc = us.screen(frames={}, pool=POOL, save_doc=False)
     assert doc["selected_long"] == [] and doc["selected_hedge"] == []
