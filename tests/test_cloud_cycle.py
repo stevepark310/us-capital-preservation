@@ -208,3 +208,21 @@ def test_all_ten_agent_reports_are_required(sandbox):
     (tmp / "agent_collab_bus.json").write_text(
         json.dumps({"agent_state": state}), encoding="utf-8")
     assert cc._team_preflight()["missing_agents"] == [6]
+
+
+def test_pulse_main_triggers_market_cycle_during_regular_session(sandbox, monkeypatch):
+    monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: REGULAR)
+    ran = []
+    monkeypatch.setattr(cc, "pulse_cycle", lambda: (ran.append("pulse"), {"result": "OK"})[1])
+    monkeypatch.setattr(cc, "market_cycle", lambda: (ran.append("market"), {"result": "OK"})[1])
+    assert cc.main(["pulse"]) == 0
+    assert ran == ["pulse", "market"]
+
+
+def test_pulse_main_skips_market_cycle_when_off_hours(sandbox, monkeypatch):
+    monkeypatch.setattr("core.market_clock.resolve", lambda *a, **k: OFF)
+    ran = []
+    monkeypatch.setattr(cc, "pulse_cycle", lambda: (ran.append("pulse"), {"result": "OK"})[1])
+    monkeypatch.setattr(cc, "market_cycle", lambda: (ran.append("market"), {"result": "OK"})[1])
+    assert cc.main(["pulse"]) == 0
+    assert ran == ["pulse"]

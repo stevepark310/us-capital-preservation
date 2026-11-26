@@ -346,6 +346,25 @@ def pulse_cycle() -> Dict[str, Any]:
     return base
 
 
+def _should_run_market_during_pulse(min_interval_sec: int = 300) -> bool:
+    """Return True when US regular market is open and market_cycle is stale."""
+    try:
+        from core import market_clock, session_routing
+        clock = market_clock.resolve()
+        plan = session_routing.status(session_routing.load_policy())
+        if clock.get("phase") not in session_routing.auto_phases(plan):
+            return False
+        doc = _load(CLOUD_PATH, {}) or {}
+        last_str = str((doc.get("market") or {}).get("last_cycle_kst") or "").strip()[:19]
+        if not last_str:
+            return True
+        last_dt = datetime.strptime(last_str, "%Y-%m-%d %H:%M:%S")
+        age = (now_kst() - last_dt).total_seconds()
+        return age >= min_interval_sec
+    except Exception:
+        return False
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     args = list(argv if argv is not None else sys.argv[1:])
     mode = (args[0] if args else "").strip().lower()
@@ -353,7 +372,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0 if market_cycle().get("result") in ("OK", "SKIPPED_OFF_HOURS", "SKIPPED_PREMARKET_MANUAL",
                                                      "FAILSAFE_OVERDUE") else 1
     if mode == "pulse":
-        return 0 if pulse_cycle().get("result") == "OK" else 1
+        pulse_ok = pulse_cycle().get("result") == "OK"
+        if _should_run_market_during_pulse():
+            print("[cloud] 정규장 개장 중 — pulse에 이어 market_cycle을 함께 실행합니다.")
+            mkt_res = market_cycle().get("result")
+            mkt_ok = mkt_res in ("OK", "SKIPPED_OFF_HOURS", "SKIPPED_PREMARKET_MANUAL", "FAILSAFE_OVERDUE")
+            return 0 if (pulse_ok and mkt_ok) else 1
+        return 0 if pulse_ok else 1
     if mode == "intervene":
         # 즉시 개입 — 단일 진입점(scripts/intervene_trade.py)에 그대로 넘긴다.
         # 기본은 미리보기이고 실주문은 `--execute`를 붙여야 나간다.

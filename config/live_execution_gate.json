@@ -1,7 +1,10 @@
 {
   "enabled": true,
-  "session_date": "2026-11-25",
-  "expires_at_kst": "2026-11-26 06:00:00",
+  "multi_session": true,
+  "session_date": "AUTO",
+  "valid_from_date": "2026-11-26",
+  "valid_until_date": "2026-12-23",
+  "expires_at_kst": "2026-12-24 06:00:00",
   "sell_only": false,
   "max_buy_order_usd": 800,
   "max_session_buy_usd": 800,
@@ -10,18 +13,18 @@
   "daytime_allowed": true,
   "vix_override_allowed": true,
   "gap_override_allowed": true,
-  "reason": "2026-11-25 세션(주간거래·프리장·정규장) 풀사이즈 매수 허용 — 1개월 실전 평가 기간 가용 현금 전액 활용(사용자 승인 11-25 09:53).",
+  "reason": "1개월 실전 평가 기간(2026-11-26~2026-12-23) 무인 자율매매 상시 게이트 — 피클 토큰 한도와 무관하게 GitHub Actions가 매일 정규장(00) 실주문을 집행할 수 있도록 다일 세션 허용.",
   "requirements": [
     "NH 읽기 전용 주문가능금액 API 성공",
     "GitHub CI green",
-    "주간거래(63), 프리장(61), 또는 정규장(00)",
+    "정규장(00) 또는 승인된 주간거래(63)/프리장(61)",
     "주문 직전 NH 주문가능 현금 및 매도가능수량 확인",
-    "가용 현금 전액 범위 내 최대 수량 집행"
+    "비상 정지 파일(data/autotrader_halt.json) 부재"
   ],
   "approved_by": "박동훈 (사용자)",
-  "approved_at_kst": "2026-11-25 09:53",
-  "approval_quote": "1주씩 매수하지말고 금액을 최대한 가용해서 최대 성과를 내줄 수 있게 해줘. 지금 금액 전체를 사용해도 좋아. 약 한달정도 거래를 해보고 괜찮으면 추가 자금을 지원하려고해.",
-  "updated_at": "2026-11-25",
-  "activated_at_kst": "2026-11-25 09:53",
-  "note": "세션(2026-11-25 ET)과 만료(2026-11-26 06:00 KST)가 모두 일치해야 열린다. 만료 뒤에는 자동으로 DRY_RUN으로 떨어진다(fail-closed)."
+  "approved_at_kst": "2026-11-26 11:57",
+  "approval_quote": "토큰 사용량 한도 제한이 걸려서 실제 개장이후 거래가 안되는 문제가 있는데 피클 사용량이랑 별개로 매매가 될 수 있게 자동매매하도록 코드를 수정해둬.",
+  "updated_at": "2026-11-26",
+  "activated_at_kst": "2026-11-26 11:57",
+  "note": "multi_session=true로 valid_from_date~valid_until_date 범위의 미국 거래일 세션을 자동 허용한다. 만료(2026-12-24 06:00 KST) 뒤에는 자동으로 DRY_RUN으로 떨어진다(fail-closed)."
 }

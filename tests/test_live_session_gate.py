@@ -34,3 +34,24 @@ def test_missing_expiry_or_buy_caps_is_fail_closed():
         del invalid[key]
         assert not check_live_gate(invalid, CLOCK, NOW)["ok"], key
     assert not check_live_gate({**POLICY, "max_buy_order_usd": 1000}, CLOCK, NOW)["ok"]
+
+
+def test_multi_session_gate_authorizes_date_range_and_blocks_outside():
+    multi = {
+        "enabled": True,
+        "multi_session": True,
+        "session_date": "AUTO",
+        "valid_from_date": "2026-11-26",
+        "valid_until_date": "2026-12-23",
+        "expires_at_kst": "2026-12-24 06:00:00",
+        "max_buy_order_usd": 800,
+        "max_session_buy_usd": 800,
+        "max_session_buy_orders": 3,
+        "full_capital_approved": True,
+    }
+    now_ok = datetime(2026, 11, 27, 15, 0, tzinfo=timezone.utc)
+    assert check_live_gate(multi, {"phase": "REGULAR", "session_date": "2026-11-27"}, now_ok)["ok"] is True
+    assert check_live_gate(multi, {"phase": "REGULAR", "session_date": "2026-12-23"}, now_ok)["ok"] is True
+    assert check_live_gate(multi, {"phase": "REGULAR", "session_date": "2026-11-25"}, now_ok)["ok"] is False
+    assert check_live_gate(multi, {"phase": "REGULAR", "session_date": "2026-12-24"}, now_ok)["ok"] is False
+    assert check_live_gate({**multi, "valid_until_date": "invalid"}, {"phase": "REGULAR", "session_date": "2026-11-27"}, now_ok)["ok"] is False

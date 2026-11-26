@@ -77,10 +77,26 @@ def check_live_gate(gate: Any, clock: Dict[str, Any],
     sell_only = gate.get("sell_only") is True
     session_date = str(clock.get("session_date") or "")
     kst_date = str(clock.get("now_kst") or "")[:10]
+    target_date = kst_date if daytime_active else session_date
     gate_session = gate.get("session_date")
-    session_match = bool(gate_session and (gate_session == session_date or (daytime_active and gate_session == kst_date)))
-    if not session_match:
-        return {"ok": False, "reason": "live gate does not authorize this US session"}
+    if gate.get("multi_session") is True:
+        v_from = str(gate.get("valid_from_date") or "").strip()
+        v_until = str(gate.get("valid_until_date") or "").strip()
+        try:
+            d_from = datetime.strptime(v_from, "%Y-%m-%d").date()
+            d_until = datetime.strptime(v_until, "%Y-%m-%d").date()
+            d_target = datetime.strptime(target_date, "%Y-%m-%d").date()
+        except ValueError:
+            return {"ok": False, "reason": "live gate multi_session date range invalid"}
+        if d_from > d_until:
+            return {"ok": False, "reason": "live gate multi_session date range invalid"}
+        session_match = bool(gate_session) and (d_from <= d_target <= d_until)
+        if not session_match:
+            return {"ok": False, "reason": "live gate outside authorized date range"}
+    else:
+        session_match = bool(gate_session and (gate_session == session_date or (daytime_active and gate_session == kst_date)))
+        if not session_match:
+            return {"ok": False, "reason": "live gate does not authorize this US session"}
     if daytime_active:
         session_date = kst_date
     expiry = gate.get("expires_at_kst")
