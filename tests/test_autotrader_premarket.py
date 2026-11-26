@@ -72,7 +72,12 @@ def test_premarket_entry_places_order_type_61(make_trader):
     assert attribution["session"]["phase"] == "PRE_MARKET"
     assert attribution["session"]["order_type"] == "61"
     assert attribution["macro8"]["applied_scale"] == 1.0
-    assert attribution["regime_v2"]["mode"] == "shadow"
+    # 승인 스위치(config/regime_policy.json) 상태가 그대로 주문 근거에 실린다 — H-0009 승인 후 active.
+    import json as _json
+    from core import autotrader as _at
+    _pol = _json.loads(open(_at.REGIME_POLICY_PATH, encoding="utf-8").read())
+    _expected = "active" if (_pol.get("enabled") is True and str(_pol.get("approved_by") or "").strip()) else "shadow"
+    assert attribution["regime_v2"]["mode"] == _expected
     assert attribution["buildup"]["hard_lock_ok"] is True
     assert "collab" in attribution["buildup"]          # 10인 협업 사이클도 함께 남는다
 

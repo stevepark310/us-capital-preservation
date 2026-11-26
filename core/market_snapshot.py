@@ -57,6 +57,20 @@ def _dedupe(seq: List[str]) -> List[str]:
 ALL_SYMBOLS = _dedupe(EQUITY_UNIVERSE + MACRO_UNIVERSE + BOND_UNIVERSE
                       + FX_UNIVERSE + CRYPTO_UNIVERSE + CYCLE_UNIVERSE)
 
+# 동적 유니버스(2026-11-26) — 스크리너가 고른 ETF·나스닥100 대형주를 같은 스냅샷에
+# 실어 주지 않으면 무인 집행이 그 종목의 시세·일봉을 몰라 '유니버스 밖'으로 버린다.
+DYNAMIC_UNIVERSE_MAX_AGE_H = 6.0
+
+
+def _dynamic_symbols() -> List[str]:
+    """동적 스크리너가 지금 유효한(6시간 이내) 선정 종목. 실패하면 빈 목록."""
+    try:
+        from core import universe_screener
+        return [s for s in universe_screener.selected_symbols(max_age_h=DYNAMIC_UNIVERSE_MAX_AGE_H)
+                if s not in ALL_SYMBOLS]
+    except Exception:
+        return []
+
 PARQUET_CACHE = os.path.join(CACHE_DIR, "quotes_5m.pkl")
 
 
@@ -277,7 +291,7 @@ def _normalize_download(df: pd.DataFrame, symbols: List[str]) -> Dict[str, pd.Da
 
 def fetch_history(symbols: List[str] = None, period: str = "1y", force: bool = False) -> Dict[str, pd.DataFrame]:
     """Daily OHLCV history per symbol, cached for HISTORY_TTL_HOURS."""
-    symbols = symbols or ALL_SYMBOLS
+    symbols = symbols or _dedupe(ALL_SYMBOLS + _dynamic_symbols())
     cache = _read_pickle(HISTORY_CACHE) or {}
     frames: Dict[str, pd.DataFrame] = cache.get("frames", {}) or {}
     fetched_at = cache.get("fetched_at")
@@ -401,7 +415,7 @@ def build_snapshot(force_history: bool = False, quiet: bool = False,
 
     intraday = {}
     if clock["phase"] in {"REGULAR", "PRE_MARKET", "POST_MARKET"}:
-        intraday = _intraday_last(EQUITY_UNIVERSE)
+        intraday = _intraday_last(_dedupe(EQUITY_UNIVERSE + _dynamic_symbols()))
 
     for sym, iv in intraday.items():
         if sym in quotes:
@@ -557,6 +571,7 @@ def build_snapshot(force_history: bool = False, quiet: bool = False,
                  for sid, d in fred.items()},
         "intraday": intraday,
         "universe": EQUITY_UNIVERSE,
+        "dynamic_universe": _dynamic_symbols(),
         "universe_extended": {
             "bonds": BOND_UNIVERSE, "fx": FX_UNIVERSE, "crypto": CRYPTO_UNIVERSE, "cycle": CYCLE_UNIVERSE,
         },

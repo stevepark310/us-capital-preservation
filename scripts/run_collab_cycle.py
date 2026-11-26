@@ -35,6 +35,7 @@ sys.path.insert(0, BASE_DIR)
 
 from agents import agent_profiles  # noqa: E402
 from core import buildup, collab_bus, desk_lab, market_clock, strategy_evolver  # noqa: E402
+from core import universe_screener  # noqa: E402
 
 DATA = os.path.join(BASE_DIR, "data")
 CYCLE_PATH = os.path.join(DATA, "collab_cycle.json")
@@ -161,9 +162,12 @@ def duty_line(aid: int, f: Dict[str, Any]) -> Dict[str, Any]:
                 "to": collab_bus.DESK_VALIDATION}
     if aid == 2:
         sx, tq = f["tech"]["SOXL"], f["tech"]["TQQQ"]
+        uni = f.get("universe") or {}
+        dyn = list(uni.get("selected_long") or []) + list(uni.get("selected_hedge") or [])
         line = (f"SOXL ${_num(sx.get('close'))} ATR {sx.get('atr_pct')}% RSI2 {sx.get('rsi2')} "
                 f"%B {sx.get('pct_b')} RVOL {sx.get('rvol')} · TQQQ ATR {tq.get('atr_pct')}% "
-                f"· 진입 신호 {', '.join(f['tech']['signals']) or '없음'}")
+                f"· 진입 신호 {', '.join(f['tech']['signals']) or '없음'}"
+                f" · 동적 후보 {len(dyn)}종목({', '.join(dyn[:6]) or '없음'})")
         return {"line": line, "metrics": {"SOXL ATR%": sx.get("atr_pct"), "SOXL RVOL": sx.get("rvol")},
                 "to": collab_bus.DESK_VALIDATION}
     if aid == 3:
@@ -278,6 +282,23 @@ def run_cycle(every: int = DUTY_EVERY) -> Dict[str, Any]:
     doc = buildup.load()
     f = collect_facts()
     clock = f["clock"]
+
+    # 0) 동적 유니버스 — 1시간 이상 묵었으면 후보 풀(ETF·나스닥100 대형주)을 다시 스캔하고
+    #    선정 결과를 주문 허용 유니버스(config/swing_approval.json)에 반영한다.
+    uni_doc: Dict[str, Any] = {}
+    uni_refreshed = False
+    uni_sync: Dict[str, Any] = {}
+    uni_error = None
+    try:
+        uni_doc, uni_refreshed = universe_screener.refresh_if_stale(max_age_h=1.0)
+        if uni_refreshed:
+            uni_sync = universe_screener.sync_policy_universe(uni_doc)
+    except Exception as e:                     # 스캔 실패가 사이클을 멈추지 않는다
+        uni_error = f"{type(e).__name__}: {e}"
+    f["universe"] = universe_screener.summary()
+    f["universe"]["refreshed"] = uni_refreshed
+    f["universe"]["sync"] = uni_sync
+    f["universe"]["error"] = uni_error
     bus["cycle"] = int(bus.get("cycle") or 0) + 1
     cycle = bus["cycle"]
     cycle_no = cycle
@@ -299,6 +320,25 @@ def run_cycle(every: int = DUTY_EVERY) -> Dict[str, Any]:
                             d["line"], to=d.get("to") or [], metrics=d["metrics"],
                             phase=f["phase"])
             posted.append(f"DUTY-{aid}")
+
+    if uni_refreshed and uni_doc:
+        sel = uni_doc.get("selected") or []
+        collab_bus.post(bus, 2, name(2), "FEEDBACK",
+                        "동적 유니버스 스캔(코어 + ETF·나스닥100)",
+                        (f"후보 {uni_doc.get('counts', {}).get('scored')}종목 스캔"
+                         f"(풀 {uni_doc.get('counts', {}).get('pool')}·기준일 {uni_doc.get('as_of')}) → "
+                         f"롱 {', '.join(uni_doc.get('selected_long') or []) or '없음'} / "
+                         f"헤지 {', '.join(uni_doc.get('selected_hedge') or []) or '없음'}. "
+                         + (f"주문 허용 유니버스 {uni_sync.get('before')} → {uni_sync.get('universe')}. "
+                            if uni_sync.get('changed') else "")
+                         + "코어 4종목은 그대로 유지되고, 추가분만 스크리닝 결과로 바뀝니다."),
+                        to=[6, 9, 10],
+                        metrics={"스캔": uni_doc.get("counts", {}).get("scored"),
+                                 "선정": len(sel),
+                                 "롱": len(uni_doc.get("selected_long") or []),
+                                 "헤지": len(uni_doc.get("selected_hedge") or [])},
+                        phase=f["phase"])
+        posted.append("UNIVERSE")
 
     # 2) 리서치 데스크 인사이트 → 검증 데스크 핸드오프
     handoffs = []
@@ -474,6 +514,15 @@ def run_cycle(every: int = DUTY_EVERY) -> Dict[str, Any]:
         "hard_lock": {"ok": lock["ok"], "violations": lock["violations"]},
         "execution_link": {"reconciled": sync.get("changed") or [],
                            "pending_approvals": sync.get("pending") or []},
+        "dynamic_universe": {"refreshed": uni_refreshed,
+                             "generated_at_kst": (uni_doc or {}).get("generated_at_kst"),
+                             "as_of": (uni_doc or {}).get("as_of"),
+                             "source": (uni_doc or {}).get("source"),
+                             "selected_long": (uni_doc or {}).get("selected_long") or [],
+                             "selected_hedge": (uni_doc or {}).get("selected_hedge") or [],
+                             "counts": (uni_doc or {}).get("counts") or {},
+                             "policy_sync": uni_sync,
+                             "error": uni_error},
         "cloud": {"market": (f["cloud"] or {}).get("market"), "pulse": (f["cloud"] or {}).get("pulse")},
         "bus": collab_bus.summary(bus),
         "messages_in_bus": len(bus.get("messages") or []),

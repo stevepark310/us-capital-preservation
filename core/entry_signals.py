@@ -272,13 +272,33 @@ def dip_intraday(symbols: List[str], cache_min: float = 3.0,
     return out
 
 
+# --------------------------------------------------------------- dynamic universe
+def entry_universe(core: Optional[List[str]] = None, max_age_h: float = 6.0) -> List[str]:
+    """진입 신호 탐색 대상 — 코어 4종목 + 동적 스크리너 선정 종목(2026-11-26).
+
+    스크리너(`core/universe_screener`) 결과가 없거나 오래되면 코어만 돌려준다.
+    무인 집행이 이 함수를 쓰면 ETF·나스닥100 대형주까지 같은 DIP 조건으로 스캔된다.
+    """
+    try:
+        from core import universe_screener
+        base = list(core or universe_screener.CORE_UNIVERSE)
+        return universe_screener.effective_universe(core=base, max_age_h=max_age_h)
+    except Exception:
+        return list(core or [])
+
+
 # --------------------------------------------------------------- daily signals
 def dip_daily(daily: Dict[str, Any], universe: Optional[List[str]] = None,
               thresholds: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
-    """완료된 세션 일봉 기준 DIP_SWING 신호(다음 세션 시가 진입용)."""
+    """완료된 세션 일봉 기준 DIP_SWING 신호(다음 세션 시가 진입용).
+
+    `universe`를 비우면 코어 + 동적 스크리닝 후보 전체를 스캔한다.
+    """
     try:
         from core import swing_engine
         params = dict(swing_engine.DIP_PARAMS)
+        if universe is None:
+            universe = entry_universe()
         if universe:
             params["universe"] = list(universe)
         for k, v in (thresholds or {}).items():

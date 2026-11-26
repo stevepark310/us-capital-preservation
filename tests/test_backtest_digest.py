@@ -31,7 +31,13 @@ def test_digest_reports_live_switch_state_separately():
     st = d["policy_state"]
     assert st["macro8"]["mode"] == "shadow"
     assert st["macro8"]["enabled_for_sizing"] is False
-    assert st["regime_v2"]["enabled"] is False
+    # 스위치 값은 정본 파일을 그대로 반영한다(2026-11-26 H-0009 승인으로 enabled=true).
+    import json as _json
+    import os as _os
+    from core import backtest_digest as _bd
+    _pol = _json.loads(open(_os.path.join(_bd.BASE_DIR, "config", "regime_policy.json"),
+                            encoding="utf-8").read())
+    assert st["regime_v2"]["enabled"] is _pol.get("enabled")
     assert st["premarket"]["enabled"] is True
     assert st["premarket"]["manual_intervention_only"] is True
     text = bd.summary_text(d)

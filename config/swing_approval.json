@@ -340,7 +340,13 @@
       "SOXL",
       "TQQQ",
       "SOXS",
-      "SQQQ"
+      "SQQQ",
+      "SLV",
+      "LRCX",
+      "CRWD",
+      "QLD",
+      "XLI",
+      "SPXS"
     ],
     "entry_sources": [
       "C5_OPEN30_DIRECTION",
@@ -358,19 +364,42 @@
       "engine": "core/entry_signals.c5_open30_signal → core/autotrader._c5_candidate",
       "entry_source": "C5_OPEN30_DIRECTION",
       "rule": "정규장 개장 30분(10:00 ET = 00:00 KST) 가격이 전일 종가 대비 위면 정방향(SOXL·TQQQ) 매수, 아래면 인버스(SOXS·SQQQ) 매수 → 1일 1회 진입 → 15:40 ET(05:40 KST) 종가 청산, 손절 3×ATR(2~15% 클램프)",
-      "entry_window_min": [30, 60],
+      "entry_window_min": [
+        30,
+        60
+      ],
       "exit_kst": "05:40",
       "sl_atr_mult": 3.0,
       "budget_usd": 150.0,
       "min_gap_pct": 0.0,
-      "long_tickers": ["SOXL", "TQQQ"],
-      "short_tickers": ["SOXS", "SQQQ"],
-      "blackout_dates": ["2026-11-18"],
+      "long_tickers": [
+        "SOXL",
+        "TQQQ"
+      ],
+      "short_tickers": [
+        "SOXS",
+        "SQQQ"
+      ],
+      "blackout_dates": [
+        "2026-11-18"
+      ],
       "earnings_reaction_blackout": true,
       "blackout_note": "2026-11-18(ET) 세션은 NVDA 실적 반응일이고 같은 세션에 별도 승인된 NVDA_EARNINGS_GAP_SOXS(SOXS 1주 조건부)가 있으므로 C5 진입 제외. 실적 반응일은 data/earnings_calendar.json의 report_at_kst에서 자동 계산(마감 후 발표 → 다음 거래일).",
       "evidence": {
-        "60d": {"n": 118, "pnl_usd": 40.09, "win_pct": 47.5, "pf": 1.2, "t_stat": 0.71, "fee_share_pct": 9.4},
-        "5d": {"n": 10, "pnl_usd": 0.1, "win_pct": 50.0, "pf": 0.89},
+        "60d": {
+          "n": 118,
+          "pnl_usd": 40.09,
+          "win_pct": 47.5,
+          "pf": 1.2,
+          "t_stat": 0.71,
+          "fee_share_pct": 9.4
+        },
+        "5d": {
+          "n": 10,
+          "pnl_usd": 0.1,
+          "win_pct": 50.0,
+          "pf": 0.89
+        },
         "sensitivity": "손절 2.0~5.0×ATR·왕복 0.12~0.36% 전 구간 플러스(+$22.67~+$57.47)",
         "limit": "t=0.71로 통계적 유의성 미확보 · 5일 표본 중립(+$0.10)",
         "source": "docs/intraday_inflection_research_20261118.md §4-5"
@@ -397,35 +426,66 @@
     "bracket_specs": {
       "note": "진입 채널별 브래킷 규격 분리 (2026-11-18 구조 개선 ③, 장중 트레일 0.9 유지). 정본은 core/bracket_specs.py와 같은 키 구조.",
       "DIP_SWING_DAILY": {
-        "bracket_class": "DAILY_SWING", "atr_basis": "daily", "exit_mode": "swing_hold",
-        "initial_sl_atr_mult": 1.5, "sl_min_pct": 3.0, "sl_max_pct": 15.0,
-        "tp_atr_mult": 1.5, "tp_min_pct": 3.0, "tp_max_pct": 20.0,
-        "max_hold_sessions": 3, "sl_active_after_kst": "23:45",
+        "bracket_class": "DAILY_SWING",
+        "atr_basis": "daily",
+        "exit_mode": "swing_hold",
+        "initial_sl_atr_mult": 1.5,
+        "sl_min_pct": 3.0,
+        "sl_max_pct": 15.0,
+        "tp_atr_mult": 1.5,
+        "tp_min_pct": 3.0,
+        "tp_max_pct": 20.0,
+        "max_hold_sessions": 3,
+        "sl_active_after_kst": "23:45",
         "why": "승인된 DIP_SWING 규격(ATR×1.5 대칭·3세션). 일봉 ATR(SOXL 20~26%)을 chandelier 0.9×ATR에 넣어 생긴 23% 트레일 = 사실상 3세션 방치 브래킷을 없앤다."
       },
       "DIP_SWING_INTRADAY": {
-        "bracket_class": "INTRADAY", "atr_basis": "intraday", "exit_mode": "chandelier_v2",
-        "initial_sl_atr_mult": 0.75, "sl_min_pct": 1.5, "sl_max_pct": 15.0,
-        "trail_atr_mult": 0.9, "be_after_atr": 1.0, "max_hold_sessions": 3,
-        "session_close_exit_kst": "05:40", "sl_active_after_kst": "23:45",
+        "bracket_class": "INTRADAY",
+        "atr_basis": "intraday",
+        "exit_mode": "chandelier_v2",
+        "initial_sl_atr_mult": 0.75,
+        "sl_min_pct": 1.5,
+        "sl_max_pct": 15.0,
+        "trail_atr_mult": 0.9,
+        "be_after_atr": 1.0,
+        "max_hold_sessions": 3,
+        "session_close_exit_kst": "05:40",
+        "sl_active_after_kst": "23:45",
         "why": "장중 규격 — 5분봉 ATR 기준, 트레일은 기존 0.9×ATR 유지(일괄 1.5는 5일/60일 모두 악화). 세션 종가 청산을 붙여 '장중' 브래킷이 다음 세션으로 넘어가지 않게 한다."
       },
       "BEAR_ALPHA_HEDGE": {
-        "bracket_class": "INTRADAY", "atr_basis": "intraday", "exit_mode": "chandelier_v2",
-        "initial_sl_atr_mult": 0.75, "sl_min_pct": 1.5, "sl_max_pct": 15.0,
-        "trail_atr_mult": 0.9, "be_after_atr": 1.0, "max_hold_sessions": 3,
-        "session_close_exit_kst": "05:40", "sl_active_after_kst": "23:45"
+        "bracket_class": "INTRADAY",
+        "atr_basis": "intraday",
+        "exit_mode": "chandelier_v2",
+        "initial_sl_atr_mult": 0.75,
+        "sl_min_pct": 1.5,
+        "sl_max_pct": 15.0,
+        "trail_atr_mult": 0.9,
+        "be_after_atr": 1.0,
+        "max_hold_sessions": 3,
+        "session_close_exit_kst": "05:40",
+        "sl_active_after_kst": "23:45"
       },
       "C5_OPEN30_DIRECTION": {
-        "bracket_class": "PILOT_C5", "atr_basis": "intraday", "exit_mode": "time_exit",
-        "initial_sl_atr_mult": 3.0, "sl_min_pct": 2.0, "sl_max_pct": 15.0,
-        "trail_atr_mult": null, "time_exit_kst": "05:40", "max_hold_sessions": 1,
+        "bracket_class": "PILOT_C5",
+        "atr_basis": "intraday",
+        "exit_mode": "time_exit",
+        "initial_sl_atr_mult": 3.0,
+        "sl_min_pct": 2.0,
+        "sl_max_pct": 15.0,
+        "trail_atr_mult": null,
+        "time_exit_kst": "05:40",
+        "max_hold_sessions": 1,
         "sl_active_after_kst": "00:00",
         "why": "C5 A/B: 손절 2~5×ATR 전 구간 플러스, 트레일 없음(15:40 ET 종가 청산)"
       },
       "NVDA_EARNINGS_GAP_SOXS": {
-        "bracket_class": "HEDGE_EVENT", "atr_basis": "intraday", "exit_mode": "time_exit",
-        "initial_sl_atr_mult": null, "time_exit_kst": "05:55", "max_hold_sessions": 1,
+        "bracket_class": "HEDGE_EVENT",
+        "atr_basis": "intraday",
+        "exit_mode": "time_exit",
+        "initial_sl_atr_mult": null,
+        "time_exit_kst": "05:55",
+        "max_hold_sessions": 1,
         "sl_active_after_kst": "23:30"
       }
     },
@@ -487,7 +547,14 @@
         },
         "risk_control": "예산 확대로 커진 위험은 ① 거래당 리스크 3%($26.5) ② 일일 실현손실 -$25(3%) ③ 보유 4종목·세션 3건 ④ 현금 마지노선 $150 ⑤ VIX≥28 진입금지로 제한한다.",
         "measure": "scripts/research/measure_entry_budget.py (data/entry_budget_probe.json)",
-        "unchanged_guardrails": ["cash_reserve_floor_usd 150.0", "daily_realized_loss_limit_usd 25.0", "nvda_levels_locked TP 173.0 / SL 150.0", "ask_before_trade false", "no_averaging_down", "bear_alpha_gate"]
+        "unchanged_guardrails": [
+          "cash_reserve_floor_usd 150.0",
+          "daily_realized_loss_limit_usd 25.0",
+          "nvda_levels_locked TP 173.0 / SL 150.0",
+          "ask_before_trade false",
+          "no_averaging_down",
+          "bear_alpha_gate"
+        ]
       }
     },
     "execution": {
@@ -502,6 +569,31 @@
       "lock_stale_min": 12,
       "kill_switch_file": "data/autotrader_halt.json",
       "kill_switch_note": "파일이 있으면 신규 매수 전면 중단(청산은 계속)"
+    },
+    "dynamic_universe": {
+      "source": "data/dynamic_universe.json",
+      "synced_at_kst": "2026-11-26 21:02:36",
+      "rule": "코어 4종목 고정 포함 + 아래 `selected`(거래대금·ATR·과매도·거래량 점수 상위)만 추가 허용. 1회 예산 $220보다 비싼 1주 가격은 제외(affordable=false).",
+      "core": [
+        "SOXL",
+        "TQQQ",
+        "SOXS",
+        "SQQQ"
+      ],
+      "selected_long": [
+        "SLV",
+        "LRCX",
+        "CRWD",
+        "TQQQ",
+        "QLD",
+        "XLI"
+      ],
+      "selected_hedge": [
+        "SPXS",
+        "SOXS"
+      ],
+      "scanned_at_kst": "2026-11-26 21:02:36",
+      "as_of": "2026-11-25"
     }
   },
   "universe": [

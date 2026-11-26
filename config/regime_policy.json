@@ -2,19 +2,27 @@
   "version": "1.0",
   "engine": "REGIME_ADAPTIVE_DIP_V1",
   "model": "V2",
-  "enabled": false,
-  "mode": "shadow",
-  "approved_by": null,
-  "approved_at_kst": null,
-  "decided_at_kst": "2026-11-21",
-  "why": "V2 레짐(REGIME_ADAPTIVE_DIP_V1)을 실전 진입·사이징에 반영하는 스위치. 2026-11-21 13:51 CUBE-M8을 shadow로 유지하기로 한 결정과 같은 원칙 — 백테스트·OOS 근거는 있으나 자동 규칙 강제 전 사용자 판단이 필요하다.",
-  "block_regimes": ["CRISIS"],
-  "size_scale": {"RISK_ON": 1.0, "NEUTRAL": 1.0, "RISK_OFF": 0.5},
+  "enabled": true,
+  "mode": "active",
+  "approved_by": "박동훈",
+  "approved_at_kst": "2026-11-26 20:58:09",
+  "approval_quote": "ETF·나스닥100 대형주까지 발굴 + 게이트 통과 전략 전부 자동 반영 — 대기 중이던 H-0009(REGIME_ADAPTIVE_DIP_V1) 즉시 승인·적용 (카드 선택 2026-11-26 20:58)",
+  "approval_hypothesis": "H-0009",
+  "decided_at_kst": "2026-11-26",
+  "why": "V2 레짐(REGIME_ADAPTIVE_DIP_V1)을 실전 진입·사이징에 반영하는 스위치. 2026-11-26 20:58 동훈님이 H-0009(레짐 적응형 다중확인 DIP 모델)를 승인해 enabled=true로 전환했다. 근거는 data/regime_ab_20261120.json · docs/regime_model_20261120.md (OOS 38건 기대값 +4.48%/건·PF 2.86 vs 기준선 +3.43%·PF 2.01, MDD −12.84% vs −19.53%, 전체 표본 91건).",
+  "block_regimes": [
+    "CRISIS"
+  ],
+  "size_scale": {
+    "RISK_ON": 1.0,
+    "NEUTRAL": 1.0,
+    "RISK_OFF": 0.5
+  },
   "hedge_exempt": true,
   "applies_to": "core/autotrader.py 신규 롱 진입(차단)·진입 예산 계수. 헤지(BEAR_ALPHA·SOXS/SQQQ)는 차단 예외.",
   "approval_rule": "enabled=true 만으로는 켜지지 않는다 — approved_by·approved_at_kst가 모두 있어야 active로 동작하고, 없으면 shadow(계수 1.0, 차단 없음)다.",
   "activation_requirements": [
-    "동훈님 명시 승인(approved_by·approved_at_kst 기록)",
+    "동훈님 명시 승인(approved_by·approved_at_kst 기록) — 2026-11-26 20:58:09 기록됨",
     "표본 외 성과 재확인 — docs/regime_model_20261120.md 및 data/regime_ab_20261120.json",
     "M8(enabled_for_sizing)·V2를 동시에 켜면 계수 상한(0.35×0.5=0.175)이 1회 예산을 너무 조여 신호가 0주가 되지 않는지 확인"
   ],
@@ -24,5 +32,6 @@
     "paper": "docs/regime_model_20261120.md#V2",
     "note": "V2는 다중 확인(추세·패닉·레짐) + 8% 손절 하드캡 + 리스크 1.5%/건. CRISIS 전면 금지와 SQQQ 헤지는 실측에서 기대값을 깎아 기본 off."
   },
-  "note": "이 파일은 실주문 금액을 바꾸는 스위치다. 기본값(disabled)에서는 주문 크기·차단이 전혀 바뀌지 않고, 판단 근거(decision_attribution)에만 'shadow'로 표기된다."
+  "auto_apply_policy": "게이트 통과 시 빌드업(core/buildup)이 자동으로 enabled를 쓸 수 있는 모델은 MODEL_WHITELIST(REGIME_ADAPTIVE_DIP_V1)뿐이며, 그때도 approved_by에 근거를 남긴다.",
+  "note": "이 파일은 실주문 금액을 바꾸는 스위치다. 2026-11-26 20:58 이전 기본값(disabled)에서는 주문 크기·차단이 전혀 바뀌지 않았고, 판단 근거(decision_attribution)에만 'shadow'로 표기됐다."
 }

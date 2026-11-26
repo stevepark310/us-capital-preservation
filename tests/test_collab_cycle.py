@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from core import buildup, collab_bus, desk_lab, strategy_evolver
+from core import buildup, collab_bus, desk_lab, strategy_evolver, universe_screener
 from scripts import run_collab_cycle as rc
 
 
@@ -54,6 +54,23 @@ def sandbox(tmp_path, monkeypatch):
     monkeypatch.setattr(strategy_evolver, "PARAMS_PATH", str(tmp_path / "strategy_params.json"))
     monkeypatch.setattr(strategy_evolver, "LOG_PATH", str(tmp_path / "strategy_evolution_log.json"))
     monkeypatch.setattr(strategy_evolver, "LEDGER_PATH", str(tmp_path / "strategy_trade_ledger.json"))
+    # 빌드업이 실제 승인 정본·레짐 스위치를 건드리지 않게 샌드박스로 돌린다(2026-11-26 자동 반영 확장).
+    monkeypatch.setattr(buildup, "POLICY_PATH", str(tmp_path / "swing_approval.json"))
+    monkeypatch.setattr(buildup, "REGIME_POLICY_PATH", str(tmp_path / "regime_policy.json"))
+    (tmp_path / "swing_approval.json").write_text(json.dumps({
+        "entry_conditions": {"rvol_required": True, "rsi2_max": 20.0, "pct_b_max": 0.15, "rvol_min": 1.0},
+        "autonomous_execution": {"bracket_specs": {}}}), encoding="utf-8")
+    (tmp_path / "regime_policy.json").write_text(json.dumps({"enabled": False}), encoding="utf-8")
+    # 동적 유니버스 스캔은 네트워크를 쓰므로 테스트에서는 고정 응답으로 대체한다.
+    monkeypatch.setattr(universe_screener, "refresh_if_stale",
+                        lambda max_age_h=None, force=False: ({"generated_at_kst": "2026-11-26 10:00:00",
+                                                             "as_of": "2025-11-14", "source": "test",
+                                                             "counts": {"pool": 2, "scored": 2},
+                                                             "selected_long": ["TQQQ"], "selected_hedge": [],
+                                                             "selected": []}, False))
+    monkeypatch.setattr(universe_screener, "summary",
+                        lambda max_age_h=6.0: {"selected_long": ["TQQQ"], "selected_hedge": [],
+                                               "selected": [], "stale": False})
     daily = {"SOXL": frame(1), "TQQQ": frame(2)}
     monkeypatch.setattr(desk_lab, "load_daily", lambda force=False, period="2y": daily)
     (tmp_path / "cube_report.json").write_text(json.dumps(CUBE_REPORT), encoding="utf-8")
@@ -120,3 +137,31 @@ def test_cycle_never_relaxes_hard_locked_guardrails(sandbox):
     f = params.get("entry_filters") or {}
     assert f.get("rvol_required", True) is True
     assert f.get("pct_b_max", 0.15) <= 0.15 and f.get("rsi2_max", 20.0) <= 20.0
+
+
+def test_cycle_refreshes_dynamic_universe_and_reports(sandbox, monkeypatch):
+    """1시간 이상 묵으면 후보 풀을 다시 스캔하고, 선정 결과를 버스·출력에 남긴다(2026-11-26)."""
+    call = {}
+
+    def fake_refresh(max_age_h=None, force=False):
+        call["max_age_h"] = max_age_h
+        return ({"generated_at_kst": "2026-11-26 21:00:00", "as_of": "2026-11-25",
+                 "source": "test", "counts": {"pool": 79, "scored": 73},
+                 "selected": [{"ticker": "LRCX"}],
+                 "selected_long": ["LRCX"], "selected_hedge": ["SPXS"], "allowed": []}, True)
+
+    def fake_sync(doc=None):
+        call["synced"] = doc
+        return {"before": ["SOXL", "TQQQ", "SOXS", "SQQQ"],
+                "universe": ["SOXL", "TQQQ", "SOXS", "SQQQ", "LRCX", "SPXS"], "changed": True,
+                "added": ["LRCX", "SPXS"], "removed": []}
+
+    monkeypatch.setattr(universe_screener, "refresh_if_stale", fake_refresh)
+    monkeypatch.setattr(universe_screener, "sync_policy_universe", fake_sync)
+    out = rc.run_cycle()
+    assert call["max_age_h"] == 1.0 and call.get("synced")
+    assert out["dynamic_universe"]["refreshed"] is True
+    assert out["dynamic_universe"]["selected_long"] == ["LRCX"]
+    bus = json.loads((sandbox / "agent_collab_bus.json").read_text(encoding="utf-8"))
+    uni = [m for m in bus["messages"] if m["subject"].startswith("동적 유니버스")]
+    assert uni and "LRCX" in uni[-1]["body"] and "SPXS" in uni[-1]["body"]

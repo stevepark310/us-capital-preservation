@@ -39,7 +39,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from core import execution_policy, exit_rules, market_clock, session_time
 from core import bracket_specs, entry_signals
 from core import exit_authority, exit_failsafe, live_integrity, regime_model, risk_guard, portfolio_quant_risk
-from core import open_exit, session_routing, decision_attribution
+from core import open_exit, session_routing, decision_attribution, universe_screener
 
 
 def _shadow_model(market: Dict[str, Any]) -> Dict[str, Any]:
@@ -74,6 +74,20 @@ DAILY_ENTRY_WINDOW_MIN = 90      # 세션 시작 후 90분까지 '다음 세션 
 PREMARKET_ENTRY_WINDOW_MIN = 300
 DIP_UNIVERSE = ["SOXL", "TQQQ"]
 HEDGE_UNIVERSE = ["SOXS", "SQQQ"]
+# 동적 유니버스(2026-11-26) — 코어 4종목은 고정, 스크리너가 고른 ETF·나스닥100 대형주를 더한다.
+# 스크리너 결과가 오래됐으면 코어만 쓴다(위험한 추측 매수를 만들지 않는다).
+DYNAMIC_UNIVERSE_MAX_AGE_H = 6.0
+
+
+def entry_universes() -> Tuple[List[str], List[str]]:
+    """(롱 탐색 유니버스, 헤지 유니버스) — 코어 + 스크리닝 선정."""
+    try:
+        longs = universe_screener.long_universe(max_age_h=DYNAMIC_UNIVERSE_MAX_AGE_H)
+        hedges = universe_screener.hedge_universe(max_age_h=DYNAMIC_UNIVERSE_MAX_AGE_H)
+    except Exception:
+        longs, hedges = list(DIP_UNIVERSE), list(HEDGE_UNIVERSE)
+    return ([s for s in longs if s in set(longs)] or list(DIP_UNIVERSE),
+            hedges or list(HEDGE_UNIVERSE))
 HEDGE_NOTIONAL_CAP = 60.0        # config hedge.max_notional_usd
 HEDGE_SOURCES = {"BEAR_ALPHA_HEDGE", "NVDA_EARNINGS_GAP_SOXS"}
 BEAR_VIX_MIN = 24.0             # 헤지 게이트 하한(고정)
@@ -242,7 +256,7 @@ class AutonomousTrader:
                 trimmed[sym] = df
             hist = trimmed
         techs = {}
-        for sym in set(DIP_UNIVERSE + HEDGE_UNIVERSE + ["NVDA", "SPY", "^VIX"]):
+        for sym in set(entry_universes()[0] + entry_universes()[1] + ["NVDA", "SPY", "^VIX"]):
             if sym in hist and len(hist[sym]) > 30:
                 techs[sym] = technical.analyze(sym, hist[sym], (snap.get("quotes") or {}).get(sym))
         quotes = snap.get("quotes") or {}
@@ -274,7 +288,7 @@ class AutonomousTrader:
             print(f"  [integrity] 직전 세션 브로커 시세 제외: "
                   f"{', '.join(sorted(stale_marks))}")
         integrity = live_integrity.evaluate(
-            snap, clock, tickers=set(DIP_UNIVERSE + HEDGE_UNIVERSE + ["NVDA", "SPY"]),
+            snap, clock, tickers=set(entry_universes()[0] + entry_universes()[1] + ["NVDA", "SPY"]),
             broker_marks=broker_marks, policy=self.policy, persist=True)
         if stale_marks:
             integrity["stale_broker_marks"] = stale_marks
@@ -650,6 +664,8 @@ class AutonomousTrader:
         if minutes_into is None:
             minutes_into = session_time.session_minutes(session_time.kst_hhmm(clock)) - session_time.session_minutes("23:30")
         cands: List[Dict[str, Any]] = []
+        # 동적 유니버스 — 코어 4종목 + 스크리너 선정(ETF·나스닥100 대형주). 2026-11-26.
+        dip_universe, hedge_universe = entry_universes()
 
         # 1) C5 파일럿 — 개장 30분 방향 1일 1회(2026-11-18 11:37 승인). 정규장 전용.
         if phase == "REGULAR":
@@ -661,7 +677,7 @@ class AutonomousTrader:
         daily_window = (0 <= minutes_into <= DAILY_ENTRY_WINDOW_MIN) if phase == "REGULAR" \
             else (0 <= minutes_into <= PREMARKET_ENTRY_WINDOW_MIN)
         if daily_window:
-            scan = entry_signals.dip_daily(market.get("daily") or {}, DIP_UNIVERSE, filters)
+            scan = entry_signals.dip_daily(market.get("daily") or {}, dip_universe, filters)
             for sig in scan.get("signals") or []:
                 cands.append({"source": "DIP_SWING_DAILY", "ticker": sig.get("symbol"),
                               "signal": sig, "why": f"RSI2 {sig.get('rsi2')} · %B {sig.get('pct_b')} · RVOL {sig.get('rvol')}(필수)",
@@ -670,7 +686,11 @@ class AutonomousTrader:
         # 3) DIP_SWING — 장중 등급 신호(신중 모드 규칙: 00:00 이후). 장중 5분봉이 필요한 규칙이라
         #    정규장에서만 쓴다(프리장에는 '장중 등급'이라는 개념이 없다).
         if phase == "REGULAR" and minutes_into >= 30:
-            intraday = entry_signals.dip_intraday(DIP_UNIVERSE, thresholds=filters)
+            # 장중 5분봉 스캔은 지연을 묶기 위해 코어 + 동적 상위 몇 종목만 본다.
+            dyn_max = int(universe_screener.SCREEN.get("intraday_dynamic_max", 3))
+            intraday_universe = (dip_universe[:len(DIP_UNIVERSE)]
+                                 + [s for s in dip_universe[len(DIP_UNIVERSE):]][:dyn_max])
+            intraday = entry_signals.dip_intraday(intraday_universe, thresholds=filters)
             for sig in intraday.get("signals") or []:
                 cands.append({"source": "DIP_SWING_INTRADAY", "ticker": sig.get("symbol"),
                               "signal": sig,
@@ -684,7 +704,7 @@ class AutonomousTrader:
                                              entry_signals.news_sentiment_avg(),
                                              price_structure=structure)
         if gate.get("armed"):
-            for tk in HEDGE_UNIVERSE:
+            for tk in hedge_universe:
                 cands.append({"source": "BEAR_ALPHA_HEDGE", "ticker": tk, "signal": gate,
                               "why": (f"VIX {gate.get('vix')} + 확인 {len(gate.get('confirmations') or [])}개 "
                                       f"({'; '.join(gate.get('confirmations') or [])})"),
