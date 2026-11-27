@@ -103,6 +103,10 @@ SCREEN: Dict[str, Any] = {
     "intraday_dynamic_max": 3,               # 장중 5분봉 스캔에 추가로 넣는 동적 종목 수(지연 억제)
     "cache_max_age_h": 6.0,
     "rescan_after_h": 1.0,
+    # 재스캔으로 오늘의 선정이 바뀌었다고 '어제 승인된 확장 유니버스'를 순식간에 불법으로
+    # 만들지 않는다. 스크리너가 최근 이 시간 안에 실제로 선정한 종목은 계속 허용한다
+    # (2026-11-26 20:58 "ETF·나스닥100 대형주까지 발굴" · 11-27 13:37 "보정 + 대형주 포함").
+    "allowed_grace_h": 48.0,
 }
 
 
@@ -426,9 +430,32 @@ def screen(frames: Optional[Dict[str, Any]] = None, pool: Optional[List[str]] = 
         "skipped": skipped[:40],
     }
     doc["allowed"] = _dedupe(CORE_UNIVERSE + [r["ticker"] for r in selected])
+    # 최근 선정 이력 — 재스캔 한 번에 유니버스가 통째로 바뀌지 않게 허용 여유를 남긴다.
+    doc["recent_allowed"] = _recent_allowed_map(doc)
     if save_doc:
         _save(OUT_PATH, doc)
     return doc
+
+
+def _recent_allowed_map(doc: Dict[str, Any]) -> Dict[str, str]:
+    """허용 유니버스의 '최근 선정' 이력(종목 → 마지막 선정 시각, `allowed_grace_h` 이내만)."""
+    now_ts = str(doc.get("generated_at_kst") or _now_kst())
+    try:
+        now_dt = datetime.strptime(now_ts[:19], "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        now_dt = _now_kst_dt()
+    grace = timedelta(hours=float(SCREEN.get("allowed_grace_h", 48.0)))
+    prev = (load().get("recent_allowed") or {})
+    merged: Dict[str, str] = {}
+    for ticker, ts in prev.items():
+        try:
+            if now_dt - datetime.strptime(str(ts)[:19], "%Y-%m-%d %H:%M:%S") <= grace:
+                merged[str(ticker).upper()] = str(ts)
+        except Exception:
+            continue
+    for ticker in (doc.get("allowed") or []):
+        merged[str(ticker).upper()] = now_ts
+    return {t: ts for t, ts in merged.items() if t not in BANNED}
 
 
 def refresh_if_stale(max_age_h: Optional[float] = None, force: bool = False) -> Tuple[Dict[str, Any], bool]:
@@ -452,9 +479,26 @@ def load() -> Dict[str, Any]:
 
 
 def allowed_symbols() -> List[str]:
-    """하드락이 인정하는 추가 허용 목록(코어 포함). 파일이 없으면 코어만."""
-    doc = load()
-    return _dedupe(CORE_UNIVERSE + list(doc.get("allowed") or []))
+    """하드락이 인정하는 추가 허용 목록(코어 포함). 파일이 없으면 코어만.
+
+    현재 선정(`allowed`) + 최근 `allowed_grace_h` 이내 선정 이력(`recent_allowed`).
+    이력이 없으면(구버전 파일) 현재 선정만 인정한다 — 그때는 동작이 종전과 같다.
+    """
+    return _allowed_symbols_from(load())
+
+
+def _allowed_symbols_from(doc: Dict[str, Any]) -> List[str]:
+    doc = doc or {}
+    now_dt = _now_kst_dt()
+    grace = timedelta(hours=float(SCREEN.get("allowed_grace_h", 48.0)))
+    out = list(CORE_UNIVERSE) + list(doc.get("allowed") or [])
+    for ticker, ts in (doc.get("recent_allowed") or {}).items():
+        try:
+            if now_dt - datetime.strptime(str(ts)[:19], "%Y-%m-%d %H:%M:%S") <= grace:
+                out.append(str(ticker).upper())
+        except Exception:
+            continue
+    return _dedupe([t for t in out if t not in BANNED])
 
 
 def selected_symbols(max_age_h: float = 6.0) -> List[str]:
@@ -530,7 +574,7 @@ def sync_policy_universe(doc: Optional[Dict[str, Any]] = None) -> Dict[str, Any]
     선정 결과를 그대로 집행 허용 목록에 반영한다(하드락이 사후 검사).
     """
     doc = doc or load()
-    allowed = _dedupe(CORE_UNIVERSE + [s for s in (doc.get("allowed") or [])])
+    allowed = _allowed_symbols_from(doc)
     cfg = _load(POLICY_PATH, {}) or {}
     ae = cfg.setdefault("autonomous_execution", {})
     before = list(ae.get("universe") or [])

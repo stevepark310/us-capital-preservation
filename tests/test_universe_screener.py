@@ -134,3 +134,50 @@ def test_banned_tickers_never_selected():
     doc = us.screen(frames=fr, pool=["ENVX"], save_doc=False)
     assert doc["allowed"] == CORE
     assert any(s["ticker"] == "ENVX" and "금지" in s["reason"] for s in doc["skipped"])
+
+
+# ------------------------------------------------------- reselection grace (2026-11-28)
+def _kst(hours_ago: float = 0.0) -> str:
+    t = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=9) - timedelta(hours=hours_ago)
+    return t.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def test_allowed_symbols_keep_recent_selection_within_grace(tmp_path, monkeypatch):
+    """재스캔이 선정을 바꿔도 최근 선정 종목은 48시간 허용 — 승인된 확장 유니버스가 사라지지 않는다."""
+    path = tmp_path / "dynamic_universe.json"
+    monkeypatch.setattr(us, "OUT_PATH", str(path))
+    path.write_text(json.dumps({
+        "generated_at_kst": _kst(0), "allowed": CORE + ["AAA"], "selected_long": ["AAA"],
+        "selected_hedge": [],
+        "recent_allowed": {"AAA": _kst(2), "BBB": _kst(80), "ENVX": _kst(1)},
+    }), encoding="utf-8")
+    allowed = us.allowed_symbols()
+    assert "AAA" in allowed                 # 최근 선정(2시간 전)은 유지
+    assert "BBB" not in allowed             # 48시간 지난 선정은 만료
+    assert "ENVX" not in allowed            # 금지 종목은 이력으로도 못 들어온다
+
+
+def test_screen_carries_previous_selection_into_history(tmp_path, monkeypatch):
+    """스크리너가 오늘 다른 종목을 골라도 어제 선정은 이력에 남아 하드락을 통과한다."""
+    path = tmp_path / "dynamic_universe.json"
+    monkeypatch.setattr(us, "OUT_PATH", str(path))
+    path.write_text(json.dumps({
+        "generated_at_kst": _kst(3), "allowed": CORE + ["ZZZ"], "selected_long": ["ZZZ"],
+        "selected_hedge": [], "recent_allowed": {"ZZZ": _kst(3)},
+    }), encoding="utf-8")
+    doc = us.screen(frames=frames(), pool=POOL, affordable_max_usd=220.0)
+    assert "ZZZ" in doc["recent_allowed"]
+    assert "ZZZ" in us.allowed_symbols()
+    assert all(t not in doc["recent_allowed"] for t in us.BANNED)
+
+
+def test_sync_policy_universe_includes_recent_history(tmp_path, monkeypatch):
+    path = tmp_path / "swing_approval.json"
+    path.write_text(json.dumps({"autonomous_execution": {"universe": CORE}}), encoding="utf-8")
+    monkeypatch.setattr(us, "POLICY_PATH", str(path))
+    doc = {"allowed": CORE + ["AAA"], "selected_long": ["AAA"], "selected_hedge": [],
+           "generated_at_kst": _kst(0), "as_of": "2026-11-27", "rule": "테스트 규칙",
+           "recent_allowed": {"AAA": _kst(1), "ZZZ": _kst(1)}}
+    us.sync_policy_universe(doc)
+    uni = json.loads(path.read_text(encoding="utf-8"))["autonomous_execution"]["universe"]
+    assert "AAA" in uni and "ZZZ" in uni    # 집행 허용 목록에도 최근 선정이 반영된다

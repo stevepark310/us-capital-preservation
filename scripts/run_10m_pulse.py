@@ -47,6 +47,13 @@ AUTOTRADER_STATUS = os.path.join(DATA, "autotrader_status.json")
 RESEARCH_DIRECTIVE = os.path.join(DATA, "inflection_research_directive.json")
 WIDGET_BUNDLE = os.path.abspath(os.path.join(BASE_DIR, "..", "widgets", "us-quant-dashboard", "bundle"))
 
+# `git add` 대상 — 이 파이프라인이 실제로 만드는 산출물만 담는다(execution/ 등 다른 작업 파일 제외).
+# `config`는 반드시 포함한다: 스크리너가 `config/swing_approval.json`의 주문 허용 유니버스를
+# 갱신하므로, config를 빼고 data만 커밋하면 유니버스(현재) ≠ 승인 정본(과거) 상태가 커밋되어
+# Safety Regression의 하드락(`universe.screened`)이 8건 실패한다(2026-11-27~28 실제 발생).
+STAGE_PATHS = ("config", "data", "docs", "index.html", "cube.html", "feed.html", "strategy.html",
+               "scenarios.html", "assets")
+
 # 직원 이름·아이콘·아바타는 agents/agent_profiles.py가 정본이다.
 NAMES = {e["id"]: f"{e['name']} · {e['title']}" for e in agent_profiles.EMPLOYEES}
 ICONS = agent_profiles.ICONS
@@ -538,8 +545,7 @@ def main(argv=None):
         git = lambda *a: subprocess.run(["git", *a], cwd=BASE_DIR, text=True, capture_output=True)  # noqa: E731
         # `git add -A`는 다른 작업 중인 파일(execution/ 등)까지 쓸어담는다.
         # 이 파이프라인이 실제로 만드는 산출물만 스테이징한다.
-        git("add", "data", "docs", "index.html", "cube.html", "feed.html", "strategy.html",
-            "scenarios.html", "assets")
+        git("add", *STAGE_PATHS)
         msg = f"chore(cube): 10분 업무보고 {clock['now_kst'][11:16]} KST ({len(feed['posts'])} posts)"
         c = git("commit", "-m", msg)
         if c.returncode == 0:
