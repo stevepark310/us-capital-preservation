@@ -400,7 +400,7 @@ def decide(bracket: Dict[str, Any], price: float, clock: Dict[str, Any],
     from core import session_time
 
     fex = bracket.get("force_exit_kst")
-    if fex and session_time.time_reached(clock, fex):
+    if fex and session_time.time_reached_close(clock, fex):
         return None                      # 세션 청산은 상위 규칙이 처리
     ticker = str(bracket.get("ticker") or "").upper()
     if not ticker:

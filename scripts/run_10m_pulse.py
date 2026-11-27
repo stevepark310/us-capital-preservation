@@ -280,6 +280,47 @@ def _next_action(aid, status, report=None):
     return "다음 10분 주기에 실측값을 갱신해 누적 보고합니다."
 
 
+def _is_half_day(status):
+    """조기마감 세션인가 — 상태 파일의 close_shift/phase 정보로 판단."""
+    try:
+        return int((status.get("session") or {}).get("close_shift_min") or 0) != 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _session_close_kst(status):
+    return (status.get("session") or {}).get("regular_close_kst") or "06:00"
+
+
+def _eff_gate(status, key):
+    """가드레일 시각을 이 세션의 실제 시각으로 — 조기마감이면 05:40 → 02:40.
+
+    `autotrader_status.session`(market_clock.gates)이 이 세션/다음 세션의 실제 시각을
+    들고 있으면 그 값을 그대로 쓴다. 없으면 정책값에 조기마감 이동분을 더해 계산한다.
+    """
+    sess = status.get("session") or {}
+    mapped = {"force_exit_kst": sess.get("force_exit_kst"),
+              "no_new_entry_after_kst": sess.get("no_new_entry_after_kst")}
+    if mapped.get(key):
+        return mapped[key]
+    g = (status.get("policy") or {}).get("guardrails") or {}
+    base = g.get(key)
+    if not base:
+        return base
+    try:
+        shift = int(sess.get("close_shift_min") or 0)
+    except (TypeError, ValueError):
+        shift = 0
+    if not shift:
+        return base
+    try:
+        h, m = [int(x) for x in str(base).split(":")[:2]]
+    except (TypeError, ValueError):
+        return base
+    total = (h * 60 + m + shift) % (24 * 60)
+    return f"{total // 60:02d}:{total % 60:02d}"
+
+
 def autotrader_summary(status):
     if not status:
         return ("무인 집행 엔진 상태 파일 없음 — 첫 사이클 대기", [])
@@ -298,8 +339,11 @@ def autotrader_summary(status):
         f"/ 절대 ${g.get('entry_budget_cap_usd'):g} · 보유 {g.get('max_open_positions'):g}종목 · 세션 신규 {g.get('max_entries_per_session'):g}건",
         f"손실 서킷브레이커: 당일 실현 -${status.get('loss_limit_usd')} 도달 시 신규 매수 중단(청산은 계속) · "
         f"현재 halted={status.get('halted')}",
-        f"개장 유예 {g.get('opening_blackout_kst')} · 신규 진입 마감 {g.get('no_new_entry_after_kst')} · "
-        f"강제청산 {g.get('force_exit_kst')} · VIX 계수 {policy.get('vix_scale')}",
+        f"개장 유예 {g.get('opening_blackout_kst')} · 신규 진입 마감 {_eff_gate(status, 'no_new_entry_after_kst')} · "
+        f"강제청산 {_eff_gate(status, 'force_exit_kst')} · VIX 계수 {policy.get('vix_scale')}"
+        + (f" · 조기마감(마감 {_session_close_kst(status)} KST, "
+           f"{'다음' if (status.get('session') or {}).get('applies_to') == 'next' else '이번'} 세션)"
+           if _is_half_day(status) else ""),
         f"이번 사이클: 매도 {len(status.get('exits') or [])}건 / 매수 {len(status.get('entries') or [])}건 · "
         f"대기주문 {len(status.get('pending_orders') or [])}건 · 다음 게이트 {status.get('next_gate')}",
     ]

@@ -21,6 +21,19 @@ def clock_at(hhmm: str, session_date: str = "2026-11-17", phase: str = "REGULAR"
             "next_open_kst": "2026-11-17 23:30 KST", "label_ko": "정규장 운영 중"}
 
 
+@pytest.fixture(autouse=True)
+def _no_real_status_files(tmp_path, monkeypatch):
+    """테스트가 실전 상태 파일을 덮어쓰지 않게 한다.
+
+    2026-11-27 실측: 전체 pytest가 `data/exit_failsafe.json`을 테스트용 시계(11-23 세션)로
+    덮어써, 워치독·대시보드가 보는 '강제청산 페일세이프' 상태가 실제와 달라졌다.
+    상태 파일은 tmp로 돌린다(값이 필요한 테스트는 자기 monkeypatch로 다시 지정한다).
+    """
+    from core import exit_failsafe
+    monkeypatch.setattr(exit_failsafe, "OUT_PATH", str(tmp_path / "exit_failsafe.json"))
+    yield
+
+
 @pytest.fixture()
 def tmp_trader(tmp_path, monkeypatch):
     """AutonomousTrader가 쓰는 파일 경로를 전부 tmp_path로 돌린다."""

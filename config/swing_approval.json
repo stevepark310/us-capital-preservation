@@ -341,11 +341,12 @@
       "TQQQ",
       "SOXS",
       "SQQQ",
+      "INTU",
       "SLV",
+      "CEG",
+      "AMD",
       "LRCX",
-      "CRWD",
-      "QLD",
-      "XLI",
+      "MU",
       "SPXS"
     ],
     "entry_sources": [
@@ -507,6 +508,16 @@
       "opening_blackout_kst": "23:30-00:00",
       "no_new_entry_after_kst": "04:30",
       "force_exit_kst": "05:40",
+      "max_unit_price_usd": 750.0,
+      "single_share_cash_reserve_usd": 40.0,
+      "unit_price_policy": {
+        "changed_at_kst": "2026-11-27 13:37",
+        "authorization": "동훈님 지시 — \"동적 유니버스 단가 상한을 가용 현금 기준 $700대 대형주까지 넓혀 주세요\" (2026-11-27 13:37 KST)",
+        "rule": "1주 단가 상한 = min(정책 상한 $750, 가용 현금 − single_share_cash_reserve $40). 이 상한 이하 종목은 1회 예산($220)을 넘어도 '1주 단위'로 매수 허용 — 매수 후 현금은 single_share_cash_reserve 이상 남아야 하고, 손실한도·VIX·보유 4종목·거래당 리스크 3%는 그대로 적용. 정규장·비헤지(DIP_SWING) 신호에만 적용한다.",
+        "cash_at_change_usd": 780.56,
+        "cap_at_change_usd": 740.56,
+        "why": "$220 예산 상한 때문에 AAPL·MSFT·META·NFLX·COST·LLY 등 1주가 $220을 넘는 대형주가 affordable=false로 전부 제외됐다. 정수주 계좌에서 1주를 사려면 예산이 1주 가격을 덮어야 한다."
+      },
       "min_price_usd": 3.0,
       "vix_riskoff_scale": {
         "20.0": 0.75,
@@ -572,8 +583,8 @@
     },
     "dynamic_universe": {
       "source": "data/dynamic_universe.json",
-      "synced_at_kst": "2026-11-26 21:10:34",
-      "rule": "코어 4종목 고정 포함 + 아래 `selected`(거래대금·ATR·과매도·거래량 점수 상위)만 추가 허용. 1회 예산 $220보다 비싼 1주 가격은 제외(affordable=false).",
+      "synced_at_kst": "2026-11-27 13:45:15",
+      "rule": "코어 4종목 고정 포함 + 아래 `selected`(거래대금·ATR·과매도·거래량 점수 상위)만 추가 허용. 1주 단가 상한 $741(정책 상한 ∩ 가용 현금 − 안전마진)보다 비싼 1주 가격은 제외(affordable=false).",
       "core": [
         "SOXL",
         "TQQQ",
@@ -581,18 +592,18 @@
         "SQQQ"
       ],
       "selected_long": [
+        "INTU",
         "SLV",
+        "CEG",
+        "AMD",
         "LRCX",
-        "CRWD",
-        "TQQQ",
-        "QLD",
-        "XLI"
+        "MU"
       ],
       "selected_hedge": [
         "SPXS",
         "SOXS"
       ],
-      "scanned_at_kst": "2026-11-26 21:10:34",
+      "scanned_at_kst": "2026-11-27 13:45:15",
       "as_of": "2026-11-25"
     }
   },

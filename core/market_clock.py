@@ -49,6 +49,13 @@ REGULAR_CLOSE_ET = time(16, 0)
 HALF_DAY_CLOSE_ET = time(13, 0)
 POST_MARKET_CLOSE_ET = time(20, 0)
 
+# 마감 기준 게이트(강제청산·신규 진입 마감)는 정책 파일에 '정규장 마감 16:00 ET' 기준
+# KST 시각으로 적혀 있다(05:40 = 마감 20분 전, 04:30 = 마감 90분 전). 조기마감일에는
+# 마감이 13:00 ET로 당겨지므로 같은 게이트를 마감 기준 상대값으로 옮긴다
+# (2026-11-27 블랙프라이데이 반일장 — 마감 03:00 KST, 강제청산 02:40, 진입 마감 01:30).
+FORCE_EXIT_MIN_BEFORE_CLOSE = 20
+NO_NEW_ENTRY_MIN_BEFORE_CLOSE = 90
+
 # --------------------------------------------------------------------- DST
 def _nth_weekday(year: int, month: int, weekday: int, n: int) -> date:
     """해당 월의 n번째 요일(weekday: 월=0)."""
@@ -147,6 +154,17 @@ def session_close_et(d: date) -> time:
     return HALF_DAY_CLOSE_ET if d in US_HALF_DAYS_2026 else REGULAR_CLOSE_ET
 
 
+def close_shift_min(d: date) -> int:
+    """정규장 마감(16:00 ET) 대비 이 세션 마감의 KST 이동 분. 조기마감 = -180.
+
+    DST는 `kst_shift_min`이 이미 처리하므로, 여기서는 **같은 날의 16:00 ET와 실제 마감**을
+    KST로 옮겨 그 차이만 본다(조기마감 성분만 남는다).
+    """
+    base = et_to_kst(datetime.combine(d, REGULAR_CLOSE_ET))
+    actual = et_to_kst(datetime.combine(d, session_close_et(d)))
+    return int(round((actual - base).total_seconds() / 60.0))
+
+
 def resolve(now: Optional[datetime] = None) -> Dict[str, Any]:
     """Resolve the current phase plus the next scheduled session open.
 
@@ -201,7 +219,41 @@ def resolve(now: Optional[datetime] = None) -> Dict[str, Any]:
     def _kst_time(et_time: time) -> str:
         return et_to_kst(datetime.combine(et_d, et_time)).strftime("%H:%M")
 
+    def _close_gate_et(minutes_before: int) -> time:
+        anchor = datetime.combine(et_d, close_et) - timedelta(minutes=minutes_before)
+        return anchor.timetz().replace(tzinfo=None)
+
+    cshift = close_shift_min(et_d)
+
+    # ---- 마감 기준 게이트 보고 블록 (`gates`)
+    # 세션 중이면 오늘 세션, 아니면 **다음 세션**의 마감·강제청산·진입마감 시각을 담는다.
+    # 장 시작 전(KST 낮)에 "오늘 밤 강제청산 02:40"처럼 미리 알려 주려면 다음 세션의
+    # 조기마감 여부를 봐야 한다(2026-11-27 블랙프라이데이).
+    in_session = phase in ("REGULAR", "PRE_MARKET", "POST_MARKET")
+    gate_date = et_d if in_session else next_open_et.date()
+    gate_close = session_close_et(gate_date)
+    gate_shift = close_shift_min(gate_date)
+
+    def _gate_time(et_time: time) -> str:
+        return et_to_kst(datetime.combine(gate_date, et_time)).strftime("%H:%M")
+
+    gates = {
+        "applies_to": "current" if in_session else "next",
+        "session_et_date": gate_date.isoformat(),
+        "is_half_day": gate_date in US_HALF_DAYS_2026,
+        "close_shift_min": gate_shift,
+        "regular_open_kst": _gate_time(REGULAR_OPEN_ET),
+        "regular_close_kst": _gate_time(gate_close),
+        "force_exit_kst": _gate_time(
+            (datetime.combine(gate_date, gate_close) - timedelta(minutes=FORCE_EXIT_MIN_BEFORE_CLOSE))
+            .timetz().replace(tzinfo=None)),
+        "no_new_entry_after_kst": _gate_time(
+            (datetime.combine(gate_date, gate_close) - timedelta(minutes=NO_NEW_ENTRY_MIN_BEFORE_CLOSE))
+            .timetz().replace(tzinfo=None)),
+    }
+
     return {
+        "gates": gates,
         "now_kst": now.strftime("%Y-%m-%d %H:%M:%S"),
         "now_et": et.strftime("%Y-%m-%d %H:%M:%S"),
         "et_date": et_d.isoformat(),
@@ -212,6 +264,9 @@ def resolve(now: Optional[datetime] = None) -> Dict[str, Any]:
         "is_weekend": et_d.weekday() >= 5,
         "is_trading_day": trading,
         "is_half_day": et_d in US_HALF_DAYS_2026,
+        # 마감 기준 게이트를 이 세션으로 옮기는 분(0 정규장 · -180 조기마감).
+        # 정책 파일의 강제청산(05:40)·신규 진입 마감(04:30)은 이 값을 더해 판정한다.
+        "close_shift_min": cshift,
         "session_date": session_date.isoformat(),
         "last_completed_session": session_date.isoformat(),
         "next_open_kst": next_open_kst.strftime("%Y-%m-%d %H:%M KST"),
@@ -222,9 +277,15 @@ def resolve(now: Optional[datetime] = None) -> Dict[str, Any]:
             "regular_open": _kst_time(REGULAR_OPEN_ET),
             "regular_close": _kst_time(close_et),
             "post_market_close": _kst_time(POST_MARKET_CLOSE_ET),
+            # 이 세션에 실제로 적용되는 마감 기준 게이트(조기마감 자동 보정).
+            "force_exit": _kst_time(_close_gate_et(FORCE_EXIT_MIN_BEFORE_CLOSE)),
+            "no_new_entry_after": _kst_time(_close_gate_et(NO_NEW_ENTRY_MIN_BEFORE_CLOSE)),
         },
         "dst": {"in_effect": shift != 0, "shift_min": shift,
                 "note": "EST 기준 정책 시각에 kst_shift_min을 더하면 이 세션의 KST 시각"},
+        "close_shift": {"in_effect": cshift != 0, "shift_min": cshift,
+                        "note": ("조기마감일에는 마감 기준 게이트(강제청산·신규 진입 마감)를 "
+                                 "close_shift_min만큼 앞당긴다 — core/session_time.time_reached_close")},
         "label_ko": {
             "REGULAR": "정규장 운영 중",
             "PRE_MARKET": "프리마켓 (개장 대기)",

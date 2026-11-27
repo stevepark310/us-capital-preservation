@@ -80,6 +80,68 @@ def minutes_since(clock: Dict[str, Any], hhmm: Optional[str]) -> Optional[int]:
     return now - gate
 
 
+# ---------------------------------------------------------------- 마감 기준 게이트
+def close_shift_minutes(clock: Dict[str, Any]) -> int:
+    """이 세션 마감이 정규장 마감(16:00 ET) 대비 얼마나 당겨졌는가(분).
+
+    0 = 정규장 · -180 = 조기마감(13:00 ET). `core/market_clock.resolve()`가 넣는다.
+    """
+    try:
+        return int((clock or {}).get("close_shift_min") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def shift_close_minutes(clock: Dict[str, Any], minutes: int) -> int:
+    """마감 기준 게이트(05:40 강제청산·04:30 진입마감)를 이 세션으로 옮긴다.
+
+    DST 보정(`shift_minutes`)에 조기마감 보정(`close_shift_min`)을 더한다. 개장 기준
+    게이트(23:30 개장 유예, 23:45 손절 유예)는 반드시 `shift_minutes`를 써야 한다 —
+    조기마감은 마감만 당기므로 개장 시각은 그대로다.
+    """
+    total = shift_minutes(clock, minutes)
+    if total < 0:
+        return total
+    return total + close_shift_minutes(clock)
+
+
+def time_reached_close(clock: Dict[str, Any], hhmm: Optional[str]) -> bool:
+    """마감 기준 게이트(강제청산·신규 진입 마감)를 지났는가 — 조기마감 자동 보정."""
+    if not hhmm:
+        return True
+    now = session_minutes(kst_hhmm(clock))
+    gate = shift_close_minutes(clock, session_minutes(hhmm))
+    if now < 0 or gate < 0:
+        return True
+    return now >= gate
+
+
+def minutes_since_close(clock: Dict[str, Any], hhmm: Optional[str]) -> Optional[int]:
+    """마감 기준 게이트까지 지난 분(음수면 아직 남음) — 조기마감 보정."""
+    if not hhmm:
+        return None
+    now = session_minutes(kst_hhmm(clock))
+    gate = shift_close_minutes(clock, session_minutes(hhmm))
+    if now < 0 or gate < 0:
+        return None
+    return now - gate
+
+
+def close_gate_hhmm(clock: Dict[str, Any], hhmm: Optional[str]) -> Optional[str]:
+    """마감 기준 게이트가 이 세션에서 실제로 가리키는 KST 'HH:MM'.
+
+    정책 파일에는 EST 정규장 기준(05:40)으로 적혀 있고, 조기마감일에는 02:40이 된다.
+    보고·감사(브래킷 due 계산)에 쓰고, 판정은 `time_reached_close`를 쓴다.
+    """
+    if not hhmm:
+        return None
+    gate = shift_close_minutes(clock, session_minutes(hhmm))
+    if gate < 0:
+        return None
+    gate %= 24 * 60
+    return f"{gate // 60:02d}:{gate % 60:02d}"
+
+
 def session_close_hhmm(clock: Dict[str, Any]) -> Optional[str]:
     """정규장 마감 KST 시각(서머타임 반영). clock에 없으면 None."""
     times = clock.get("session_times_kst") or {}

@@ -72,8 +72,11 @@ def settings(policy: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
 
 
 def _shifted(clock: Dict[str, Any], hhmm: str, early_min: int = 0) -> int:
-    """정책 시각(KST, EST 기준) → 이 세션의 세션 분 − 앞당김."""
-    gate = session_time.shift_minutes(clock or {}, session_time.session_minutes(hhmm))
+    """정책 시각(KST, EST 정규장 기준) → 이 세션의 세션 분 − 앞당김.
+
+    강제청산은 **마감 기준** 게이트라 조기마감일에는 같이 당겨진다(05:40 → 02:40).
+    """
+    gate = session_time.shift_close_minutes(clock or {}, session_time.session_minutes(hhmm))
     return gate - int(early_min)
 
 
@@ -113,11 +116,14 @@ def overdue(brackets: Dict[str, Any], clock: Dict[str, Any],
         gate = _shifted(clock, str(fex), max(0, min(30, early)))
         if now < 0 or gate < 0 or now < gate:
             continue
-        minutes_late = now - session_time.shift_minutes(clock or {}, session_time.session_minutes(str(fex)))
+        minutes_late = now - session_time.shift_close_minutes(
+            clock or {}, session_time.session_minutes(str(fex)))
         same_session = (not b.get("last_session_date")
                         or b.get("last_session_date") == (clock or {}).get("session_date"))
         out.append({
             "ticker": str(tk).upper(), "force_exit_kst": fex,
+            "effective_force_exit_kst": session_time.close_gate_hhmm(clock or {}, str(fex)),
+            "close_shift_min": session_time.close_shift_minutes(clock or {}),
             "minutes_late": minutes_late, "same_session": same_session,
             "qty": exit_rules.remaining_qty(b),
             "exit_rule": b.get("exit_mode") or b.get("bracket_version"),

@@ -28,6 +28,15 @@ HARD_CAPS = {
     "stress_3x_pct": 15.0,               # one-session severe ETF shock assumption
     "stress_stock_pct": 12.0,
     "stress_other_pct": 8.0,
+    # 1주 단가 경로(2026-11-27 13:37 지시) — 정수주 계좌에서 1회 예산($220)보다 비싼
+    # 대형주는 1주가 최소 단위다. 위 1% 손절 리스크·75% 총노출·5% 충격 한도는 '여러 주'
+    # 전제라 $500~$750 1주를 전부 0주로 만들었다($750 × 3% 손절 = 자산의 2.55%).
+    # 그래서 **1주만 사는 경우에 한해** 정책의 거래당 리스크 한도(3%)에 맞춘 별도 상한을 쓴다.
+    # 이 예외는 `large_cap_single_share=True`로 호출된 진입에만 적용되고, 그 외 경로의
+    # 기존 상한은 그대로다.
+    "max_single_share_stop_risk_pct": 3.0,
+    "max_single_share_gross_pct": 85.0,
+    "max_single_share_shock_pct": 8.0,
 }
 PAIR_CONFLICTS = (frozenset(("SOXL", "SOXS")),
                   frozenset(("TQQQ", "SQQQ")))
@@ -138,18 +147,27 @@ def positions_from_ledger(ledger: dict, brackets: dict,
 
 def assess_entry(symbol: str, qty: int, price: float, equity: float,
                  sl_pct: float, current: dict, history: Any = None,
-                 config: Optional[dict] = None) -> dict:
+                 config: Optional[dict] = None,
+                 large_cap_single_share: bool = False) -> dict:
     """Return max allowed quantity and machine-readable veto reasons.
 
     No assumed netting benefit from opposite 3x ETFs; correlation can break in
     stressed markets. Position shock estimate is gross and intentionally crude.
+
+    동적 유니버스 종목(ETF·나스닥100 대형주)은 FACTORS에 개별 레버리지가 없다.
+    그런 종목은 `exposure_row`와 같은 방식으로 일반주(factor 1·OTHER·충격 8%)로
+    보수적으로 계산한다(2026-11-27) — 모른다는 이유로 모든 신호를 0주로 만들면
+    11-26 동적 유니버스 기능 자체가 무력해진다.
+
+    `large_cap_single_share=True`는 autotrader가 **1회 예산을 넘는 1주**에만 넘긴다.
+    이때는 gross/shock/stop 상한을 `max_single_share_*`로 바꾼다(기본 경로 불변).
     """
     caps = limits(config)
     symbol = str(symbol or "").upper()
     equity = _positive(equity)
     price = _positive(price)
     sl_pct = _positive(sl_pct)
-    if not equity or not price or not sl_pct or qty <= 0 or symbol not in FACTORS:
+    if not equity or not price or not sl_pct or qty <= 0:
         return {"ok": False, "approved_qty": 0, "reasons": ["invalid risk inputs"],
                 "model": "QUANT_GROSS_V1"}
     missing = current.get("unpriced") or []
@@ -169,17 +187,21 @@ def assess_entry(symbol: str, qty: int, price: float, equity: float,
     used_factor = sum(float(v.get("gross_factor_usd") or 0) for v in prior)
     used_3x = sum(float(v.get("notional_usd") or 0) for v in prior
                   if abs(float(v.get("factor") or 0)) >= 3)
-    _, leverage = FACTORS[symbol]
+    _, leverage = FACTORS.get(symbol, ("OTHER", 1))
     shock_pct = caps["stress_3x_pct"] if abs(leverage) >= 3 else (
         caps["stress_stock_pct"] if symbol == "NVDA" else caps["stress_other_pct"])
     per_share_stop = price * sl_pct / 100.0
     if per_share_stop <= 0:
         return {"ok": False, "approved_qty": 0, "reasons": ["invalid stop risk"],
                 "model": "QUANT_GROSS_V1"}
-    shock_allow = max(0.0, equity * caps["max_portfolio_shock_pct"] / 100.0 - used_shock)
-    factor_allow = max(0.0, equity * caps["max_gross_factor_pct"] / 100.0 - used_factor)
+    single = bool(large_cap_single_share)
+    shock_budget_pct = caps["max_single_share_shock_pct"] if single else caps["max_portfolio_shock_pct"]
+    gross_budget_pct = caps["max_single_share_gross_pct"] if single else caps["max_gross_factor_pct"]
+    stop_budget_pct = caps["max_single_share_stop_risk_pct"] if single else caps["max_trade_stop_risk_pct"]
+    shock_allow = max(0.0, equity * shock_budget_pct / 100.0 - used_shock)
+    factor_allow = max(0.0, equity * gross_budget_pct / 100.0 - used_factor)
     max_qty = min(int(qty),
-                  int((equity * caps["max_trade_stop_risk_pct"] / 100.0 + 1e-9) // per_share_stop),
+                  int((equity * stop_budget_pct / 100.0 + 1e-9) // per_share_stop),
                   int((shock_allow + 1e-9) // (price * shock_pct / 100.0)),
                   int((factor_allow + 1e-9) // (price * abs(leverage) if leverage else price)))
     if abs(leverage) >= 3:
@@ -196,7 +218,11 @@ def assess_entry(symbol: str, qty: int, price: float, equity: float,
         reasons.append("gross factor / adverse shock / planned stop / volatility risk cap")
     if max_qty == 0:
         reasons.append("one-share minimum is unsafe; hold cash")
+    if single and max_qty > 0:
+        reasons.append("single-share large-cap limits (stop %.1f%% / gross %.0f%% / shock %.0f%%)"
+                       % (stop_budget_pct, gross_budget_pct, shock_budget_pct))
     return {"ok": max_qty > 0, "approved_qty": max_qty, "proposed_qty": qty,
+            "single_share_limits": single,
             "reasons": reasons, "model": "QUANT_GROSS_V1",
             "realized_annual_vol_pct": vol,
             "gross_factor_pct": round(used_factor / equity * 100, 2),
@@ -210,8 +236,12 @@ def overdue_managed_exits(brackets: Dict[str, Any], clock: Dict[str, Any]) -> Li
 
     force_exit_kst is anchored to the bracket's first Korean opening date.
     Openings after midday with morning exit clock imply next calendar day.
+    이 시각은 세션 마감 기준이므로 조기마감일에는 당겨진다
+    (05:40 → 02:40, core/session_time.close_gate_hhmm).
     This does not create permission to sell outside the user's live gate.
     """
+    from core import session_time
+
     stamp = str((clock or {}).get("now_kst") or "")[:19]
     try:
         now = datetime.strptime(stamp, "%Y-%m-%d %H:%M:%S")
@@ -225,7 +255,8 @@ def overdue_managed_exits(brackets: Dict[str, Any], clock: Dict[str, Any]) -> Li
         if qty <= 0 or b.get("pending_entry"):
             continue
         opened = str(b.get("opened_at") or b.get("filled_at_kst") or "")[:19]
-        force_clock = str(b["force_exit_kst"])
+        force_clock = session_time.close_gate_hhmm(clock or {}, str(b["force_exit_kst"])) \
+            or str(b["force_exit_kst"])
         try:
             opened_at = datetime.strptime(opened, "%Y-%m-%d %H:%M:%S")
             hh, mm = [int(x) for x in force_clock.split(":")[:2]]

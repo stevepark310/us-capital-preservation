@@ -31,6 +31,7 @@ sys.path.insert(0, BASE_DIR)
 
 from core import market_clock, market_snapshot, technical, ledger as ledger_mod
 from core import exit_rules
+from core import session_time
 from core.session_time import kst_hhmm, session_minutes as _session_minutes, time_reached
 from core.exit_planner import AdaptiveExitPlanner
 
@@ -166,7 +167,7 @@ def chandelier_v2_exit(bracket: Dict[str, Any], price: float, clock: Dict[str, A
         trail = max(trail, entry * (1 + float(bracket.get("breakeven_pct", 0.34)) / 100))
     bracket["trail_stop"] = round(trail, 2)
     max_hold = int(bracket.get("max_hold_sessions", 3) or 3)
-    late = str(clock.get("now_kst", ""))[11:16] >= "05:45"
+    late = session_time.late_session(clock, 15)   # 마감 15분 전 — 조기마감(03:00)도 자동 반영
 
     if not time_reached(clock, bracket.get("sl_active_after_kst")):
         return None                       # 개장 15분 유예

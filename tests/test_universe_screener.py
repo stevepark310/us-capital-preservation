@@ -26,7 +26,7 @@ def frames():
         "SOXS": make_frame(drift=0.005),               # 인버스 — 상승 추세
         "AAA": make_frame(),                            # 유동적 · 과매도 → 롱 후보
         "BBB": make_frame(vol=10_000.0),                # 거래대금 부족
-        "CCC": make_frame(start=500.0),                 # 1주 $220 초과 → affordable=false
+        "CCC": make_frame(start=500.0),                 # 1주 $500 — 상한에 따라 갈린다
         "ENVX": make_frame(),                           # 금지 종목
     }
 
@@ -43,7 +43,8 @@ def test_metrics_and_scores():
 
 
 def test_screen_selects_liquid_affordable_oversold_only():
-    doc = us.screen(frames=frames(), pool=POOL, save_doc=False)
+    # 1주 단가 상한을 $220로 고정한 경우(2026-11-27 이전 기본값)의 동작.
+    doc = us.screen(frames=frames(), pool=POOL, save_doc=False, affordable_max_usd=220.0)
     assert doc["source"] == "injected"
     assert "AAA" in doc["selected_long"]
     for bad in ("BBB", "CCC", "ENVX"):
@@ -55,6 +56,29 @@ def test_screen_selects_liquid_affordable_oversold_only():
     # 코어 4종목은 선정과 무관하게 허용 목록에 남는다
     assert set(CORE).issubset(set(doc["allowed"]))
     assert doc["allowed"][:len(CORE)] == CORE
+
+
+def test_widened_unit_price_cap_admits_high_priced_large_caps():
+    """1주 단가 상한을 넓히면 $220을 넘던 종목이 affordable=true로 편입된다(2026-11-27 지시)."""
+    narrow = us.screen(frames=frames(), pool=POOL, save_doc=False, affordable_max_usd=220.0)
+    wide = us.screen(frames=frames(), pool=POOL, save_doc=False, affordable_max_usd=750.0)
+    assert any(s["ticker"] == "CCC" and "단가 상한" in s["reason"] for s in narrow["skipped"])
+    assert any(r["ticker"] == "CCC" for r in wide["selected"])
+    ccc = next(r for r in wide["selected"] if r["ticker"] == "CCC")
+    assert ccc["affordable"] is True and 220.0 < ccc["close"] <= 750.0
+    assert wide["unit_price_cap_usd"] == 750.0
+    assert wide["thresholds"]["affordable_max_usd"] == 750.0
+
+
+def test_unit_price_cap_is_cash_linked_and_capped_by_policy():
+    """상한 = min(정책 $750, 가용 현금 − 안전마진) — 현금이 줄면 상한도 줄어든다."""
+    rich = us.unit_price_cap(cash=780.56)
+    assert rich["cap_usd"] == pytest.approx(740.56, abs=0.01)
+    assert rich["binding"] == "cash"
+    poor = us.unit_price_cap(cash=300.0)
+    assert poor["cap_usd"] == pytest.approx(260.0, abs=0.01)
+    plenty = us.unit_price_cap(cash=5000.0)
+    assert plenty["cap_usd"] == 750.0 and plenty["binding"] == "policy"
 
 
 def test_core_tickers_are_always_kept_even_outside_screen_conditions():

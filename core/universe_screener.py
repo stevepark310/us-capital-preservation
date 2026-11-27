@@ -15,8 +15,10 @@
 1. **코어 4종목은 언제나 포함된다** — 스크리너는 '추가'만 한다(교체·제외 없음).
 2. **선정은 실측 지표로만** — 거래대금(20일 달러 거래대금)·가격·ATR%·RSI2·%B·RVOL·모멘텀을
    계산해 점수화한다. 숫자가 없으면(캐시 없음) 아무것도 선정하지 않고 코어만 남긴다(fail-closed).
-3. **계좌 규모를 존중한다** — 1회 예산 상한(~$220)보다 비싼 1주 가격은 `affordable=false`로
-   표시하고 선정에서 뺀다(정수주 0주가 되는 신호를 만들지 않는다).
+3. **계좌 규모를 존중한다** — 1주 단가 상한(정책 상한 ∩ 가용 현금 − 안전마진, 2026-11-27부터
+   최대 $750)보다 비싼 1주 가격은 `affordable=false`로 표시하고 선정에서 뺀다(정수주 0주가
+   되는 신호를 만들지 않는다). 상한은 고정값이 아니라 `unit_price_cap()`이 실전 현금으로
+   매번 다시 계산한다 — 현금이 줄면 상한도 같이 줄어든다.
 4. **금지 종목은 절대 넣지 않는다** — `execution_policy.BANNED_TICKERS`(ENVX·IBRX·SOUN).
 
 출력
@@ -43,6 +45,7 @@ CACHE_DIR = os.path.join(BASE_DIR, "data_cache")
 CACHE_PATH = os.path.join(CACHE_DIR, "universe_daily.pkl")
 OUT_PATH = os.path.join(DATA, "dynamic_universe.json")
 POLICY_PATH = os.path.join(BASE_DIR, "config", "swing_approval.json")
+LIVE_PORTFOLIO_PATH = os.path.join(DATA, "live_portfolio.json")
 
 # ---------------------------------------------------------------- universes
 CORE_LONG = ["SOXL", "TQQQ"]
@@ -92,7 +95,9 @@ SCREEN: Dict[str, Any] = {
     "min_price_usd": 3.0,
     "max_atr_pct": 25.0,                     # 3배 레버리지 ETF까지 허용(그 이상은 노이즈)
     "min_atr_pct": 0.8,
-    "affordable_max_usd": 220.0,             # 1회 예산 상한(guardrails entry_budget_cap_usd)
+    # 1주 단가 상한의 **폴백** — 실제 값은 `unit_price_cap()`이 정책·가용 현금으로 계산한다
+    # (2026-11-27 13:37 지시: 가용 현금 기준 $700대 대형주까지 확대).
+    "affordable_max_usd": 220.0,
     "top_long": 6,
     "top_hedge": 2,
     "intraday_dynamic_max": 3,               # 장중 5분봉 스캔에 추가로 넣는 동적 종목 수(지연 억제)
@@ -107,6 +112,40 @@ def _now_kst() -> str:
 
 def _now_kst_dt() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=9)
+
+
+def live_cash_usd() -> Optional[float]:
+    """실전 계좌의 가용 현금(`data/live_portfolio.json`). 없으면 None."""
+    doc = _load(LIVE_PORTFOLIO_PATH, {}) or {}
+    for key in ("cash_total_usd", "cash_buffer_usd", "cash_deposit_usd"):
+        try:
+            v = float(doc.get(key))
+            if v > 0:
+                return round(v, 2)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def unit_price_cap(policy: Optional[Dict[str, Any]] = None,
+                   cash: Optional[float] = None) -> Dict[str, Any]:
+    """1주 단가 상한 — 정책 상한과 가용 현금 중 작은 쪽(동적 연동).
+
+    `execution_policy.unit_price_cap`이 정본이다(SAFE_CAPS $750 · 현금 − 안전마진).
+    현금 파일이 없거나 읽을 수 없으면 정책 상한만 쓴다(fail-safe).
+    """
+    try:
+        from core import execution_policy
+        pol = policy if policy is not None else execution_policy.load_policy()
+        cash_v = live_cash_usd() if cash is None else float(cash)
+        info = execution_policy.unit_price_cap(pol, cash_v)
+        info["cash_usd"] = cash_v
+        return info
+    except Exception as exc:                      # noqa: BLE001 — 상한 계산 실패는 보수적으로
+        fallback = float(SCREEN["affordable_max_usd"])
+        return {"cap_usd": fallback, "hard_cap_usd": fallback, "cash_usd": cash,
+                "usable_cash_usd": None, "binding": "fallback",
+                "error": type(exc).__name__}
 
 
 def _load(path: str, default: Any) -> Any:
@@ -290,9 +329,21 @@ def score_hedge(m: Dict[str, Any]) -> float:
 
 # ------------------------------------------------------------------- screen
 def screen(frames: Optional[Dict[str, Any]] = None, pool: Optional[List[str]] = None,
-           save_doc: bool = True, force: bool = False) -> Dict[str, Any]:
-    """후보 풀을 스캔해 롱·헤지 후보를 고른다(코어는 항상 포함)."""
+           save_doc: bool = True, force: bool = False,
+           affordable_max_usd: Optional[float] = None) -> Dict[str, Any]:
+    """후보 풀을 스캔해 롱·헤지 후보를 고른다(코어는 항상 포함).
+
+    `affordable_max_usd`를 넘기면 그 값을 1주 단가 상한으로 쓴다(테스트·수동 점검용).
+    넘기지 않으면 `unit_price_cap()`이 정책 상한과 실전 가용 현금으로 계산한다.
+    """
     pool = _dedupe(pool or CANDIDATE_POOL)
+    if affordable_max_usd is not None:
+        cap = float(affordable_max_usd)
+        capinfo: Dict[str, Any] = {"cap_usd": cap, "hard_cap_usd": cap, "cash_usd": None,
+                                   "usable_cash_usd": None, "binding": "explicit"}
+    else:
+        capinfo = unit_price_cap()
+        cap = float(capinfo["cap_usd"])
     meta: Dict[str, Any] = {"source": "injected", "network": False}
     if frames is None:
         frames, meta = load_frames(pool, force=force)
@@ -311,7 +362,7 @@ def screen(frames: Optional[Dict[str, Any]] = None, pool: Optional[List[str]] = 
             # 코어 4종목은 조건과 무관하게 항상 유니버스에 남는다 — 지표만 기록한다.
             side = "HEDGE" if sym in INVERSE else "LONG"
             rec = {"ticker": sym, "side": side, **m}
-            rec["affordable"] = bool(rec["close"] <= float(SCREEN["affordable_max_usd"]))
+            rec["affordable"] = bool(rec["close"] <= cap)
             rec["leveraged"] = sym in LEVERAGED
             rec["core"] = True
             rec["score"] = score_hedge(rec) if side == "HEDGE" else score_long(rec)
@@ -328,13 +379,13 @@ def screen(frames: Optional[Dict[str, Any]] = None, pool: Optional[List[str]] = 
             continue
         side = "HEDGE" if sym in INVERSE else "LONG"
         rec = {"ticker": sym, "side": side, **m}
-        rec["affordable"] = bool(rec["close"] <= float(SCREEN["affordable_max_usd"]))
+        rec["affordable"] = bool(rec["close"] <= cap)
         rec["leveraged"] = sym in LEVERAGED
         rec["score"] = score_hedge(rec) if side == "HEDGE" else score_long(rec)
         if not rec["affordable"]:
             # 1주 단가가 1회 예산을 넘으면 정수주 0주가 되어 신호가 무의미하다 — 선정에서 빼고 이유를 남긴다.
             skipped.append({"ticker": sym,
-                            "reason": f"1주 ${rec['close']:,.0f} > 예산 ${SCREEN['affordable_max_usd']:.0f}"})
+                            "reason": f"1주 ${rec['close']:,.0f} > 단가 상한 ${cap:,.0f}"})
             continue
         scored.append(rec)
 
@@ -357,9 +408,13 @@ def screen(frames: Optional[Dict[str, Any]] = None, pool: Optional[List[str]] = 
         "counts": {"pool": len(pool), "scored": len(scored), "skipped": len(skipped),
                    "selected": len(selected)},
         "rule": ("코어 4종목 고정 포함 + 아래 `selected`(거래대금·ATR·과매도·거래량 점수 상위)만 추가 허용. "
-                 f"1회 예산 ${SCREEN['affordable_max_usd']:.0f}보다 비싼 1주 가격은 제외(affordable=false)."),
-        "thresholds": {k: SCREEN[k] for k in ("min_dollar_volume_usd", "min_price_usd", "max_atr_pct",
-                                              "min_atr_pct", "affordable_max_usd", "top_long", "top_hedge")},
+                 f"1주 단가 상한 ${cap:,.0f}(정책 상한 ∩ 가용 현금 − 안전마진)보다 비싼 1주 가격은 "
+                 "제외(affordable=false)."),
+        "unit_price_cap_usd": round(cap, 2),
+        "unit_price_cap": capinfo,
+        "thresholds": {**{k: SCREEN[k] for k in ("min_dollar_volume_usd", "min_price_usd", "max_atr_pct",
+                                                 "min_atr_pct", "top_long", "top_hedge")},
+                       "affordable_max_usd": round(cap, 2)},
         "selected": [{k: r[k] for k in ("ticker", "side", "score", "close", "atr_pct", "rsi2",
                                         "pct_b", "rvol", "mom_20d_pct", "dollar_volume_20d",
                                         "affordable", "leveraged", "as_of")} for r in selected],

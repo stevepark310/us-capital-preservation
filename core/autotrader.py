@@ -592,10 +592,10 @@ class AutonomousTrader:
             if not decision:
                 decision = exit_rules.decide(b, price, clock)
             if (not decision and not b.get("levels_locked") and self._cautious_force_exit_active()
-                    and session_time.time_reached(clock, self.guard.get("force_exit_kst"))
+                    and session_time.time_reached_close(clock, self.guard.get("force_exit_kst"))
                     and not b.get("force_exited")):
                 decision = {"action": "SELL", "qty": exit_rules.remaining_qty(b), "stop": False, "close": True,
-                            "reason": (f"신중 모드 강제청산 ({self.guard.get('force_exit_kst')} KST, "
+                            "reason": (f"신중 모드 강제청산 ({self.guard.get('force_exit_kst')} KST 기준, "
                                        f"NVDA 실적 11-18 06:20 전 레버리지 정리)"),
                             "post": {"force_exited": True, "closed": True}}
             if not decision:
@@ -980,9 +980,9 @@ class AutonomousTrader:
                 self._emit("ENTRY_BLOCKED_OPENING", ticker=tk, source=src,
                            reason=f"개장 유예 {g.get('opening_blackout_kst')}")
                 continue
-            if session_time.time_reached(clock, g.get("no_new_entry_after_kst")):
+            if session_time.time_reached_close(clock, g.get("no_new_entry_after_kst")):
                 self._emit("ENTRY_SKIP", ticker=tk, source=src,
-                           reason=f"신규 진입 마감 {g.get('no_new_entry_after_kst')} 이후")
+                           reason=(f"신규 진입 마감 {session_time.close_gate_hhmm(clock, g.get('no_new_entry_after_kst')) or g.get('no_new_entry_after_kst')} KST 이후"))
                 continue
 
             price = self.price_of(quotes, tk) or float((cand.get("signal") or {}).get("price") or 0)
@@ -999,19 +999,42 @@ class AutonomousTrader:
                            reason=f"프리장 조건 미충족 — {pm_gate.get('reason')}")
                 continue
 
+            planned = sum(float(a.get("qty") or 0) * float(a.get("price") or 0)
+                          for a in actions if a.get("side") == "BUY")
+            cash_free = max(0.0, cash - planned)
             slot_budget = min(budget, float(cand.get("notional_cap") or budget))
+            # 1주 단가 경로(2026-11-27 13:37 지시) — 1회 예산·절대상한($220)보다 비싼
+            # 대형주는 정수주 1주만 사는 것이 최소 단위다. 예산 부족이 유일한 거부 사유이고
+            # (정규장·비-헤지) 1주 가격이 단가 상한 안이며 매수 후 현금이 안전마진 위일 때만
+            # 예산을 그 1주 가격으로 올린다. 그 밖의 가드레일(손실한도·VIX·보유종목·리스크)은
+            # 그대로 적용된다.
+            unit_share = None
+            if (slot_budget < price and phase == "REGULAR" and not cand.get("notional_cap")
+                    and src in ("DIP_SWING_DAILY", "DIP_SWING_INTRADAY")):
+                unit_share = execution_policy.single_share_budget(price, cash_free, self.policy)
+                if unit_share.get("ok"):
+                    slot_budget = float(unit_share["budget_usd"])
+                    self._emit("ENTRY_UNIT_SHARE", ticker=tk, source=src,
+                               reason=unit_share.get("reason"),
+                               unit_price_cap=unit_share.get("cap"),
+                               budget_before_usd=round(budget, 2))
+                else:
+                    unit_share = None
             # 하한은 ① 계좌 제약으로 이미 작아진 예산(raw) ② 슬롯 상한(헤지 $60)보다
             # 클 수 없다 — 그렇지 않으면 정상 신호가 "예산 < 하한"으로 영구 차단된다.
             raw_budget = float(budget_info.get("raw_usd") or budget)
             slot_cap = float(cand.get("notional_cap") or raw_budget)
             floor_usd = min(float(g.get("entry_budget_floor_usd", 150.0)), raw_budget, slot_cap, budget)
-            if slot_budget < floor_usd:
+            if slot_budget < floor_usd and not unit_share:
                 self._emit("ENTRY_SKIP", ticker=tk, source=src,
                            reason=f"예산 ${slot_budget:.2f} < 하한 ${floor_usd:.2f}")
                 continue
-            planned = sum(float(a.get("qty") or 0) * float(a.get("price") or 0)
-                          for a in actions if a.get("side") == "BUY")
-            qty, sizing = self._size(price, slot_budget, equity, max(0.0, cash - planned), g, cand, params)
+            qty, sizing = self._size(price, slot_budget, equity, cash_free, g, cand, params,
+                                     reserve_usd=(unit_share or {}).get("reserve_usd"))
+            if unit_share:
+                sizing.update({"unit_share": True, "unit_price_cap": unit_share.get("cap"),
+                               "budget_before_usd": round(budget, 2),
+                               "cash_after_usd": round(cash_free - qty * price, 2)})
             min_qty = int(cand.get("min_qty") or 0)
             if qty < min_qty and price <= float(cand.get("notional_cap") or price) \
                     and (cash - planned) - price >= float(g.get("cash_reserve_floor_usd", 150.0)):
@@ -1027,7 +1050,8 @@ class AutonomousTrader:
                 led, brackets, quotes, pending=st.get("pending"), actions=actions)
             quant = portfolio_quant_risk.assess_entry(
                 tk, qty, limit, equity, sizing["sl_pct"], portfolio_now,
-                history=(market.get("daily") or {}).get(tk))
+                history=(market.get("daily") or {}).get(tk),
+                large_cap_single_share=bool(sizing.get("unit_share")))
             if not quant["ok"]:
                 self._emit("ENTRY_BLOCKED_QUANT", ticker=tk, source=src,
                            reason="; ".join(quant["reasons"]), quant=quant)
@@ -1072,9 +1096,13 @@ class AutonomousTrader:
 
     def _size(self, price: float, budget: float, equity: float, cash: float,
               g: Dict[str, Any], cand: Dict[str, Any],
-              params: Optional[Dict[str, Any]] = None) -> Tuple[int, Dict[str, Any]]:
+              params: Optional[Dict[str, Any]] = None,
+              reserve_usd: Optional[float] = None) -> Tuple[int, Dict[str, Any]]:
         qty = int(budget // price)
-        reserve = float(g.get("cash_reserve_floor_usd", 150.0))
+        # 현금보존 하한은 기본 $150(하드락). 1주 단가 경로(고가 대형주)만 더 작은
+        # 안전마진(`single_share_cash_reserve_usd`)을 쓴다 — 그 판단은 호출한 쪽이 한다.
+        reserve = float(reserve_usd if reserve_usd is not None
+                        else g.get("cash_reserve_floor_usd", 150.0))
         while qty > 0 and qty * price > max(0.0, cash - reserve):
             qty -= 1
         sl_pct = self._sl_pct(cand, params)
@@ -1377,8 +1405,8 @@ class AutonomousTrader:
             return f"다음 정규장 {clock.get('next_open_kst')}"
         if session_time.in_window(clock, self.guard.get("opening_blackout_kst")):
             return "개장 유예 — 00:00 KST부터 신규 진입"
-        if not session_time.time_reached(clock, self.guard.get("no_new_entry_after_kst")):
-            return f"신규 진입 마감 {self.guard.get('no_new_entry_after_kst')} 전"
+        if not session_time.time_reached_close(clock, self.guard.get("no_new_entry_after_kst")):
+            return (f"신규 진입 마감 {session_time.close_gate_hhmm(clock, self.guard.get('no_new_entry_after_kst')) or self.guard.get('no_new_entry_after_kst')} KST 전")
         return "신호 대기"
 
 
@@ -1444,6 +1472,11 @@ def refresh_status(by: str = "pulse") -> Dict[str, Any]:
         "generated_at_kst": _now_str(),
         "phase": clock.get("phase"),
         "session_date": session_date,
+        # 이번 세션의 마감 기준 시각 — 조기마감일에는 마감·강제청산·진입마감이 함께 당겨진다.
+        # 장 시작 전이면 `applies_to="next"`로 '다음 세션'의 시각을 담는다(market_clock.gates).
+        "session": {k: (clock.get("gates") or {}).get(k) for k in
+                    ("applies_to", "session_et_date", "is_half_day", "close_shift_min",
+                     "regular_close_kst", "force_exit_kst", "no_new_entry_after_kst")},
         # mode/exits/entries/evolution은 직전 집행 결과를 보존한다.
         "mode": prev.get("mode") or "IDLE",
         "policy": desc,

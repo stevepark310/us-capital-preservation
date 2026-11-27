@@ -40,6 +40,10 @@ SAFE_CAPS: Dict[str, float] = {
     "max_entries_per_session": 4,
     "daily_realized_loss_limit_pct": 3.0,
     "daily_realized_loss_limit_usd": 30.0,
+    # 1주 단가 상한 — 정수주 단위 계좌라 $220 예산 상한에 걸리는 고가 대형주를 열어 준다
+    # (동훈님 지시 2026-11-27 13:37: "단가 상한을 가용 현금 기준 $700대 대형주까지").
+    "max_unit_price_usd": 750.0,
+    "single_share_cash_reserve_usd": 40.0,
 }
 
 # 사용자가 잠근 레벨 — 어떤 경로로도 변경 금지
@@ -69,6 +73,11 @@ DEFAULTS: Dict[str, Any] = {
         "opening_blackout_kst": "23:30-00:00",
         "no_new_entry_after_kst": "04:30",
         "force_exit_kst": "05:40",
+        # 1주 단가 상한(2026-11-27 지시) — 이 값 이하 1주는 '예산 부족'으로 거부하지 않고,
+        # 가용 현금 − single_share_cash_reserve 안에서 1주만 산다. 진입 가능 여부는
+        # autotrader가 캔들마다 `single_share_budget()`로 확인한다.
+        "max_unit_price_usd": 750.0,
+        "single_share_cash_reserve_usd": 40.0,
         "min_price_usd": 3.0,
         "vix_riskoff_scale": {"24.0": 0.5, "28.0": 0.0},
         "no_averaging_down": True,
@@ -210,6 +219,68 @@ def entry_budget(equity: float, cash: float, policy: Dict[str, Any],
     }
 
 
+def unit_price_cap(policy: Optional[Dict[str, Any]] = None, cash: Optional[float] = None) -> Dict[str, Any]:
+    """1주 단가 상한 — 정책 상한(`max_unit_price_usd`)과 가용 현금으로 동시에 제한.
+
+    왜 필요한가 (2026-11-27 13:37 동훈님 지시)
+    ----------------------------------------
+    "동적 유니버스 단가 상한을 가용 현금 기준 $700대 대형주까지 넓혀 주세요."
+    정수주 계좌($881)에서 $220 예산 상한은 AAPL·MSFT·META 같은 대형주를 전부
+    `affordable=false`로 밀어냈다. 1주 단가 상한을 `min(정책 상한, 가용 현금 − 안전마진)`
+    으로 계산해, 현금이 줄면 상한도 같이 줄어들게 한다(고정 $750이 아니라 동적 연동).
+
+    반환값
+      cap_usd          이번 판단에 쓸 1주 상한
+      hard_cap_usd     정책·SAFE_CAPS가 정한 절대 상한
+      usable_cash_usd  현금 − single_share_cash_reserve
+      binding          어떤 제약이 상한을 정했는지(cash / policy)
+    """
+    g = guardrails(policy or {})
+    hard = float(g.get("max_unit_price_usd", SAFE_CAPS["max_unit_price_usd"]))
+    hard = min(hard, float(SAFE_CAPS["max_unit_price_usd"]))
+    reserve = float(g.get("single_share_cash_reserve_usd", 40.0))
+    out: Dict[str, Any] = {"hard_cap_usd": round(hard, 2), "reserve_usd": round(reserve, 2),
+                           "cash_usd": None, "usable_cash_usd": None,
+                           "cap_usd": round(hard, 2), "binding": "policy"}
+    if cash is None:
+        return out
+    usable = max(0.0, float(cash) - reserve)
+    out.update({"cash_usd": round(float(cash), 2), "usable_cash_usd": round(usable, 2)})
+    if usable < hard:
+        out.update({"cap_usd": round(usable, 2), "binding": "cash"})
+    return out
+
+
+def single_share_budget(price: float, cash: float,
+                        policy: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """1주만 사는 경우의 예산 — `entry_budget`을 넘어도 1주라면 허용할지 판정.
+
+    1회 예산($220)은 '여러 주를 살 때의 상한'이다. $700짜리 1주는 예산을 넘지만
+    그 종목을 사려면 1주가 최소 단위이므로, 다음 세 조건을 모두 만족할 때만
+    예산을 그 1주 가격으로 올린다(부분 매수·분할 매수 없음).
+      ① 1주 가격 ≤ 1주 단가 상한(정책 상한 ∩ 가용 현금 − 안전마진)
+      ② 매수 후 현금이 `single_share_cash_reserve_usd` 이상 남는다
+      ③ 예산 부족이 유일한 거부 사유다(다른 가드레일은 그대로 통과해야 한다)
+    """
+    try:
+        px = float(price or 0.0)
+        ca = float(cash or 0.0)
+    except (TypeError, ValueError):
+        return {"ok": False, "reason": "가격·현금 확인 불가", "budget_usd": 0.0}
+    if px <= 0:
+        return {"ok": False, "reason": "가격 확인 불가", "budget_usd": 0.0}
+    cap = unit_price_cap(policy, ca)
+    if px > cap["cap_usd"] + 1e-9:
+        return {"ok": False, "reason": (f"1주 ${px:,.2f} > 단가 상한 ${cap['cap_usd']:,.2f}"
+                                        f"({cap['binding']})"),
+                "budget_usd": 0.0, "cap": cap}
+    return {"ok": True, "reason": (f"1주 ${px:,.2f} ≤ 단가 상한 ${cap['cap_usd']:,.2f}"
+                                   f"({cap['binding']}) — 1주 단위 예산 허용"),
+            "budget_usd": round(px, 2), "cap": cap,
+            "reserve_usd": cap["reserve_usd"],
+            "cash_after_usd": round(ca - px, 2)}
+
+
 def halt_file_active(policy: Optional[Dict[str, Any]] = None) -> bool:
     """비상 정지 파일(data/autotrader_halt.json)이 있으면 신규 매수 중단."""
     rel = ((policy or {}).get("safety") or {}).get("kill_switch_file") or "data/autotrader_halt.json"
@@ -249,6 +320,7 @@ def describe(policy: Dict[str, Any], equity: float, cash: float,
         "strategy_risk_scale": round(float(extra_scale or 1.0), 3),
         "budget_scale_total": round(total, 3),
         "entry_budget": budget,
+        "unit_price": unit_price_cap(policy, cash),
         "halt_file": halt_file_active(policy),
         "universe": policy.get("universe"),
     }
