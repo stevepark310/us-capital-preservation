@@ -1,6 +1,6 @@
 {
   "engine": "AUTONOMOUS_INTRADAY",
-  "generated_at_kst": "2026-11-27 13:31:18",
+  "generated_at_kst": "2026-11-27 13:56:11",
   "phase": "HOLIDAY_PREP",
   "session_date": "2026-11-25",
   "mode": "DRY_RUN",
@@ -25,6 +25,8 @@
       "opening_blackout_kst": "23:30-00:00",
       "no_new_entry_after_kst": "04:30",
       "force_exit_kst": "05:40",
+      "max_unit_price_usd": 750.0,
+      "single_share_cash_reserve_usd": 40.0,
       "min_price_usd": 3.0,
       "vix_riskoff_scale": {
         "24.0": 0.5,
@@ -32,6 +34,14 @@
         "20.0": 0.75
       },
       "no_averaging_down": true,
+      "unit_price_policy": {
+        "changed_at_kst": "2026-11-27 13:37",
+        "authorization": "동훈님 지시 — \"동적 유니버스 단가 상한을 가용 현금 기준 $700대 대형주까지 넓혀 주세요\" (2026-11-27 13:37 KST)",
+        "rule": "1주 단가 상한 = min(정책 상한 $750, 가용 현금 − single_share_cash_reserve $40). 이 상한 이하 종목은 1회 예산($220)을 넘어도 '1주 단위'로 매수 허용 — 매수 후 현금은 single_share_cash_reserve 이상 남아야 하고, 손실한도·VIX·보유 4종목·거래당 리스크 3%는 그대로 적용. 정규장·비헤지(DIP_SWING) 신호에만 적용한다.",
+        "cash_at_change_usd": 780.56,
+        "cap_at_change_usd": 740.56,
+        "why": "$220 예산 상한 때문에 AAPL·MSFT·META·NFLX·COST·LLY 등 1주가 $220을 넘는 대형주가 affordable=false로 전부 제외됐다. 정수주 계좌에서 1주를 사려면 예산이 1주 가격을 덮어야 한다."
+      },
       "nvda_levels_locked": {
         "tp": 173.0,
         "sl": 150.0,
@@ -96,17 +106,26 @@
       "below_floor": false,
       "floor_usd": 150.0
     },
+    "unit_price": {
+      "hard_cap_usd": 750.0,
+      "reserve_usd": 40.0,
+      "cash_usd": 780.56,
+      "usable_cash_usd": 740.56,
+      "cap_usd": 740.56,
+      "binding": "cash"
+    },
     "halt_file": false,
     "universe": [
       "SOXL",
       "TQQQ",
       "SOXS",
       "SQQQ",
+      "INTU",
       "SLV",
+      "CEG",
+      "AMD",
       "LRCX",
-      "CRWD",
-      "QLD",
-      "XLI",
+      "MU",
       "SPXS"
     ]
   },
@@ -121,18 +140,7 @@
     "checked": 0,
     "confirmed": 0
   },
-  "exits": [
-    {
-      "ticker": "SQQQ",
-      "side": "SELL",
-      "qty": 1,
-      "price": 49.53,
-      "reason": "연체 강제청산 — 05:40 KST 룰 미집행분 즉시 정리",
-      "status": "DRY_RUN",
-      "order_no": null,
-      "run_id": null
-    }
-  ],
+  "exits": [],
   "entries": [],
   "evolution": {
     "applied": false,
@@ -181,7 +189,7 @@
     },
     "vol": {
       "risk_scale": 0.7,
-      "avg_atr_pct": 16.49,
+      "avg_atr_pct": 19.33,
       "reference_atr_pct": 10.0,
       "available": true
     },
@@ -220,9 +228,9 @@
     "budget_usd": 150.0
   },
   "integrity": {
-    "checked_at_kst": "2026-11-21 05:58:53",
-    "phase": "REGULAR",
-    "session_date": "2026-11-20",
+    "checked_at_kst": "2026-11-27 13:47:35",
+    "phase": "HOLIDAY_PREP",
+    "session_date": "2026-11-25",
     "enabled": true,
     "config": {
       "max_snapshot_age_min": 6.0,
@@ -231,143 +239,240 @@
       "price_divergence_max_pct": 1.0,
       "vix_new_long_block": 28.0
     },
-    "snapshot_age_min": 540.6,
+    "snapshot_age_min": 540.1,
     "snapshot_stale": true,
     "vix": {
-      "last": 37.87,
-      "prev_close": 28.44,
-      "day_high": 37.87,
+      "last": 26.8,
+      "prev_close": 28.29,
+      "day_high": 27.54,
       "alt": null,
-      "bar_date": "2026-11-20",
-      "same_session_high": 37.87,
-      "source_max": 37.87,
-      "observed_max": 37.87,
+      "bar_date": "2026-11-26",
+      "same_session_high": null,
+      "source_max": 26.8,
+      "observed_max": 26.8,
       "divergence": null,
       "stale": true,
       "reasons": [
-        "스냅샷 540.6분 경과 > 6.0분"
+        "스냅샷 540.1분 경과 > 6.0분"
       ],
       "gate": 99.0,
       "block_new_long": true
     },
     "prices": {
-      "SQQQ": {
-        "ticker": "SQQQ",
-        "trusted": false,
-        "stale": false,
-        "intraday": 58.055,
-        "last": 58.1436,
-        "broker": 49.68,
-        "bar_age_min": 3.9,
-        "divergence_pct": 16.858,
-        "price": 58.055,
-        "conservative": 49.68,
-        "aggressive": 58.1436,
-        "reasons": [
-          "시세 괴리 16.86% > 1.0% (5분봉 58.055 / 브로커 49.68)"
-        ]
-      },
-      "SOXL": {
-        "ticker": "SOXL",
+      "CEG": {
+        "ticker": "CEG",
         "trusted": true,
         "stale": false,
-        "intraday": 30.165,
-        "last": 30.16,
+        "intraday": null,
+        "last": 235.28,
         "broker": null,
-        "bar_age_min": 3.9,
+        "broker_ignored": false,
+        "bar_age_min": null,
         "divergence_pct": null,
-        "price": 30.165,
-        "conservative": 30.16,
-        "aggressive": 30.165,
+        "price": 235.28,
+        "conservative": 235.28,
+        "aggressive": 235.28,
+        "reasons": []
+      },
+      "SPXS": {
+        "ticker": "SPXS",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 29.03,
+        "broker": null,
+        "broker_ignored": false,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 29.03,
+        "conservative": 29.03,
+        "aggressive": 29.03,
+        "reasons": []
+      },
+      "SQQQ": {
+        "ticker": "SQQQ",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 49.6,
+        "broker": null,
+        "broker_ignored": false,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 49.6,
+        "conservative": 49.6,
+        "aggressive": 49.6,
+        "reasons": []
+      },
+      "SLV": {
+        "ticker": "SLV",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 37.1,
+        "broker": null,
+        "broker_ignored": false,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 37.1,
+        "conservative": 37.1,
+        "aggressive": 37.1,
         "reasons": []
       },
       "NVDA": {
         "ticker": "NVDA",
         "trusted": true,
         "stale": false,
-        "intraday": 125.62,
-        "last": 125.47,
+        "intraday": null,
+        "last": 149.3,
         "broker": null,
-        "bar_age_min": 3.9,
+        "broker_ignored": false,
+        "bar_age_min": null,
         "divergence_pct": null,
-        "price": 125.62,
-        "conservative": 125.47,
-        "aggressive": 125.62,
-        "reasons": []
-      },
-      "TQQQ": {
-        "ticker": "TQQQ",
-        "trusted": true,
-        "stale": false,
-        "intraday": 40.5,
-        "last": 40.45,
-        "broker": null,
-        "bar_age_min": 3.9,
-        "divergence_pct": null,
-        "price": 40.5,
-        "conservative": 40.45,
-        "aggressive": 40.5,
+        "price": 149.3,
+        "conservative": 149.3,
+        "aggressive": 149.3,
         "reasons": []
       },
       "SOXS": {
         "ticker": "SOXS",
         "trusted": true,
         "stale": false,
-        "intraday": 84.27,
-        "last": 84.3399,
+        "intraday": null,
+        "last": 62.13,
         "broker": null,
-        "bar_age_min": 3.9,
+        "broker_ignored": false,
+        "bar_age_min": null,
         "divergence_pct": null,
-        "price": 84.27,
-        "conservative": 84.27,
-        "aggressive": 84.3399,
+        "price": 62.13,
+        "conservative": 62.13,
+        "aggressive": 62.13,
         "reasons": []
       },
       "SPY": {
         "ticker": "SPY",
         "trusted": true,
         "stale": false,
-        "intraday": 687.845,
-        "last": 687.71,
+        "intraday": null,
+        "last": 716.7,
         "broker": null,
-        "bar_age_min": 3.9,
+        "broker_ignored": false,
+        "bar_age_min": null,
         "divergence_pct": null,
-        "price": 687.845,
-        "conservative": 687.71,
-        "aggressive": 687.845,
+        "price": 716.7,
+        "conservative": 716.7,
+        "aggressive": 716.7,
+        "reasons": []
+      },
+      "TQQQ": {
+        "ticker": "TQQQ",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 45.28,
+        "broker": null,
+        "broker_ignored": false,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 45.28,
+        "conservative": 45.28,
+        "aggressive": 45.28,
+        "reasons": []
+      },
+      "AMD": {
+        "ticker": "AMD",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 406.03,
+        "broker": null,
+        "broker_ignored": false,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 406.03,
+        "conservative": 406.03,
+        "aggressive": 406.03,
+        "reasons": []
+      },
+      "LRCX": {
+        "ticker": "LRCX",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 185.01,
+        "broker": null,
+        "broker_ignored": false,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 185.01,
+        "conservative": 185.01,
+        "aggressive": 185.01,
+        "reasons": []
+      },
+      "MU": {
+        "ticker": "MU",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 601.25,
+        "broker": null,
+        "broker_ignored": false,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 601.25,
+        "conservative": 601.25,
+        "aggressive": 601.25,
+        "reasons": []
+      },
+      "SOXL": {
+        "ticker": "SOXL",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 32.02,
+        "broker": null,
+        "broker_ignored": false,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 32.02,
+        "conservative": 32.02,
+        "aggressive": 32.02,
+        "reasons": []
+      },
+      "INTU": {
+        "ticker": "INTU",
+        "trusted": true,
+        "stale": false,
+        "intraday": null,
+        "last": 271.72,
+        "broker": null,
+        "broker_ignored": false,
+        "bar_age_min": null,
+        "divergence_pct": null,
+        "price": 271.72,
+        "conservative": 271.72,
+        "aggressive": 271.72,
         "reasons": []
       }
     },
     "block_new_long": true,
     "block_reasons": [
-      "스냅샷 540.6분 경과 > 6.0분",
+      "스냅샷 540.1분 경과 > 6.0분",
       "VIX 하드 차단"
     ],
     "note": "보수적 판정 — VIX는 관측 최고값, 청산 가격은 소스 중 최저값. stale/판독불가면 신규 진입 차단(fail-closed)."
   },
   "risk_alerts": [],
   "failsafe": {
-    "checked_at_kst": "2026-11-21 05:58:53",
-    "phase": "REGULAR",
-    "session_date": "2026-11-20",
+    "checked_at_kst": "2026-11-27 13:47:35",
+    "phase": "HOLIDAY_PREP",
+    "session_date": "2026-11-25",
     "force_exit_early_min": 10,
-    "overdue": [
-      {
-        "ticker": "SQQQ",
-        "force_exit_kst": "05:40",
-        "minutes_late": 18,
-        "same_session": true,
-        "qty": 1,
-        "exit_rule": "chandelier_v2",
-        "phase": "REGULAR",
-        "severity": "CRITICAL",
-        "note": "강제청산 시각 경과 — 즉시 청산 필요"
-      }
-    ],
+    "overdue": [],
     "cloud": {
-      "last_market_cycle_kst": "2026-11-21 05:36:20",
-      "age_min": 22.6,
-      "phase": "REGULAR",
+      "last_market_cycle_kst": "2026-11-27 07:11:30",
+      "age_min": 396.1,
+      "phase": "HOLIDAY_PREP",
       "warn": false,
       "critical": false,
       "thresholds_min": {
@@ -377,7 +482,19 @@
       "scheduled_triggers_reliable": false,
       "note": "GitHub Actions schedule 트리거는 지연·누락될 수 있다(11-19 05:40 미발화 실측). 감시 공백이 critical이면 보완 경로(`scripts/exit_watchdog.py`)가 사이클을 재촉한다."
     },
-    "action_required": true
+    "action_required": false
+  },
+  "sell_only_gate": false,
+  "open_exit": {
+    "enabled": false,
+    "session_date": "2026-11-23",
+    "open_kst": "23:30",
+    "expired": true,
+    "authorized_by": "박동훈 (사용자)",
+    "authorized_at_kst": "2026-11-21 10:41",
+    "orders": [],
+    "clock_session_date": "2026-11-25",
+    "clock_phase": "HOLIDAY_PREP"
   },
   "exit_authority": {
     "owners": {
@@ -416,86 +533,12 @@
   "shadow_model": {
     "model": "REGIME_ADAPTIVE_DIP_V1",
     "regime": "CRISIS",
-    "vix": 37.87,
+    "vix": 26.8,
     "spy_trend": false,
     "playbook": "롱 전면 금지 — SQQQ 헤지 1주만 검토",
-    "signals": {
-      "TQQQ": {
-        "rsi2": 8.2,
-        "rsi14": 32.5,
-        "pct_b": 0.123,
-        "rvol": 1.99,
-        "atr_pct": 9.17,
-        "close": 49.01,
-        "score": 61.2,
-        "symbol": "TQQQ",
-        "date": "2026-11-19",
-        "validated_tp": 55.75,
-        "validated_sl": 42.27,
-        "validated_tp_pct": 13.75,
-        "validated_sl_pct": 13.75,
-        "max_hold_sessions": 3,
-        "reference_intraday_plan": {
-          "tp1": 51.03,
-          "tp2": 53.28,
-          "sl": 46.56
-        },
-        "entry_rule": "다음 세션 시가 진입 (지정가/시장가), 최대 3세션 보유"
-      }
-    },
+    "signals": {},
     "would_trade": false,
     "note": "그림자(참고) 판정 — 실집행은 기존 승인 엔진이 한다."
-  },
-  "ledger": {
-    "equity_usd": 881.24,
-    "cash_usd": 780.56
-  },
-  "next_gate": "다음 정규장 2026-11-27 23:30 KST",
-  "elapsed_sec": 0.1,
-  "events": [
-    {
-      "ts_kst": "2026-11-21 05:58:53",
-      "kind": "FORCE_EXIT_OVERDUE",
-      "tickers": [
-        "SQQQ"
-      ],
-      "phase": "REGULAR"
-    },
-    {
-      "ts_kst": "2026-11-21 05:58:53",
-      "kind": "EXIT_ORDER",
-      "ticker": "SQQQ",
-      "side": "SELL",
-      "qty": 1,
-      "price": 49.53,
-      "reason": "연체 강제청산 — 05:40 KST 룰 미집행분 즉시 정리",
-      "status": "DRY_RUN",
-      "order_no": null,
-      "run_id": null
-    },
-    {
-      "ts_kst": "2026-11-21 05:58:53",
-      "kind": "ENTRY_BLOCKED_GLOBAL",
-      "reason": "연체 강제청산 미해결 — 신규 매수 동결: SQQQ"
-    }
-  ],
-  "status_sync": {
-    "refreshed_at_kst": "2026-11-27 13:31:18",
-    "by": "pulse",
-    "previous_generated_at_kst": "2026-11-27 13:21:14",
-    "note": "시계·phase·보유·예산만 원장과 시장시계에서 다시 읽었습니다. 주문·브래킷 변경 없음.",
-    "seconds_since_previous": 604.889913
-  },
-  "macro8_gate": {
-    "mode": "shadow",
-    "z": -0.375,
-    "regime": "SLOWDOWN",
-    "regime_ko": "둔화",
-    "shadow_scale": 0.656,
-    "applied_scale": 1.0,
-    "as_of": "2026-11-25",
-    "generated_at_kst": "2026-11-27 13:21:21",
-    "source": "data/macro_leading.json"
   },
   "session_plan": {
     "phases": [
@@ -517,5 +560,182 @@
     "blocked_reason": null,
     "auto_blocked_reason": "프리장 수동·지시 개입 전용(manual_intervention_only) — 무인 엔진은 정규장만"
   },
-  "order_type": null
+  "order_type": null,
+  "decision_attribution": {
+    "generated_at_kst": "2026-11-27 13:47:35",
+    "session": {
+      "phase": "HOLIDAY_PREP",
+      "order_type": null,
+      "order_type_name": null,
+      "premarket_enabled": true,
+      "after_hours_enabled": false,
+      "allowed_phases": [
+        "REGULAR",
+        "PRE_MARKET"
+      ],
+      "entry_conditions": {
+        "allow_sources": [
+          "DIP_SWING_DAILY"
+        ],
+        "block_regimes": [
+          "CRISIS"
+        ],
+        "allow_risk_off": false,
+        "max_gap_chase_pct": 1.0,
+        "window_et": [
+          "04:00",
+          "09:00"
+        ],
+        "max_budget_usd": 60.0,
+        "max_orders_per_session": 2,
+        "max_slippage_bps": 15,
+        "min_price_usd": 5.0,
+        "max_quote_age_min": 6.0,
+        "why": "2026-11-21 백테스트에서 유일하게 IS·OOS 모두 양(+)이던 조건은 'DIP 신호 + 추격 금지 + 1세션 보유'였다. 헤지(BEAR_ALPHA)는 프리장 진입이 개장 대비 유의하게 나빠 제외했다. RISK_OFF 국면은 국면 필터를 걸면 기대값이 오히려 떨어졌지만(IS -2.77%%, OOS +0.43%%) 표본이 갈려 판단을 보류하고 보수적으로 막아 둔다 — 승인 시 재확인 필요."
+      },
+      "source": "config/premarket_policy.json + core/session_routing.py"
+    },
+    "macro8": {
+      "mode": "shadow",
+      "z": -0.375,
+      "regime": "SLOWDOWN",
+      "regime_ko": "둔화",
+      "shadow_scale": 0.656,
+      "applied_scale": 1.0,
+      "used_in_sizing": false,
+      "as_of": "2026-11-25",
+      "error": null,
+      "source": "config/macro_leading_policy.json + data/macro_leading.json"
+    },
+    "regime_v2": {
+      "model": "REGIME_ADAPTIVE_DIP_V1",
+      "regime": "CRISIS",
+      "vix": 26.8,
+      "spy_trend": false,
+      "playbook": "롱 전면 금지 — SQQQ 헤지 1주만 검토",
+      "mode": "shadow",
+      "applied_scale": 1.0,
+      "block_long": false,
+      "used_in_sizing": false,
+      "used_in_gating": false,
+      "reason": "진입 전(청산 전용 사이클)",
+      "source": "config/regime_policy.json + core/regime_model.py"
+    },
+    "buildup": {
+      "entry_filters": {
+        "rsi2_max": 20.0,
+        "pct_b_max": 0.15,
+        "rvol_min": 1.0,
+        "rvol_required": true
+      },
+      "entry_filters_applied": true,
+      "ratchet": {
+        "rsi2_max": 20.0,
+        "pct_b_max": 0.15,
+        "rvol_min": 1.0
+      },
+      "hypotheses": 41,
+      "applied_count": 1,
+      "last_improvement": {
+        "id": "I-0001",
+        "title": "레짐 적응형 다중확인 DIP 모델(REGIME_ADAPTIVE_DIP_V1) 도입",
+        "applied_at_kst": "2026-11-26 21:06:04"
+      },
+      "collab": {
+        "cycle": 271,
+        "generated_at_kst": "2026-11-27 13:11:47",
+        "validation": {
+          "hypothesis": null,
+          "status": null,
+          "gate": null,
+          "applied": null,
+          "delta_oos_ev_pct": null
+        },
+        "messages_in_bus": 400
+      },
+      "hard_lock_ok": true,
+      "hard_lock_violations": [],
+      "source": "data/strategy_buildup.json + data/strategy_params.json"
+    },
+    "risk": {
+      "vix_gate": 99.0,
+      "vix_scale": 0.0,
+      "strategy_risk_scale": 0.7,
+      "budget": {
+        "budget_usd": 0.0,
+        "binding": "abs_cap",
+        "raw_usd": 220.0,
+        "decayed_usd": 0.0,
+        "components": {
+          "cash_pct": 273.2,
+          "equity_pct": 220.31,
+          "abs_cap": 220.0,
+          "cash_after_reserve": 630.56
+        },
+        "vol_scale": 0.0,
+        "floor_applied": false,
+        "below_floor": false,
+        "floor_usd": 150.0
+      },
+      "daily_loss_limit_usd": 25.0,
+      "cash_floor_usd": 150.0,
+      "sell_only": false,
+      "integrity_ok": null,
+      "source": "config/risk_guardrails.json + config/live_execution_gate.json"
+    },
+    "sources": {
+      "macro8": "config/macro_leading_policy.json + data/macro_leading.json",
+      "regime_v2": "config/regime_policy.json + core/regime_model.py",
+      "buildup": "data/strategy_buildup.json + data/strategy_params.json",
+      "approval": "config/swing_approval.json (entry_conditions·guardrails)",
+      "risk": "config/risk_guardrails.json + config/live_execution_gate.json",
+      "session": "config/premarket_policy.json + core/session_routing.py"
+    },
+    "summary_ko": "세션 HOLIDAY_PREP·호가유형 - · M8 shadow(z -0.375, 계수 1.0) · V2 CRISIS(shadow) · 진입필터 RSI2≤20.0/%B≤0.15/RVOL≥1.0 · 예산 $0.0 (VIX 99.0 × 0.0 × 전략 0.7)"
+  },
+  "ledger": {
+    "equity_usd": 881.24,
+    "cash_usd": 780.56
+  },
+  "next_gate": "다음 정규장 2026-11-27 23:30 KST",
+  "elapsed_sec": 4.3,
+  "events": [
+    {
+      "ts_kst": "2026-11-27 13:47:35",
+      "kind": "EXITS_SKIPPED",
+      "reason": "phase=HOLIDAY_PREP — 주문 없음 (프리장 수동·지시 개입 전용(manual_intervention_only) — 무인 엔진은 정규장만)"
+    },
+    {
+      "ts_kst": "2026-11-27 13:47:35",
+      "kind": "ENTRY_BLOCKED_GLOBAL",
+      "reason": "세션 아님(HOLIDAY_PREP) — 무인 엔진 허용 단계 ['REGULAR'] · 프리장 수동·지시 개입 전용(manual_intervention_only) — 무인 엔진은 정규장만"
+    }
+  ],
+  "session": {
+    "applies_to": "next",
+    "session_et_date": "2026-11-27",
+    "is_half_day": true,
+    "close_shift_min": -180,
+    "regular_close_kst": "03:00",
+    "force_exit_kst": "02:40",
+    "no_new_entry_after_kst": "01:30"
+  },
+  "macro8_gate": {
+    "mode": "shadow",
+    "z": -0.375,
+    "regime": "SLOWDOWN",
+    "regime_ko": "둔화",
+    "shadow_scale": 0.656,
+    "applied_scale": 1.0,
+    "as_of": "2026-11-25",
+    "generated_at_kst": "2026-11-27 13:21:21",
+    "source": "data/macro_leading.json"
+  },
+  "status_sync": {
+    "refreshed_at_kst": "2026-11-27 13:56:11",
+    "by": "pulse",
+    "previous_generated_at_kst": "2026-11-27 13:47:35",
+    "note": "시계·phase·보유·예산만 원장과 시장시계에서 다시 읽었습니다. 주문·브래킷 변경 없음.",
+    "seconds_since_previous": 516.083855
+  }
 }
