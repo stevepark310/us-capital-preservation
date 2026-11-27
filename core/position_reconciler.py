@@ -248,7 +248,11 @@ def reconcile(apply: bool = False, live: Optional[Dict[str, Any]] = None) -> Dic
         include = sorted({str((l or {}).get("ticker") or "").upper()
                           for l in (plan.get("ladders") if isinstance(plan, dict) else []) or []})
     ladder_scope = {k for k in holdings if k not in CARRY_TICKERS}
-    report["ledger_match"] = bool(ladder_scope) and set(include) == ladder_scope
+    # 캐리 파킹(SGOV)만 보유한 상태는 '사다리로 관리할 포지션이 없다'는 뜻이다 — 사다리 목록이
+    # 비어 있는 것과 같으므로 일치다(종전에는 bool({}) == False로 항상 '확인 필요'를 띄웠다).
+    report["ladder_scope"] = sorted(ladder_scope)
+    report["carry_holdings"] = {k: q for k, q in (report.get("holdings") or {}).items() if k in CARRY_TICKERS}
+    report["ledger_match"] = set(include) == ladder_scope
     _save(REPORT_PATH, report)
     return report
 

@@ -147,3 +147,30 @@ def test_profit_mandate_filters_ghost_ladders(tmp_path, monkeypatch):
     assert [l["ticker"] for l in mandate["ladders"]] == ["NVDA"]
     assert mandate["ghost_positions_filtered"] == ["SOXL", "TQQQ"]
     assert mandate["summary"]["positions_under_management"] == ["NVDA"]
+
+
+def test_carry_only_holding_counts_as_ledger_match(paths):
+    """SGOV 캐리 파킹만 보유 — 관리할 사다리가 없으므로 '원장 일치'다(2026-11-28).
+
+    종전에는 bool(ladder_scope) 조건 때문에 사다리 0건이면 항상 ledger_match=false였고,
+    대시보드는 SGOV 1주만 든 정상 계좌에 '확인 필요'를 띄웠다.
+    """
+    write(paths, "live_portfolio.json", live([("SGOV", 1, 100.53)]))
+    write(paths, "avg_anchor_plan.json", {"engine": "AVG_ANCHOR_PROFIT_DESK", "ladders": [],
+                                          "summary": {"positions_under_management": []}})
+    write(paths, "active_brackets.json", {})
+
+    rep = pr.reconcile(apply=True)
+    assert rep["holdings"] == {"SGOV": 1}
+    assert rep["ledger_match"] is True
+    assert rep["carry_holdings"] == {"SGOV": 1}
+    assert rep["ladder_scope"] == []
+
+
+def test_ladder_without_ledger_holding_is_not_a_match(paths):
+    write(paths, "live_portfolio.json", live([("SGOV", 1, 100.53)]))
+    write(paths, "avg_anchor_plan.json", plan_with([("NVDA", 1)]))
+    write(paths, "active_brackets.json", {})
+
+    rep = pr.reconcile(apply=False)
+    assert rep["ledger_match"] is False          # 원장에 없는 사다리는 불일치
