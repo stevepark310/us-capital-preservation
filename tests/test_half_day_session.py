@@ -123,6 +123,32 @@ def test_failsafe_overdue_uses_effective_gate():
     assert doc["overdue"]
 
 
+# ------------------------------------------------------------------ 10분 보고 문구
+def test_pulse_report_shows_effective_half_day_gates():
+    from scripts.run_10m_pulse import autotrader_summary
+    status = {
+        "mode": "DRY_RUN", "loss_limit_usd": 25.0, "realized_pnl_today_usd": 0.0,
+        "halted": False, "exits": [], "entries": [], "pending_orders": [],
+        "next_gate": "다음 정규장 2026-11-27 23:30 KST",
+        "policy": {"enabled": True, "ask_before_trade": False, "vix_scale": 0.5,
+                   "guardrails": {"entry_budget_pct_of_cash": 35.0, "entry_budget_pct_of_equity": 25.0,
+                                  "entry_budget_cap_usd": 220.0, "max_open_positions": 4,
+                                  "max_entries_per_session": 3, "opening_blackout_kst": "23:30-00:00",
+                                  "no_new_entry_after_kst": "04:30", "force_exit_kst": "05:40"}},
+        "session": {"applies_to": "next", "is_half_day": True, "close_shift_min": -180,
+                    "regular_close_kst": "03:00", "force_exit_kst": "02:40",
+                    "no_new_entry_after_kst": "01:30"},
+    }
+    text, _ = autotrader_summary(status)
+    assert "신규 진입 마감 01:30" in text and "강제청산 02:40" in text
+    assert "조기마감(마감 03:00 KST" in text
+    # 상태 파일에 session이 없으면 정책값 그대로(구버전 호환)
+    legacy = dict(status)
+    legacy.pop("session")
+    text2, _ = autotrader_summary(legacy)
+    assert "강제청산 05:40" in text2 and "조기마감" not in text2
+
+
 def test_quant_overdue_detects_half_day_close():
     clock = half_day_clock("02:50")
     b = _bracket(opened_at="2026-11-27 23:31:00")
