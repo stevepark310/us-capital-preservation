@@ -2,7 +2,7 @@
   "engine": "AVG_ANCHOR_PROFIT_DESK",
   "engine_ko": "평단 기준 일일 수익 엔진",
   "version": "1.0",
-  "generated_at_kst": "2026-11-21 05:58:55 KST",
+  "generated_at_kst": "2026-11-28 00:38:43 KST",
   "directive": {
     "given_at_kst": "2026-11-17 11:12",
     "quote": "체결됬는데 지금 계좌 호출해서 최신화해줘. 잔고에서 보면 되잖아. 그리고 지금 평단가 기준으로 오늘 수익을 내야하니까 전반적으로 모든 직원들에게 강력한 수익 알고리즘을 창출할 수 있도록 지시해줘.",
@@ -11,7 +11,7 @@
   "market": {
     "phase": "REGULAR",
     "next_open_kst": "2026-11-17 23:30 KST",
-    "vix": 37.87,
+    "vix": 26.52,
     "earnings": {
       "ticker": "NVDA",
       "at_kst": "2026-11-18 06:20"
@@ -60,8 +60,7 @@
   },
   "positions_source": "data/live_portfolio.json (원장 보유 정본)",
   "holdings": {
-    "SGOV": 1,
-    "SQQQ": 1
+    "SGOV": 1
   },
   "ladders": [],
   "excluded": {
@@ -71,7 +70,7 @@
     "note": "SGOV는 무위험 캐리 파킹으로 익절·손절 대상에서 제외"
   },
   "cash_engine": {
-    "cash_available_usd": 626.86,
+    "cash_available_usd": 780.56,
     "budget_usd": 85.0,
     "budget_range_usd": [
       85.0,
@@ -98,7 +97,7 @@
     ],
     "max_notional_usd": 60.0,
     "armed": true,
-    "vix": 37.87
+    "vix": 26.52
   },
   "guards": {
     "sl_active_after_kst": "23:45",
@@ -125,42 +124,13 @@
     "daily_target_rule": "자산의 0.15% — 실측 기대값(아래)과 같은 자릿수의 목표. 0.5% 목표는 소액 포지션에서 비현실적이어서 하향했다.",
     "measured_expected_usd_per_session": 0.0,
     "measured_basis": "1년 일봉 실측 TP/SL 도달확률로 계산한 하루 기대 실현손익. 2주·1주 소액 포지션에서는 0.5% 목표($4.46)에 구조적으로 미달하며, 자본(포지션 크기)을 늘리지 않는 한 하루 +$1 내외가 현실적 상한이다.",
-    "capital_constraint": "평가자산 $877.98 중 레버리지 노출이 $48.18뿐이다. 이 크기에서 사다리 기대값은 하루 $+0.00 수준이며, 하루 $1.32을 넘기려면 포지션 확대(리스크 증가) 또는 2차 익절까지 가는 날이 필요하다.",
-    "daily_target_note": "오늘 목표는 1차 익절 최소 1건(+$1.5 내외) 이상 실현. 실측 기대(+0.00)를 넘기려면 2차 익절(TP2 도달률 SOXL 42.6%)까지 가는 날이 필요하다.",
-    "recomputed_from_ledger_at_kst": "2026-11-24 06:02:30"
+    "capital_constraint": "평가자산 $881.24 중 레버리지 노출이 $0.00뿐이다. 이 크기에서 사다리 기대값은 하루 $+0.00 수준이며, 하루 $1.32을 넘기려면 포지션 확대(리스크 증가) 또는 2차 익절까지 가는 날이 필요하다.",
+    "daily_target_note": "오늘 목표는 1차 익절 최소 1건(+$1.5 내외) 이상 실현. 실측 기대(+0.00)를 넘기려면 2차 익절(TP2 도달률 SOXL 42.6%)까지 가는 날이 필요하다."
   },
   "exit_authority": {
-    "checked_at_kst": "2026-11-21 05:58:55",
-    "ladders": {
-      "SQQQ": {
-        "owner": "SPEC:BEAR_ALPHA_HEDGE",
-        "exit_rule": "chandelier_v2",
-        "advisory_only": true
-      }
-    },
-    "conflicts": [
-      {
-        "ticker": "SQQQ",
-        "owner": "SPEC:BEAR_ALPHA_HEDGE",
-        "managed_by": "BRACKET_SPEC",
-        "exit_rule": "chandelier_v2",
-        "diffs": {
-          "sl": {
-            "bracket": 45.99,
-            "ladder": 47.46
-          },
-          "force_exit_kst": {
-            "bracket": "05:40",
-            "ladder": null
-          }
-        },
-        "resolution": "SPEC:BEAR_ALPHA_HEDGE 우선 — 평단 사다리는 참고값(advisory). 브래킷 레벨로 청산한다.",
-        "severity": "HIGH"
-      }
-    ],
+    "checked_at_kst": "2026-11-28 00:38:43",
+    "ladders": {},
+    "conflicts": [],
     "rule": "한 포지션의 청산 규칙은 하나다. 장중·헤지·파일럿 브래킷(SPEC)과 사용자 잠금 레벨은 평단 사다리가 덮어쓰지 않는다."
-  },
-  "positions_under_management": [],
-  "reconciled_at_kst": "2026-11-24 06:02:30",
-  "reconciled_note": "원장(live_portfolio.json) 기준 재정리 — 청산 완료 종목 사다리 제거, 수량·기대값 재합산"
+  }
 }
