@@ -158,6 +158,20 @@ def test_autotrader_still_refuses_unit_price_above_cap(big_trader, tmp_trader):
                for e in big_trader.events if e["kind"] in ("ENTRY_SKIP",))
 
 
+def test_unit_share_path_is_limited_to_prices_above_the_per_trade_cap(big_trader, tmp_trader):
+    """$220 이하 종목은 VIX 감쇠로 1주도 못 사는 경우에도 종전대로 거부된다(범위 축소)."""
+    brackets = _clean_brackets(tmp_trader)
+    st = big_trader.load_state("2026-11-17")
+    big_trader.entry_candidates = lambda *a, **k: [
+        {"ticker": "SOXL", "source": "DIP_SWING_DAILY",
+         "signal": {"rsi2": 12.0, "pct_b": 0.05, "rvol": 1.4}, "why": "테스트", "atr_pct": 10.0}]
+    market = _market(clock_at("01:00"), 160.0, ticker="SOXL")
+    market["vix"] = 25.0                              # 계수 0.5 → 예산 $150 < 1주 $160
+    actions = big_trader.entries(st, brackets, market,
+                                 {"equity_usd": 881.24, "cash_usd": 780.56})
+    assert actions == []
+
+
 def test_autotrader_keeps_normal_budget_for_cheap_names(big_trader, tmp_trader):
     """$220 이하 종목은 종전 경로 그대로 — 1주 경로가 예산을 부풀리지 않는다."""
     brackets = _clean_brackets(tmp_trader)

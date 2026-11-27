@@ -1009,7 +1009,11 @@ class AutonomousTrader:
             # 예산을 그 1주 가격으로 올린다. 그 밖의 가드레일(손실한도·VIX·보유종목·리스크)은
             # 그대로 적용된다.
             unit_share = None
-            if (slot_budget < price and phase == "REGULAR" and not cand.get("notional_cap")
+            # 1주 단가 상한($220)보다 **비싼** 종목에만 적용한다 — 싼 종목은 종전 예산·하한
+            # 경로 그대로다(이 변경이 기존 수량 판단을 건드리지 않게 범위를 좁힌다).
+            expensive_unit = price > float(g.get("entry_budget_cap_usd", 220.0))
+            if (slot_budget < price and expensive_unit and phase == "REGULAR"
+                    and not cand.get("notional_cap")
                     and src in ("DIP_SWING_DAILY", "DIP_SWING_INTRADAY")):
                 unit_share = execution_policy.single_share_budget(price, cash_free, self.policy)
                 if unit_share.get("ok"):
